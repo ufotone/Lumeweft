@@ -45,6 +45,7 @@ import GenerateMusicPopover from './GenerateMusicPopover'
 import { analyzeAudioSource } from '../services/audioAnalysis'
 import { getClipPlaybackTimeAtTimeline } from './CanvasPreviewRenderer'
 import { canRevealAssetInFileManager, getRevealInFileManagerLabel, revealAssetInFileManager } from '../utils/revealInFileManager'
+import { useI18n } from '../i18n/I18nContext'
 
 const TRANSITION_DEFAULT_DURATION_KEY = 'comfystudio-transition-default-duration-frames'
 const DEFAULT_WAVEFORM_SAMPLES = 8192
@@ -567,6 +568,7 @@ const RulerTickMarks = memo(function RulerTickMarks({ major, minor, pixelsPerSec
 })
 
 function Timeline({ onActiveToolChange, onStatusChange }) {
+  const { t } = useI18n()
   const timelineRef = useRef(null)
   const playheadElRef = useRef(null)
   const trackHeadersRef = useRef(null)
@@ -1456,37 +1458,37 @@ function Timeline({ onActiveToolChange, onStatusChange }) {
       label: 'Auto',
       shortcut: 'A',
       icon: Sparkles,
-      title: 'Smart edit tool: drag clip centers to move, drag clip edges to trim.',
+      title: t('timelineEditor.tooltips.toolAuto'),
     },
     {
       id: TIMELINE_TOOLS.SELECT,
       label: 'Move',
       shortcut: 'V',
       icon: ArrowRightLeft,
-      title: 'Move/select clips only. Use Auto to trim from clip edges without switching tools.',
+      title: t('timelineEditor.tooltips.toolMove'),
     },
     {
       id: TIMELINE_TOOLS.TRIM,
       label: 'Trim',
       shortcut: 'T',
       icon: Square,
-      title: 'Trim clip heads/tails from their edges.',
+      title: t('timelineEditor.tooltips.toolTrim'),
     },
     {
       id: TIMELINE_TOOLS.RAZOR,
       label: 'Razor',
       shortcut: 'B',
       icon: Scissors,
-      title: 'Click any clip to split it at the cursor.',
+      title: t('timelineEditor.tooltips.toolRazor'),
     },
     {
       id: TIMELINE_TOOLS.SLIP,
       label: 'Slip',
       shortcut: 'Y',
       icon: ArrowRightLeft,
-      title: 'Drag inside a video/audio clip to slip source timing without moving it.',
+      title: t('timelineEditor.tooltips.toolSlip'),
     },
-  ]), [])
+  ]), [t])
   
   const edgeTransitionsByClipId = useMemo(() => {
     const map = new Map()
@@ -5203,7 +5205,7 @@ function Timeline({ onActiveToolChange, onStatusChange }) {
             <button
               onClick={() => addTrack('video')}
               className={toolbarButtonClass}
-              title="Add video track"
+              title={t('timelineEditor.tooltips.addVideoTrack')}
             >
               <Plus className="w-3 h-3" />
               {showToolbarLabels && 'Video'}
@@ -5211,7 +5213,7 @@ function Timeline({ onActiveToolChange, onStatusChange }) {
             <button
               onClick={() => addTrack('audio', { channels: 'mono' })}
               className={toolbarButtonClass}
-              title="Add mono audio track"
+              title={t('timelineEditor.tooltips.addMonoAudioTrack')}
             >
               <Plus className="w-3 h-3" />
               {showToolbarLabels && 'Mono'}
@@ -5219,7 +5221,7 @@ function Timeline({ onActiveToolChange, onStatusChange }) {
             <button
               onClick={() => addTrack('audio', { channels: 'stereo' })}
               className={toolbarButtonClass}
-              title="Add stereo audio track"
+              title={t('timelineEditor.tooltips.addStereoAudioTrack')}
             >
               <Plus className="w-3 h-3" />
               {showToolbarLabels && 'Stereo'}
@@ -5230,7 +5232,7 @@ function Timeline({ onActiveToolChange, onStatusChange }) {
             <button
               onClick={() => addMarker(getLivePlayhead())}
               className={toolbarButtonClass}
-              title={`Add timeline marker at playhead (${markerHotkeyLabel})`}
+              title={t('timelineEditor.tooltips.addMarker', { shortcut: markerHotkeyLabel })}
             >
               <Flag className="w-3 h-3 text-yellow-400" />
               {showToolbarLabels && 'Marker'}
@@ -5238,7 +5240,7 @@ function Timeline({ onActiveToolChange, onStatusChange }) {
             <button
               onClick={handleAddAdjustmentLayer}
               className={toolbarButtonClass}
-              title="Add adjustment layer on active video track"
+              title={t('timelineEditor.tooltips.addAdjustmentLayer')}
             >
               <Square className="w-3 h-3 text-purple-400" />
               {showToolbarLabels && 'Adj'}
@@ -5248,8 +5250,8 @@ function Timeline({ onActiveToolChange, onStatusChange }) {
               disabled={!preferredVideoTrack}
               className={toolbarButtonClass}
               title={preferredVideoTrack
-                ? `Add a text clip on ${preferredVideoTrack.name} at the playhead (${addTextClipHotkeyLabel})`
-                : `Add a video track to create text at the playhead (${addTextClipHotkeyLabel})`}
+                ? t('timelineEditor.tooltips.addText', { track: preferredVideoTrack.name, shortcut: addTextClipHotkeyLabel })
+                : t('timelineEditor.tooltips.addTextNeedsTrack', { shortcut: addTextClipHotkeyLabel })}
             >
               <Type className="w-3 h-3" />
               {showToolbarLabels && 'Text'}
@@ -5259,8 +5261,8 @@ function Timeline({ onActiveToolChange, onStatusChange }) {
               disabled={!preferredVideoTrack}
               className={toolbarButtonClass}
               title={preferredVideoTrack
-                ? `Add a shape clip on ${preferredVideoTrack.name} at the playhead`
-                : 'Add a video track to create shapes at the playhead'}
+                ? t('timelineEditor.tooltips.addShape', { track: preferredVideoTrack.name })
+                : t('timelineEditor.tooltips.addShapeNeedsTrack')}
             >
               <Square className="w-3 h-3 text-cyan-300" />
               {showToolbarLabels && 'Shape'}
@@ -5268,7 +5270,7 @@ function Timeline({ onActiveToolChange, onStatusChange }) {
             <button
               onClick={() => handleOpenTimelineCaptions()}
               className={toolbarButtonClass}
-              title="Transcribe the timeline's audio and add animated captions on a new top track"
+              title={t('timelineEditor.tooltips.addCaptions')}
             >
               <Type className="w-3 h-3 text-cyan-300" />
               {showToolbarLabels && 'Captions'}
@@ -5277,7 +5279,7 @@ function Timeline({ onActiveToolChange, onStatusChange }) {
               <button
                 onClick={() => removeMarker(selectedMarkerId)}
                 className={toolbarDangerButtonClass}
-                title="Remove selected marker"
+                title={t('timelineEditor.tooltips.removeMarker')}
               >
                 <X className="w-3 h-3" />
               </button>
@@ -5288,7 +5290,7 @@ function Timeline({ onActiveToolChange, onStatusChange }) {
             <button
               onClick={splitAllTracksAtPlayhead}
               className={toolbarButtonClass}
-              title={`Split all clips at the playhead across every track (${splitAllHotkeyLabel})`}
+              title={t('timelineEditor.tooltips.splitAll', { shortcut: splitAllHotkeyLabel })}
             >
               <Scissors className="w-3 h-3" />
               {showToolbarLabels && 'Cut All'}
@@ -5298,8 +5300,8 @@ function Timeline({ onActiveToolChange, onStatusChange }) {
               disabled={!activeTrackClipAtPlayhead}
               className={toolbarButtonClass}
               title={activeTrackClipAtPlayhead
-                ? `Split the clip under the playhead on the active track (${splitActiveHotkeyLabel})`
-                : `Set an active track and park the playhead over a clip to split it (${splitActiveHotkeyLabel})`}
+                ? t('timelineEditor.tooltips.splitActive', { shortcut: splitActiveHotkeyLabel })
+                : t('timelineEditor.tooltips.splitActiveUnavailable', { shortcut: splitActiveHotkeyLabel })}
             >
               <Scissors className="w-3 h-3" />
               {showToolbarLabels && 'Split'}
@@ -5308,7 +5310,7 @@ function Timeline({ onActiveToolChange, onStatusChange }) {
               onClick={handleCopySelection}
               disabled={selectedClipIds.length === 0}
               className={toolbarButtonClass}
-              title={`Copy the selected clips (${copyHotkeyLabel})`}
+              title={t('timelineEditor.tooltips.copy', { shortcut: copyHotkeyLabel })}
             >
               <Copy className="w-3 h-3" />
               {showToolbarLabels && 'Copy'}
@@ -5318,8 +5320,8 @@ function Timeline({ onActiveToolChange, onStatusChange }) {
               disabled={!activeTrackId || copiedClips.length === 0}
               className={toolbarButtonClass}
               title={activeTrackId && copiedClips.length > 0
-                ? `Paste copied clips at the playhead on the active track (${pasteHotkeyLabel})`
-                : `Copy clips first, then choose an active track to paste at the playhead (${pasteHotkeyLabel})`}
+                ? t('timelineEditor.tooltips.paste', { shortcut: pasteHotkeyLabel })
+                : t('timelineEditor.tooltips.pasteUnavailable', { shortcut: pasteHotkeyLabel })}
             >
               <ClipboardPaste className="w-3 h-3" />
               {showToolbarLabels && 'Paste'}
@@ -5329,8 +5331,8 @@ function Timeline({ onActiveToolChange, onStatusChange }) {
               disabled={selectedClipIds.length === 0}
               className={toolbarButtonClass}
               title={selectedClipIds.length > 0
-                ? `${selectedClipsShouldEnable ? 'Enable' : 'Disable'} the selected clips (${toggleClipEnabledHotkeyLabel})`
-                : `Select clips to enable or disable them (${toggleClipEnabledHotkeyLabel})`}
+                ? t(selectedClipsShouldEnable ? 'timelineEditor.tooltips.enableSelected' : 'timelineEditor.tooltips.disableSelected', { shortcut: toggleClipEnabledHotkeyLabel })
+                : t('timelineEditor.tooltips.toggleSelectedUnavailable', { shortcut: toggleClipEnabledHotkeyLabel })}
             >
               {selectedClipsShouldEnable ? <Eye className="w-3 h-3" /> : <EyeOff className="w-3 h-3" />}
               {showToolbarLabels && (selectedClipsShouldEnable ? 'Enable' : 'Disable')}
@@ -5340,8 +5342,8 @@ function Timeline({ onActiveToolChange, onStatusChange }) {
               disabled={renderableSelectedClips.length === 0}
               className={toolbarButtonClass}
               title={renderableSelectedClips.length > 0
-                ? `Render ${renderableSelectedClips.length > 1 ? `${renderableSelectedClips.length} selected clips` : 'the selected clip'} to cache for smooth playback`
-                : 'Select clips to render them to cache'}
+                ? t(renderableSelectedClips.length > 1 ? 'timelineEditor.tooltips.renderSelectedMany' : 'timelineEditor.tooltips.renderSelectedOne', { count: renderableSelectedClips.length })
+                : t('timelineEditor.tooltips.renderUnavailable')}
             >
               <Zap className="w-3 h-3" />
               {showToolbarLabels && 'Render'}
@@ -5352,14 +5354,14 @@ function Timeline({ onActiveToolChange, onStatusChange }) {
               className={toolbarDangerButtonClass}
               title={
                 selectedClipIds.length > 0
-                  ? `${rippleEditMode ? 'Ripple delete' : 'Delete'} the selected clips (Delete or Backspace)`
+                  ? t(rippleEditMode ? 'timelineEditor.tooltips.rippleDeleteSelected' : 'timelineEditor.tooltips.deleteSelected')
                   : selectedGap
-                    ? 'Delete the selected gap and close it (Delete or Backspace)'
+                    ? t('timelineEditor.tooltips.deleteGap')
                     : selectedTransitionId
-                      ? 'Delete the selected transition (Delete or Backspace)'
+                      ? t('timelineEditor.tooltips.deleteTransition')
                       : selectedMarkerId
-                        ? 'Delete the selected marker (Delete or Backspace)'
-                        : 'Select clips, a gap, a transition, or a marker to delete'
+                        ? t('timelineEditor.tooltips.deleteMarker')
+                        : t('timelineEditor.tooltips.deleteUnavailable')
               }
             >
               <Trash2 className="w-3 h-3" />
@@ -5391,7 +5393,7 @@ function Timeline({ onActiveToolChange, onStatusChange }) {
             <button
               onClick={toggleSnapping}
               className={toolbarToggleClass(snappingEnabled)}
-              title={`Snapping ${snappingEnabled ? 'ON' : 'OFF'} (${snappingHotkeyLabel} to toggle)`}
+              title={t('timelineEditor.tooltips.snapping', { state: snappingEnabled ? 'ON' : 'OFF', shortcut: snappingHotkeyLabel })}
             >
               <Magnet className="w-3 h-3" />
               {showToolbarLabels && 'Snap'}
@@ -5400,7 +5402,7 @@ function Timeline({ onActiveToolChange, onStatusChange }) {
               <button
                 onClick={toggleRippleEdit}
                 className={toolbarToggleClass(rippleEditMode)}
-                title={`Ripple Edit ${rippleEditMode ? 'ON' : 'OFF'} (${rippleHotkeyLabel} to toggle) - Moving clips shifts subsequent clips`}
+                title={t('timelineEditor.tooltips.ripple', { state: rippleEditMode ? 'ON' : 'OFF', shortcut: rippleHotkeyLabel })}
               >
                 <ArrowRightLeft className="w-3 h-3" />
                 {showToolbarLabels && 'Ripple'}
@@ -5417,7 +5419,7 @@ function Timeline({ onActiveToolChange, onStatusChange }) {
                   }
                 }}
                 className={toolbarToggleClass(isMusicPopoverOpen)}
-                title="Generate music with ACE-Step — duration prefills from the in/out range"
+                title={t('timelineEditor.tooltips.generateMusic')}
               >
                 <MusicIcon className="w-3 h-3" />
                 {showToolbarLabels && 'Music'}
@@ -5430,7 +5432,7 @@ function Timeline({ onActiveToolChange, onStatusChange }) {
             <button
               onClick={selectClipsFromTimelineStartToPlayhead}
               className={toolbarButtonClass}
-              title={`Select clips from the start of the timeline to the playhead (${selectFromStartHotkeyLabel})`}
+              title={t('timelineEditor.tooltips.selectFromStart', { shortcut: selectFromStartHotkeyLabel })}
             >
               <ChevronLeft className="w-3 h-3" />
               {showToolbarLabels && 'From Start'}
@@ -5438,7 +5440,7 @@ function Timeline({ onActiveToolChange, onStatusChange }) {
             <button
               onClick={selectClipsFromPlayheadToEnd}
               className={toolbarButtonClass}
-              title={`Select clips from the playhead to the end of the timeline (${selectToEndHotkeyLabel})`}
+              title={t('timelineEditor.tooltips.selectToEnd', { shortcut: selectToEndHotkeyLabel })}
             >
               <ChevronRight className="w-3 h-3" />
               {showToolbarLabels && 'To End'}
@@ -5447,7 +5449,7 @@ function Timeline({ onActiveToolChange, onStatusChange }) {
               <button
                 onClick={openMoveOffsetDialog}
                 className={toolbarButtonClass}
-                title={`Move selected clips by an exact signed timecode offset (${moveByHotkeyLabel})`}
+                title={t('timelineEditor.tooltips.moveBy', { shortcut: moveByHotkeyLabel })}
               >
                 <ArrowRightLeft className="w-3 h-3" />
                 {showToolbarLabels && 'Move By'}
@@ -5457,7 +5459,7 @@ function Timeline({ onActiveToolChange, onStatusChange }) {
               <button
                 onClick={openDurationDeltaDialog}
                 className={toolbarButtonClass}
-                title={`Change selected clip duration by an exact signed amount${durationByHotkeyHint ? ` (${durationByHotkeyHint})` : ''}`}
+                title={t('timelineEditor.tooltips.durationBy', { shortcut: durationByHotkeyHint ? ` (${durationByHotkeyHint})` : '' })}
               >
                 <Clock className="w-3 h-3" />
                 {showToolbarLabels && 'Duration By'}
@@ -5478,7 +5480,7 @@ function Timeline({ onActiveToolChange, onStatusChange }) {
                   setToolbarOverflowOpen((open) => !open)
                 }}
                 className={toolbarToggleClass(toolbarOverflowOpen)}
-                title="More tools"
+                title={t('timelineEditor.tooltips.moreTools')}
               >
                 <MoreHorizontal className="w-3.5 h-3.5" />
               </button>
@@ -5552,16 +5554,16 @@ function Timeline({ onActiveToolChange, onStatusChange }) {
           <button
             onClick={handleFrameAll}
             className="p-1.5 hover:bg-sf-dark-600 rounded text-sf-text-muted"
-            title="Frame all – fit timeline or all clips in view"
+            title={t('timelineEditor.tooltips.frameAll')}
           >
             <Maximize2 className="w-3.5 h-3.5" />
           </button>
           {/* Track height presets */}
           <div className="flex items-center gap-0.5 mr-2">
             {[
-              ['compact', 'S', 'Compact tracks — fit the most tracks on screen'],
-              ['normal', 'M', 'Normal track height'],
-              ['tall', 'L', 'Tall tracks — room for waveforms and keyframes'],
+              ['compact', 'S', t('timelineEditor.tooltips.trackHeightCompact')],
+              ['normal', 'M', t('timelineEditor.tooltips.trackHeightNormal')],
+              ['tall', 'L', t('timelineEditor.tooltips.trackHeightTall')],
             ].map(([id, label, tip]) => (
               <button
                 key={id}
@@ -5581,7 +5583,7 @@ function Timeline({ onActiveToolChange, onStatusChange }) {
             <button
               onClick={() => applyZoomWithPlayheadPivot(zoom - 50)}
               className="p-0.5 hover:bg-sf-dark-600 rounded text-sf-text-muted"
-              title="Zoom Out"
+              title={t('timelineEditor.tooltips.zoomOut')}
             >
               <span className="text-xs">−</span>
             </button>
@@ -5596,7 +5598,7 @@ function Timeline({ onActiveToolChange, onStatusChange }) {
             <button
               onClick={() => applyZoomWithPlayheadPivot(zoom + 50)}
               className="p-0.5 hover:bg-sf-dark-600 rounded text-sf-text-muted"
-              title="Zoom In"
+              title={t('timelineEditor.tooltips.zoomIn')}
             >
               <span className="text-xs">+</span>
             </button>
