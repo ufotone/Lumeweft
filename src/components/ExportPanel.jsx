@@ -9,6 +9,15 @@ import buildPremiereXml from '../services/premiereXmlExporter'
 import { mixTimelineAudioToWav } from '../services/timelineAudioMix'
 import { analyzeAudioBuffer } from '../services/audioAnalysis'
 import {
+  resolveAvailablePngSequenceFolder,
+  sanitizePngSequenceBaseName,
+} from '../services/pngSequenceExport.mjs'
+import {
+  classifyExportWorkerEvent,
+  createExportWorkerJobId,
+  isCleanExportCancellation,
+} from '../services/exportWorkerLifecycle.mjs'
+import {
   checkRtxVideoUpscaleReadiness,
   installRtxVideoUpscaleRuntime,
 } from '../services/rtxVideoUpscale'
@@ -26,8 +35,8 @@ const EXPORT_FORMATS = [
   { id: 'webm', label: 'WebM (VP9)' },
   { id: 'prores', label: 'MOV (ProRes)' },
   { id: 'audio', label: 'Audio Only (WAV/MP3/M4A)' },
+  { id: 'png-seq', label: 'PNG Image Sequence' },
   { id: 'gif', label: 'GIF (Preview - Soon)', disabled: true },
-  { id: 'png-seq', label: 'PNG Sequence - Soon', disabled: true },
 ]
 
 const XML_EXPORT_FORMATS = [
@@ -72,6 +81,7 @@ const VIDEO_CODECS = {
   // Audio-only export renders no video; the empty list keeps the format
   // switcher's codec reset from inventing one.
   audio: [],
+  'png-seq': [],
 }
 
 const AUDIO_CODECS = {
@@ -89,6 +99,7 @@ const AUDIO_CODECS = {
     { id: 'mp3', label: 'MP3' },
     { id: 'aac', label: 'M4A (AAC)' },
   ],
+  'png-seq': [],
 }
 
 const ENCODER_PRESETS = [
@@ -389,6 +400,7 @@ function ExportPanel() {
   const [exportProgress, setExportProgress] = useState(0)
   const [exportError, setExportError] = useState(null)
   const [exportResult, setExportResult] = useState(null)
+  const [externalExportNotice, setExternalExportNotice] = useState(null)
   const [etaSeconds, setEtaSeconds] = useState(null)
   const [renderFps, setRenderFps] = useState(null)
   const [rtxReadiness, setRtxReadiness] = useState({
@@ -430,6 +442,11 @@ function ExportPanel() {
     || XML_EXPORT_FORMATS[0]
   const exportStartRef = useRef(null)
   const renderStartRef = useRef(null)
+  // The main process permits one hidden export worker at a time. Resolve its
+  // lifecycle here so queued jobs wait for completion instead of treating
+  // successful worker startup as a completed export.
+  const workerExportCompletionRef = useRef(null)
+  const nvencCheckRequestRef = useRef(0)
   const [nvencStatus, setNvencStatus] = useState({
     checked: false,
     available: false,
@@ -437,6 +454,10 @@ function ExportPanel() {
     h265: false,
     gpuName: null,
     kind: 'nvenc', // 'nvenc' | 'videotoolbox' — set by the platform-aware check
+    ffmpegSource: 'bundled',
+    ffmpegPath: null,
+    ffmpegVersion: null,
+    ffmpegWarning: null,
     error: null,
   })
   const [queueRunning, setQueueRunning] = useState(false)
@@ -464,14 +485,16 @@ function ExportPanel() {
   useEffect(() => {
     let cancelled = false
     
-    const checkNvenc = async () => {
+    const checkNvenc = async (options = undefined) => {
+      const requestId = ++nvencCheckRequestRef.current
       if (!window.electronAPI?.checkNvenc) {
-        setNvencStatus({ checked: true, available: false, h264: false, h265: false, gpuName: null, kind: 'nvenc', error: 'Hardware encoder check unavailable' })
+        if (cancelled || requestId !== nvencCheckRequestRef.current) return
+        setNvencStatus({ checked: true, available: false, h264: false, h265: false, gpuName: null, kind: 'nvenc', ffmpegSource: 'bundled', ffmpegPath: null, ffmpegVersion: null, ffmpegWarning: null, error: 'Hardware encoder check unavailable' })
         return
       }
       try {
-        const result = await window.electronAPI.checkNvenc()
-        if (cancelled) return
+        const result = await window.electronAPI.checkNvenc(options)
+        if (cancelled || requestId !== nvencCheckRequestRef.current) return
         setNvencStatus({
           checked: true,
           available: !!result.available,
@@ -479,10 +502,14 @@ function ExportPanel() {
           h265: !!result.h265,
           gpuName: result.gpuName || null,
           kind: result.kind || 'nvenc',
+          ffmpegSource: result.ffmpegSource || 'bundled',
+          ffmpegPath: result.ffmpegPath || null,
+          ffmpegVersion: result.ffmpegVersion || null,
+          ffmpegWarning: result.ffmpegWarning || null,
           error: result.error || null,
         })
       } catch (err) {
-        if (cancelled) return
+        if (cancelled || requestId !== nvencCheckRequestRef.current) return
         setNvencStatus({
           checked: true,
           available: false,
@@ -490,14 +517,25 @@ function ExportPanel() {
           h265: false,
           gpuName: null,
           kind: 'nvenc',
+          ffmpegSource: 'bundled',
+          ffmpegPath: null,
+          ffmpegVersion: null,
+          ffmpegWarning: null,
           error: err.message,
         })
       }
     }
     
     checkNvenc()
+    const unsubscribe = window.electronAPI?.onHardwareExportFfmpegChanged?.(() => {
+      if (cancelled) return
+      setNvencStatus((current) => ({ ...current, checked: false, error: null }))
+      void checkNvenc({ forceRefresh: true })
+    })
     return () => {
       cancelled = true
+      nvencCheckRequestRef.current += 1
+      unsubscribe?.()
     }
   }, [])
 
@@ -549,7 +587,16 @@ function ExportPanel() {
 
   useEffect(() => {
     if (typeof window === 'undefined' || !window.electronAPI?.onExportProgress) return
-    const onProgress = (data) => {
+    const onProgress = (data, metadata) => {
+      const completion = workerExportCompletionRef.current
+      if (completion && classifyExportWorkerEvent(completion.jobId, metadata) === 'external') return
+      if (!completion) {
+        // Agent/MCP exports intentionally return after startup. Preserve their
+        // visible progress without giving them ownership of a UI job promise.
+        setIsExporting(true)
+        setExportError(null)
+        setExportResult(null)
+      }
       setExportStatus(data.status || '')
       if (typeof data.progress === 'number') setExportProgress(data.progress)
       if (exportStartRef.current && data.frame != null && data.totalFrames != null) {
@@ -562,7 +609,17 @@ function ExportPanel() {
         }
       }
     }
-    const onComplete = (data) => {
+    const onComplete = (data, metadata) => {
+      const completion = workerExportCompletionRef.current
+      if (completion && classifyExportWorkerEvent(completion.jobId, metadata) === 'external') {
+        setExternalExportNotice({
+          type: 'success',
+          message: data?.outputPath
+            ? `Background export completed: ${data.outputPath}`
+            : 'Background export completed.',
+        })
+        return
+      }
       // Stringified so saved devtools logs keep nested fields (frameSources,
       // perf) instead of collapsing them to {…}.
       console.log('[ExportPanel] Worker export complete', JSON.stringify(data))
@@ -570,24 +627,47 @@ function ExportPanel() {
       setExportStatus('Export complete')
       setExportProgress(100)
       setIsExporting(false)
+      workerExportCompletionRef.current = null
+      completion?.resolve(data)
     }
-    const onError = (err) => {
+    const onError = (err, metadata) => {
+      const completion = workerExportCompletionRef.current
       const msg = typeof err === 'string' ? err : (err?.message ?? (err && typeof err === 'object' && err.constructor?.name === 'Event' ? `Export error (${err.type})` : String(err)))
-      if (/cancelled/i.test(String(msg))) {
+      if (completion && classifyExportWorkerEvent(completion.jobId, metadata) === 'external') {
+        const stopped = isCleanExportCancellation(msg)
+        setExternalExportNotice({
+          type: stopped ? 'stopped' : 'error',
+          message: stopped
+            ? 'Background export stopped.'
+            : `Background export failed: ${msg || 'Unknown error'}`,
+        })
+        return
+      }
+      workerExportCompletionRef.current = null
+      if (isCleanExportCancellation(msg)) {
         console.log('[ExportPanel] Export stopped by user')
         setExportError(null)
         setExportStatus('Export stopped')
         setIsExporting(false)
+        completion?.reject(new Error('Export cancelled'))
         return
       }
       console.error('[ExportPanel] Worker export error', err, '-> displayed:', msg)
       setExportError(msg || 'Export failed')
       setExportStatus('Export failed')
       setIsExporting(false)
+      completion?.reject(new Error(msg || 'Export failed'))
     }
-    window.electronAPI.onExportProgress(onProgress)
-    window.electronAPI.onExportComplete(onComplete)
-    window.electronAPI.onExportError(onError)
+    const unsubscribe = [
+      window.electronAPI.onExportProgress(onProgress),
+      window.electronAPI.onExportComplete(onComplete),
+      window.electronAPI.onExportError(onError),
+    ]
+    return () => {
+      for (const removeListener of unsubscribe) {
+        if (typeof removeListener === 'function') removeListener()
+      }
+    }
   }, [])
 
   // Abort handle for exports running directly in this window (web build);
@@ -615,8 +695,12 @@ function ExportPanel() {
       if (key === 'format') {
         const supportedVideo = VIDEO_CODECS[value] || []
         const supportedAudio = AUDIO_CODECS[value] || []
-        next.videoCodec = supportedVideo[0]?.id || prev.videoCodec
-        next.audioCodec = supportedAudio[0]?.id || prev.audioCodec
+        next.videoCodec = supportedVideo.some((codec) => codec.id === prev.videoCodec)
+          ? prev.videoCodec
+          : supportedVideo[0]?.id || prev.videoCodec
+        next.audioCodec = supportedAudio.some((codec) => codec.id === prev.audioCodec)
+          ? prev.audioCodec
+          : supportedAudio[0]?.id || prev.audioCodec
         if (next.videoCodec && DEFAULT_CRF[next.videoCodec]) {
           next.crf = DEFAULT_CRF[next.videoCodec]
         }
@@ -654,7 +738,8 @@ function ExportPanel() {
       }
 
       if (key === 'customWidth' || key === 'customHeight') {
-        const numeric = Math.max(2, Math.round(Number(value) || 2))
+        const minimum = next.format === 'png-seq' ? 1 : 2
+        const numeric = Math.max(minimum, Math.round(Number(value) || minimum))
         next[key] = numeric
       }
       
@@ -725,13 +810,13 @@ function ExportPanel() {
       return `${hardwareLabel} is not used for ProRes exports.`
     }
     if (nvencStatus.checked && !nvencStatus.available) {
-      return `${hardwareLabel} not available in your FFmpeg build.`
+      return `${hardwareLabel} is not available in the active FFmpeg.`
     }
     if (settings.videoCodec === 'h265' && nvencStatus.checked && !nvencStatus.h265) {
-      return `HEVC ${hardwareLabel} is not available in your FFmpeg build.`
+      return `HEVC ${hardwareLabel} is not available in the active FFmpeg.`
     }
     if (settings.videoCodec === 'h264' && nvencStatus.checked && !nvencStatus.h264) {
-      return `H.264 ${hardwareLabel} is not available in your FFmpeg build.`
+      return `H.264 ${hardwareLabel} is not available in the active FFmpeg.`
     }
     return null
   }, [settings.format, settings.videoCodec, nvencStatus, hardwareLabel])
@@ -743,24 +828,30 @@ function ExportPanel() {
     const gpuPrefix = nvencStatus.gpuName
       ? `${t('export.detectedGpu')}: ${nvencStatus.gpuName}. `
       : ''
+    const ffmpegSourcePrefix = nvencStatus.ffmpegSource === 'environment'
+      ? 'Environment FFmpeg. '
+      : nvencStatus.ffmpegSource === 'setting'
+        ? 'Custom FFmpeg. '
+        : 'Bundled FFmpeg. '
+    const warningSuffix = nvencStatus.ffmpegWarning ? ` ${nvencStatus.ffmpegWarning}` : ''
 
     if (!nvencStatus.available) {
-      return gpuPrefix + (nvencStatus.error || t('export.hardwareUnavailable', { hardware: hardwareLabel }))
+      return ffmpegSourcePrefix + gpuPrefix + (nvencStatus.error || t('export.hardwareUnavailable', { hardware: hardwareLabel }))
     }
 
     if (settings.format === 'webm' || settings.videoCodec === 'vp9') {
-      return `${gpuPrefix}${t('export.hardwareReadySwitch', { hardware: hardwareLabel })}`
+      return `${ffmpegSourcePrefix}${gpuPrefix}${t('export.hardwareReadySwitch', { hardware: hardwareLabel })}${warningSuffix}`
     }
 
     if (settings.format === 'prores') {
-      return `${gpuPrefix}${t('export.hardwareReadyProres', { hardware: hardwareLabel })}`
+      return `${ffmpegSourcePrefix}${gpuPrefix}${t('export.hardwareReadyProres', { hardware: hardwareLabel })}${warningSuffix}`
     }
 
     if (selectedNvencCodecSupported) {
-      return `${gpuPrefix}${t('export.hardwareReadyCodec', { hardware: hardwareLabel, codec: settings.videoCodec === 'h265' ? 'H.265' : 'H.264' })}`
+      return `${ffmpegSourcePrefix}${gpuPrefix}${t('export.hardwareReadyCodec', { hardware: hardwareLabel, codec: settings.videoCodec === 'h265' ? 'H.265' : 'H.264' })}${warningSuffix}`
     }
 
-    return `${gpuPrefix}${t('export.codecUnavailable', { hardware: hardwareLabel })}`
+    return `${ffmpegSourcePrefix}${gpuPrefix}${t('export.codecUnavailable', { hardware: hardwareLabel })}${warningSuffix}`
   }, [nvencStatus, selectedNvencCodecSupported, settings.format, settings.videoCodec, hardwareLabel, t])
   const nvencExpectedEncoder = settings.useHardwareEncoder && selectedNvencCodecSupported
     ? (settings.videoCodec === 'h265'
@@ -811,7 +902,11 @@ function ExportPanel() {
           await runExportJob(nextItem.settings, `Queue: ${nextItem.name}`)
           updateQueueItem(nextItem.id, { status: 'completed', completedAt: new Date().toISOString() })
         } catch (err) {
-          updateQueueItem(nextItem.id, { status: 'failed', error: err.message || 'Export failed' })
+          const cancelled = isCleanExportCancellation(err)
+          updateQueueItem(nextItem.id, {
+            status: cancelled ? 'stopped' : 'failed',
+            error: cancelled ? null : (err.message || 'Export failed'),
+          })
         }
       }
     } finally {
@@ -841,28 +936,32 @@ function ExportPanel() {
     runQueue()
   }
 
-  const resolveResolution = () => {
+  const resolveResolution = (exportSettings = settings) => {
     const timelineSettings = getCurrentTimelineSettings() || { width: 1920, height: 1080, fps: 24 }
     const makeEvenDimension = (value) => Math.max(2, Math.round((Number(value) || 2) / 2) * 2)
-    if (settings.resolution === 'project') {
+    const makePngDimension = (value) => Math.max(1, Math.round(Number(value) || 1))
+    const normalizeDimension = exportSettings.format === 'png-seq'
+      ? makePngDimension
+      : makeEvenDimension
+    if (exportSettings.resolution === 'project') {
       return timelineSettings
     }
-    if (settings.resolution === 'custom') {
+    if (exportSettings.resolution === 'custom') {
       return {
-        width: makeEvenDimension(settings.customWidth || timelineSettings.width),
-        height: makeEvenDimension(settings.customHeight || timelineSettings.height),
+        width: normalizeDimension(exportSettings.customWidth || timelineSettings.width),
+        height: normalizeDimension(exportSettings.customHeight || timelineSettings.height),
         fps: timelineSettings.fps || 24,
       }
     }
-    const scaleOption = EXPORT_RESOLUTION_SCALE_OPTIONS.find(option => option.id === settings.resolution)
+    const scaleOption = EXPORT_RESOLUTION_SCALE_OPTIONS.find(option => option.id === exportSettings.resolution)
     if (scaleOption) {
       return {
-        width: makeEvenDimension((timelineSettings.width || 1920) * scaleOption.scale),
-        height: makeEvenDimension((timelineSettings.height || 1080) * scaleOption.scale),
+        width: normalizeDimension((timelineSettings.width || 1920) * scaleOption.scale),
+        height: normalizeDimension((timelineSettings.height || 1080) * scaleOption.scale),
         fps: timelineSettings.fps || 24,
       }
     }
-    const preset = RESOLUTION_PRESETS.find(p => p.name === settings.resolution)
+    const preset = RESOLUTION_PRESETS.find(p => p.name === exportSettings.resolution)
     if (preset) {
       return { width: preset.width, height: preset.height, fps: timelineSettings.fps || 24 }
     }
@@ -872,24 +971,28 @@ function ExportPanel() {
   const getResolutionLabel = (exportSettings = settings) => {
     const timelineSettings = getCurrentTimelineSettings() || { width: 1920, height: 1080, fps: 24 }
     const makeEvenDimension = (value) => Math.max(2, Math.round((Number(value) || 2) / 2) * 2)
+    const makePngDimension = (value) => Math.max(1, Math.round(Number(value) || 1))
+    const normalizeDimension = exportSettings.format === 'png-seq'
+      ? makePngDimension
+      : makeEvenDimension
     if (exportSettings.resolution === 'project') {
       return `Project (${timelineSettings.width}×${timelineSettings.height})`
     }
     if (exportSettings.resolution === 'custom') {
-      return `Custom (${makeEvenDimension(exportSettings.customWidth)}×${makeEvenDimension(exportSettings.customHeight)})`
+      return `Custom (${normalizeDimension(exportSettings.customWidth)}×${normalizeDimension(exportSettings.customHeight)})`
     }
     const scaleOption = EXPORT_RESOLUTION_SCALE_OPTIONS.find(option => option.id === exportSettings.resolution)
     if (scaleOption) {
-      return `${scaleOption.label} (${makeEvenDimension((timelineSettings.width || 1920) * scaleOption.scale)}×${makeEvenDimension((timelineSettings.height || 1080) * scaleOption.scale)})`
+      return `${scaleOption.label} (${normalizeDimension((timelineSettings.width || 1920) * scaleOption.scale)}×${normalizeDimension((timelineSettings.height || 1080) * scaleOption.scale)})`
     }
     return exportSettings.resolution
   }
 
-  const resolveFps = () => {
-    if (settings.fps === 'project') {
+  const resolveFps = (exportSettings = settings) => {
+    if (exportSettings.fps === 'project') {
       return getCurrentTimelineSettings()?.fps || 24
     }
-    return Number(settings.fps) || 24
+    return Number(exportSettings.fps) || 24
   }
 
   const rtxUpscaleEnabled = settings.postProcessUpscale === 'rtx-4k'
@@ -913,8 +1016,8 @@ function ExportPanel() {
           ? rtxReadiness.error
           : 'Runs directly on NVIDIA RTX. ComfyUI is not required. Optional runtime is about 1 GB.'
 
-  const resolveRange = () => {
-    if (settings.range === 'inout' && inPoint !== null && outPoint !== null) {
+  const resolveRange = (exportSettings = settings) => {
+    if (exportSettings.range === 'inout' && inPoint !== null && outPoint !== null) {
       return { start: Math.min(inPoint, outPoint), end: Math.max(inPoint, outPoint) }
     }
     return { start: 0, end: getTimelineEndTime() }
@@ -947,6 +1050,7 @@ function ExportPanel() {
 
   const performanceHints = useMemo(() => {
     const hints = []
+    const isPngSequence = settings.format === 'png-seq'
     const timelineSettings = getCurrentTimelineSettings() || { width: 1920, height: 1080, fps: 24 }
     const resolution = resolveResolution()
     const effectiveFps = settings.fps === 'project' ? timelineSettings.fps : Number(settings.fps || timelineSettings.fps)
@@ -955,7 +1059,7 @@ function ExportPanel() {
     if (pixelCount >= 3840 * 2160) {
       hints.push(t('export.hints.4k'))
     }
-    if (settings.postProcessUpscale === 'rtx-4k') {
+    if (!isPngSequence && settings.postProcessUpscale === 'rtx-4k') {
       hints.push(t('export.hints.rtx'))
     }
     if (settings.useProxyMedia && proxyCoverage.ready > 0) {
@@ -966,19 +1070,24 @@ function ExportPanel() {
     if (effectiveFps >= 60) {
       hints.push(t('export.hints.60fps'))
     }
-    if (!settings.useHardwareEncoder && settings.format === 'mp4' && settings.videoCodec !== 'vp9') {
-      hints.push(t('export.hints.nvenc'))
-    }
-    if (nvencStatus.checked && !nvencStatus.available) {
-      hints.push(t('export.hints.nvencMissing'))
-    }
-    if (settings.format === 'webm' || settings.videoCodec === 'vp9') {
-      hints.push(t('export.hints.vp9'))
-    }
-    if (settings.useDirectFramePipe) {
-      hints.push(t('export.hints.fastPipe'))
+    if (isPngSequence) {
+      hints.push('PNG image sequences create one lossless file per frame and can use substantial disk space.')
+      hints.push('PNG image sequences do not contain audio.')
     } else {
-      hints.push(t('export.hints.enableFastPipe'))
+      if (!settings.useHardwareEncoder && settings.format === 'mp4' && settings.videoCodec !== 'vp9') {
+        hints.push(t('export.hints.nvenc'))
+      }
+      if (nvencStatus.checked && !nvencStatus.available) {
+        hints.push(t('export.hints.nvencMissing'))
+      }
+      if (settings.format === 'webm' || settings.videoCodec === 'vp9') {
+        hints.push(t('export.hints.vp9'))
+      }
+      if (settings.useDirectFramePipe) {
+        hints.push(t('export.hints.fastPipe'))
+      } else {
+        hints.push(t('export.hints.enableFastPipe'))
+      }
     }
     
     const textClips = clips.filter(clip => clip.type === 'text')
@@ -991,7 +1100,7 @@ function ExportPanel() {
     
     const audioClips = clips.filter(clip => clip.type === 'audio')
     const activeAudioTracks = tracks.filter(track => track.type === 'audio' && track.visible && !track.muted)
-    if (settings.includeAudio && audioClips.length > 0 && activeAudioTracks.length > 0) {
+    if (!isPngSequence && settings.includeAudio && audioClips.length > 0 && activeAudioTracks.length > 0) {
       hints.push(t('export.hints.audio'))
     }
     
@@ -999,9 +1108,10 @@ function ExportPanel() {
   }, [clips, transitions, tracks, settings, getCurrentTimelineSettings, nvencStatus, proxyCoverage, t])
 
   const runExportJob = async (jobSettings, labelOverride = null) => {
-    const shouldRunRtxUpscale = jobSettings.postProcessUpscale === 'rtx-4k'
-    if (jobSettings.format === 'gif' || jobSettings.format === 'png-seq') {
-      throw new Error('GIF and PNG sequence export are not wired yet.')
+    const isPngSequence = jobSettings.format === 'png-seq'
+    const shouldRunRtxUpscale = !isPngSequence && jobSettings.postProcessUpscale === 'rtx-4k'
+    if (jobSettings.format === 'gif') {
+      throw new Error('GIF export is not wired yet.')
     }
     if (shouldRunRtxUpscale && jobSettings.format !== 'mp4') {
       throw new Error('NVIDIA RTX Video Super Resolution currently requires an MP4 export.')
@@ -1009,7 +1119,7 @@ function ExportPanel() {
     if (shouldRunRtxUpscale && window.electronAPI?.platform !== 'win32') {
       throw new Error('NVIDIA RTX Video Super Resolution is currently available on Windows only.')
     }
-    if (jobSettings.useHardwareEncoder && nvencStatus.checked) {
+    if (!isPngSequence && jobSettings.useHardwareEncoder && nvencStatus.checked) {
       const codecSupported = jobSettings.videoCodec === 'h265'
         ? nvencStatus.h265
         : nvencStatus.h264
@@ -1024,6 +1134,7 @@ function ExportPanel() {
     setRenderFps(null)
     setExportError(null)
     setExportResult(null)
+    setExternalExportNotice(null)
     setIsExporting(true)
 
     if (shouldRunRtxUpscale) {
@@ -1035,17 +1146,17 @@ function ExportPanel() {
       }
     }
 
-    const { width, height } = resolveResolution()
-    const fps = resolveFps()
-    const range = resolveRange()
+    const { width, height } = resolveResolution(jobSettings)
+    const fps = resolveFps(jobSettings)
+    const range = resolveRange(jobSettings)
     const timelineSettings = getCurrentTimelineSettings() || { width: 1920, height: 1080, fps: 24 }
     const options = {
       filename: jobSettings.filename?.trim() || defaultFilename,
       format: jobSettings.format,
-      videoCodec: jobSettings.videoCodec,
-      audioCodec: jobSettings.audioCodec,
+      videoCodec: isPngSequence ? null : jobSettings.videoCodec,
+      audioCodec: isPngSequence ? null : jobSettings.audioCodec,
       proresProfile: jobSettings.proresProfile,
-      useHardwareEncoder: jobSettings.useHardwareEncoder,
+      useHardwareEncoder: isPngSequence ? false : jobSettings.useHardwareEncoder,
       nvencPreset: jobSettings.nvencPreset,
       preset: jobSettings.preset,
       qualityMode: jobSettings.qualityMode,
@@ -1059,35 +1170,65 @@ function ExportPanel() {
       fps,
       rangeStart: range.start,
       rangeEnd: range.end,
-      includeAudio: jobSettings.includeAudio,
+      includeAudio: isPngSequence ? false : jobSettings.includeAudio,
       audioBitrateKbps: Number(jobSettings.audioBitrateKbps),
       audioSampleRate: Number(jobSettings.audioSampleRate),
       audioChannels: Number(jobSettings.audioChannels),
-      normalizeAudio: (jobSettings.includeAudio || jobSettings.format === 'audio') && !!jobSettings.normalizeAudio,
+      normalizeAudio: isPngSequence
+        ? false
+        : (jobSettings.includeAudio || jobSettings.format === 'audio') && !!jobSettings.normalizeAudio,
       loudnessTarget: Number(jobSettings.loudnessTarget) || -14,
       useCachedRenders: false,
       useProxyMedia: jobSettings.useProxyMedia,
       fastSeek: false,
-      useDirectFramePipe: jobSettings.useDirectFramePipe,
+      useDirectFramePipe: isPngSequence ? false : jobSettings.useDirectFramePipe,
+      postProcessUpscale: isPngSequence ? 'none' : jobSettings.postProcessUpscale,
     }
 
     if (window.electronAPI?.runExportInWorker && typeof currentProjectHandle === 'string') {
       try {
-        const outputExtension = jobSettings.format === 'audio'
-          ? (jobSettings.audioCodec === 'mp3' ? 'mp3' : (jobSettings.audioCodec === 'wav' ? 'wav' : 'm4a'))
-          : (jobSettings.format === 'webm' ? 'webm' : (jobSettings.format === 'prores' ? 'mov' : 'mp4'))
         const outputFolder = await window.electronAPI.pathJoin(currentProjectHandle, 'renders')
-        await window.electronAPI.createDirectory(outputFolder)
-        const outputBaseName = shouldRunRtxUpscale ? `${options.filename}_rtx4k` : options.filename
-        const defaultPath = await window.electronAPI.pathJoin(outputFolder, `${outputBaseName}.${outputExtension}`)
-        const finalOutputPath = await window.electronAPI.saveFileDialog({
-          title: shouldRunRtxUpscale ? 'Export Timeline with NVIDIA RTX 4K Upscale' : 'Export Timeline',
-          defaultPath,
-          filters: [{ name: outputExtension.toUpperCase(), extensions: [outputExtension] }],
-        })
-        if (!finalOutputPath) {
-          setIsExporting(false)
-          throw new Error('Export cancelled')
+        const createRendersResult = await window.electronAPI.createDirectory(outputFolder)
+        if (createRendersResult?.success === false) {
+          throw new Error(createRendersResult.error || 'Could not create the project renders folder.')
+        }
+
+        let finalOutputPath
+        if (isPngSequence) {
+          if (!window.electronAPI.selectDirectory) {
+            throw new Error('PNG image sequence folder selection is unavailable. Restart Velorn and try again.')
+          }
+          setExportStatus('Choose where to save the PNG image sequence...')
+          const selectedParentFolder = await window.electronAPI.selectDirectory({
+            title: 'Choose PNG Image Sequence Location',
+            defaultPath: outputFolder,
+          })
+          if (!selectedParentFolder) {
+            setIsExporting(false)
+            throw new Error('Export cancelled')
+          }
+          finalOutputPath = await resolveAvailablePngSequenceFolder({
+            api: window.electronAPI,
+            parentFolder: selectedParentFolder,
+            filename: options.filename,
+          })
+          options.filename = sanitizePngSequenceBaseName(options.filename)
+          setExportStatus('Preparing PNG image sequence...')
+        } else {
+          const outputExtension = jobSettings.format === 'audio'
+            ? (jobSettings.audioCodec === 'mp3' ? 'mp3' : (jobSettings.audioCodec === 'wav' ? 'wav' : 'm4a'))
+            : (jobSettings.format === 'webm' ? 'webm' : (jobSettings.format === 'prores' ? 'mov' : 'mp4'))
+          const outputBaseName = shouldRunRtxUpscale ? `${options.filename}_rtx4k` : options.filename
+          const defaultPath = await window.electronAPI.pathJoin(outputFolder, `${outputBaseName}.${outputExtension}`)
+          finalOutputPath = await window.electronAPI.saveFileDialog({
+            title: shouldRunRtxUpscale ? 'Export Timeline with NVIDIA RTX 4K Upscale' : 'Export Timeline',
+            defaultPath,
+            filters: [{ name: outputExtension.toUpperCase(), extensions: [outputExtension] }],
+          })
+          if (!finalOutputPath) {
+            setIsExporting(false)
+            throw new Error('Export cancelled')
+          }
         }
         const sourceOutputPath = shouldRunRtxUpscale
           ? await window.electronAPI.pathJoin(outputFolder, `.velorn-rtx-source-${Date.now()}.mp4`)
@@ -1117,7 +1258,21 @@ function ExportPanel() {
             maskFrames: a.maskFrames?.map((f) => ({ ...f, url: undefined })),
           })),
         }
+        const jobId = createExportWorkerJobId()
+        let resolveWorkerExport
+        let rejectWorkerExport
+        const workerExportCompletion = new Promise((resolve, reject) => {
+          resolveWorkerExport = resolve
+          rejectWorkerExport = reject
+        })
+        // The worker can fail during window startup before the IPC invoke
+        // itself resolves; attach a handler immediately to avoid a transient
+        // unhandled rejection while we are still awaiting startup.
+        workerExportCompletion.catch(() => {})
+        const completionRecord = { jobId, resolve: resolveWorkerExport, reject: rejectWorkerExport }
+        workerExportCompletionRef.current = completionRecord
         const workerStart = await window.electronAPI.runExportInWorker({
+          jobId,
           projectPath: currentProjectHandle,
           outputPath: sourceOutputPath,
           options: { ...options, outputPath: sourceOutputPath },
@@ -1125,12 +1280,23 @@ function ExportPanel() {
           state,
         })
         if (workerStart?.success === false) {
+          if (workerExportCompletionRef.current === completionRecord) {
+            workerExportCompletionRef.current = null
+          }
           throw new Error(workerStart.error || 'Could not start the export worker.')
         }
-        return
+        if (workerStart?.jobId !== jobId) {
+          if (workerExportCompletionRef.current === completionRecord) {
+            workerExportCompletionRef.current = null
+          }
+          throw new Error('Could not correlate the export worker job. Restart Velorn and try again.')
+        }
+        return await workerExportCompletion
       } catch (err) {
-        setExportError(err?.message || 'Export failed')
-        setExportStatus('Export failed')
+        workerExportCompletionRef.current = null
+        const cancelled = isCleanExportCancellation(err)
+        setExportError(cancelled ? null : (err?.message || 'Export failed'))
+        setExportStatus(cancelled ? 'Export stopped' : 'Export failed')
         setIsExporting(false)
         throw err
       }
@@ -1147,6 +1313,12 @@ function ExportPanel() {
           ? 'Export worker unavailable: the project location is not a local folder path. Re-open the project from disk and try again.'
           : 'Export worker unavailable. Restart Velorn and try again.'
       )
+    }
+
+    if (isPngSequence) {
+      setExportStatus('Export failed')
+      setIsExporting(false)
+      throw new Error('PNG image sequence export is available in the Velorn desktop app.')
     }
 
     const directAbortController = new AbortController()
@@ -1177,7 +1349,7 @@ function ExportPanel() {
       }
     })
     
-    setExportResult(result)
+    setExportResult({ ...result, format: result?.format || jobSettings.format })
     setExportStatus('Export complete')
     setExportProgress(100)
     setIsExporting(false)
@@ -1190,8 +1362,9 @@ function ExportPanel() {
     try {
       await runExportJob(settings)
     } catch (err) {
-      setExportError(err.message || 'Export failed')
-      setExportStatus('Export failed')
+      const cancelled = isCleanExportCancellation(err)
+      setExportError(cancelled ? null : (err.message || 'Export failed'))
+      setExportStatus(cancelled ? 'Export stopped' : 'Export failed')
       setIsExporting(false)
     }
   }
@@ -1314,6 +1487,7 @@ function ExportPanel() {
             <span className="ml-auto text-[10px] text-sf-text-muted">{t('export.savedForProject')}</span>
           </div>
 
+          {settings.format !== 'png-seq' && (
           <div className="mb-3 shrink-0 rounded-lg border border-sf-dark-700 bg-sf-dark-950/45 p-2">
             <div className="mb-2 flex items-center justify-between gap-2">
               <div>
@@ -1356,6 +1530,7 @@ function ExportPanel() {
               })}
             </div>
           </div>
+          )}
           
           <div className="grid grid-cols-2 gap-3 shrink-0">
             <div>
@@ -1400,8 +1575,13 @@ function ExportPanel() {
               </p>
             </div>
           </div>
-          <p className="mt-1 text-[10px] text-sf-text-muted shrink-0">{t('export.outputLocationHelp')}</p>
+          <p className="mt-1 text-[10px] text-sf-text-muted shrink-0">
+            {settings.format === 'png-seq'
+              ? `Choose a parent location when export starts. Lumeweft will create ${sanitizePngSequenceBaseName(settings.filename || defaultFilename)}_png with frames named ${sanitizePngSequenceBaseName(settings.filename || defaultFilename)}_000001.png and onward.`
+              : t('export.outputLocationHelp')}
+          </p>
           
+          {settings.format !== 'png-seq' && (
           <div className="mt-2 flex items-center gap-2 text-[10px] text-sf-text-muted shrink-0">
             <span className="uppercase tracking-wider">{t('export.render')}</span>
             <button
@@ -1422,13 +1602,23 @@ function ExportPanel() {
               {t('export.individualClips')}
             </button>
           </div>
+          )}
           
           <div className="mt-3 border-t border-sf-dark-700 pt-2 flex-1 min-h-0 overflow-y-auto pr-1 space-y-4">
-            {/* Video — the whole section is moot for an audio-only export */}
+            {/* Visual export settings — the whole section is moot for an audio-only export */}
             {settings.format !== 'audio' && (
             <div>
-              <div className="text-[10px] text-sf-text-muted uppercase tracking-wider mb-2">{t('export.video')}</div>
+              <div className="text-[10px] text-sf-text-muted uppercase tracking-wider mb-2">
+                {settings.format === 'png-seq' ? 'Image Sequence' : t('export.video')}
+              </div>
               <div className="grid grid-cols-2 gap-3">
+                {settings.format === 'png-seq' && (
+                  <div className="col-span-2 rounded border border-sf-dark-700 bg-sf-dark-950/45 p-2 text-xs text-sf-text-secondary">
+                    Exports one numbered, lossless PNG for every rendered timeline frame. Image sequences do not include audio.
+                  </div>
+                )}
+                {settings.format !== 'png-seq' && (
+                <>
                 <div className="col-span-2">
                   <div className="flex items-center gap-2">
                     <button
@@ -1699,6 +1889,8 @@ function ExportPanel() {
                   </div>
                 </>
                 )}
+                </>
+                )}
                 
                 <div>
                   <label className="text-[10px] text-sf-text-muted uppercase tracking-wider">{t('export.resolution')}</label>
@@ -1727,8 +1919,8 @@ function ExportPanel() {
                     <div className="mt-1 grid grid-cols-[1fr_auto_1fr] items-center gap-1">
                       <input
                         type="number"
-                        min={2}
-                        step={2}
+                        min={settings.format === 'png-seq' ? 1 : 2}
+                        step={settings.format === 'png-seq' ? 1 : 2}
                         value={settings.customWidth}
                         onChange={(e) => handleSettingChange('customWidth', Number(e.target.value))}
                         className="w-full bg-sf-dark-800 border border-sf-dark-600 rounded px-2 py-1 text-xs text-sf-text-primary focus:outline-none focus:border-sf-accent"
@@ -1737,17 +1929,19 @@ function ExportPanel() {
                       <span className="text-[10px] text-sf-text-muted">×</span>
                       <input
                         type="number"
-                        min={2}
-                        step={2}
+                        min={settings.format === 'png-seq' ? 1 : 2}
+                        step={settings.format === 'png-seq' ? 1 : 2}
                         value={settings.customHeight}
                         onChange={(e) => handleSettingChange('customHeight', Number(e.target.value))}
                         className="w-full bg-sf-dark-800 border border-sf-dark-600 rounded px-2 py-1 text-xs text-sf-text-primary focus:outline-none focus:border-sf-accent"
                         aria-label="Custom export height"
                       />
                     </div>
-                    <div className="mt-1 text-[10px] text-sf-text-muted">
-                      {t('export.evenPixelsHelp')}
-                    </div>
+                    {settings.format !== 'png-seq' && (
+                      <div className="mt-1 text-[10px] text-sf-text-muted">
+                        {t('export.evenPixelsHelp')}
+                      </div>
+                    )}
                   </div>
                 )}
                 
@@ -1796,6 +1990,7 @@ function ExportPanel() {
             )}
 
             {/* Audio */}
+            {settings.format !== 'png-seq' && (
             <div>
               <div className="text-[10px] text-sf-text-muted uppercase tracking-wider mb-2">{t('export.audio')}</div>
               <div className="grid grid-cols-2 gap-3">
@@ -1938,6 +2133,7 @@ function ExportPanel() {
                 )}
               </div>
             </div>
+            )}
             
           </div>
           
@@ -1959,7 +2155,13 @@ function ExportPanel() {
               }`}
             >
               <Play className="w-3 h-3" />
-              {isExporting ? t('export.exporting') : (queueRunning ? t('export.queueRunning') : t('export.startExport'))}
+              {isExporting
+                ? (settings.format === 'png-seq' ? 'Exporting PNGs...' : t('export.exporting'))
+                : queueRunning
+                  ? t('export.queueRunning')
+                  : settings.format === 'png-seq'
+                    ? 'Export PNG Sequence'
+                    : t('export.startExport')}
             </button>
             {isExporting && (
               <button
@@ -2023,11 +2225,31 @@ function ExportPanel() {
               {exportError}
             </div>
           )}
+
+          {externalExportNotice && (
+            <div className={`mt-2 shrink-0 text-[11px] ${
+              externalExportNotice.type === 'error'
+                ? 'text-sf-error'
+                : externalExportNotice.type === 'success'
+                  ? 'text-sf-success'
+                  : 'text-sf-text-secondary'
+            }`}>
+              {externalExportNotice.message}
+            </div>
+          )}
           
           {exportResult?.outputPath && !exportError && (
             <div className="mt-2 shrink-0 text-[11px] text-sf-text-secondary">
-              {t('export.savedTo')}: {exportResult.outputPath}
-              {exportResult.encoderUsed && (
+              {exportResult.format === 'png-seq' || exportResult.encoderUsed === 'png-sequence'
+                ? `Saved PNG image sequence to: ${exportResult.outputPath}`
+                : `${t('export.savedTo')}: ${exportResult.outputPath}`}
+              {(exportResult.format === 'png-seq' || exportResult.encoderUsed === 'png-sequence') && Number.isFinite(exportResult.frameCount) && (
+                <div>{exportResult.frameCount} PNG frame{exportResult.frameCount === 1 ? '' : 's'}</div>
+              )}
+              {exportResult.cleanupWarning && (
+                <div className="text-sf-warning">{exportResult.cleanupWarning}</div>
+              )}
+              {exportResult.encoderUsed && exportResult.format !== 'png-seq' && exportResult.encoderUsed !== 'png-sequence' && (
                 <div>{t('export.encoder')}: {exportResult.encoderUsed}</div>
               )}
             </div>
@@ -2108,7 +2330,11 @@ function ExportPanel() {
                   <div className="min-w-0">
                     <div className="text-xs text-sf-text-primary truncate">{item.name}</div>
                     <div className="text-[10px] text-sf-text-muted">
-                      {item.settings.format.toUpperCase()} • {item.settings.videoCodec?.toUpperCase()} • {getResolutionLabel(item.settings)} • {item.settings.fps} fps
+                      {item.settings.format === 'png-seq'
+                        ? `PNG Image Sequence • ${getResolutionLabel(item.settings)} • ${item.settings.fps === 'project' ? 'Project FPS' : `${item.settings.fps} fps`}`
+                        : item.settings.format === 'audio'
+                          ? `${item.settings.audioCodec?.toUpperCase() || 'Audio'} only`
+                          : `${item.settings.format.toUpperCase()} • ${item.settings.videoCodec?.toUpperCase()} • ${getResolutionLabel(item.settings)} • ${item.settings.fps === 'project' ? 'Project FPS' : `${item.settings.fps} fps`}`}
                     </div>
                     <div className="text-[10px] text-sf-text-muted">
                       {t('export.range')}: {item.settings.range}
