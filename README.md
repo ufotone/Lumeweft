@@ -25,6 +25,8 @@ Use built-in local and cloud workflows, import either a ComfyUI API workflow or 
 
 This project can be regarded as an improved and expanded version based on Velorn.
 
+( Thank you to the Velorn team for releasing such a fantastic project as open-source software.)
+
 Most of its core functionality depends on Velorn, but Lumeweft also includes many original features.
 
 For the basic functionality, see [Velorn](https://github.com/VelornLabs/velorn).
