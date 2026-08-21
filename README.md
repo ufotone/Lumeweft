@@ -7,7 +7,8 @@
 **A local-first AI media workstation with community model integration and user-controlled content settings.**
 
 [![License: GPL-3.0](https://img.shields.io/badge/License-GPL--3.0-blue)](LICENSE)
-[![Platforms](https://img.shields.io/badge/Platforms-Windows%20%C2%B7%20macOS%20%C2%B7%20Linux-444444)](#run-from-source)
+[![Platform](https://img.shields.io/badge/Platform-Windows-0078D4)](#download)
+[![Release](https://img.shields.io/badge/Release-Alpha-orange)](https://github.com/ufotone/Lumeweft/releases)
 
 [Help translate the Lumeweft interface](docs/LOCALIZATION.md)
 
@@ -68,18 +69,21 @@ For generation, Lumeweft is not a replacement for ComfyUI. It is the production 
 
 ## Download
 
-Packaged Lumeweft builds will be published on the [Lumeweft Releases page](https://github.com/ufotone/Lumeweft/releases). Until a release is available, build and run the application from source using the instructions below.
+Lumeweft is currently available as an **alpha preview for Windows only**. Download the current Windows x64 installer from the [Lumeweft Releases page](https://github.com/ufotone/Lumeweft/releases).
 
-Release assets include:
+The Windows installer is the only tested and officially distributed build. Alpha releases are incomplete, may contain breaking bugs, and are provided without support or warranty.
 
-- `Windows Installer`
-- `Windows Portable`
-- `Mac (Apple Silicon)`
-- `Mac (Intel)`
-- `Linux AppImage`
-- `Linux deb`
+macOS and Linux packages may be produced experimentally through GitHub Actions in the future, but they are not currently tested, distributed, or supported.
 
 Ignore GitHub's auto-generated source-code archives unless you plan to build Lumeweft from source.
+
+### 日本語
+
+Lumeweftは現在、**Windows専用のアルファプレビュー版**です。[Lumeweft Releasesページ](https://github.com/ufotone/Lumeweft/releases)からWindows x64インストーラーをダウンロードできます。
+
+現時点で検証および正式配布の対象となるのはWindowsインストーラーのみです。アルファ版は未完成で重大な不具合を含む可能性があり、サポートや保証はありません。
+
+macOS版とLinux版は将来GitHub Actionsで実験的にビルドされる可能性がありますが、現在は未検証・未配布・非サポートです。
 
 ## Main Features
 
@@ -158,7 +162,6 @@ Lumeweft talks to a local ComfyUI server and can also help launch it.
 - Default endpoint: `http://127.0.0.1:8188`
 - Custom port support in Settings.
 - Windows launcher support for a configured ComfyUI start script.
-- macOS launcher support for a configured `ComfyUI.app`.
 - Optional auto-start, stop-on-quit, and restart behavior.
 - Embedded ComfyUI tab for opening and editing graphs.
 - ComfyUI account login support inside the embedded ComfyUI tab.
@@ -269,11 +272,9 @@ Browser-only `npm run dev` is useful for frontend work, but Electron is the norm
 ```bash
 npm run build
 npm run electron:build:win
-npm run electron:build:mac
-npm run electron:build:linux
 ```
 
-Packaged artifacts are written to `release/`.
+The supported Windows build is written to `release/`. macOS and Linux packaging configurations are retained for possible experimental CI builds, but those platforms are not currently supported.
 
 For release process details, see:
 
