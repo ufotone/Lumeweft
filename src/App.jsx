@@ -19,6 +19,7 @@ import BottomBar from './components/BottomBar'
 import useProjectStore from './stores/projectStore'
 import useAssetsStore from './stores/assetsStore'
 import useTimelineStore from './stores/timelineStore'
+import useGenerationHistoryStore from './stores/generationHistoryStore'
 import videoCache from './services/videoCache'
 import { WORKFLOW_SETUP_SECTION_ID } from './services/workflowSetupManager'
 import {
@@ -31,6 +32,7 @@ import { startComfyAutoImport } from './services/comfyAutoImport'
 import { startMcpSnapshotPublisher } from './services/mcpSnapshot'
 import { MCP_ACTION_BRIDGE_VERSION, startMcpActionBridge } from './services/mcpActions'
 import { attachProjectDirtyWatchers, isProjectDirty } from './services/projectDirtyTracker'
+import { COMFY_IFRAME_LOADED_EVENT, OPEN_COMFY_TAB_EVENT } from './config/generateWorkspaceConfig'
 
 // Tab workspaces load on first visit instead of shipping in the startup
 // bundle. This keeps launch parse time down; GenerateWorkspace alone carries
@@ -117,9 +119,23 @@ function App() {
   // ComfyUI was briefly down during our own restart) leaves it stuck on a
   // black canvas with no in-app way to recover.
   const [comfyIframeNonce, setComfyIframeNonce] = useState(0)
+  const [comfyReloadRequestId, setComfyReloadRequestId] = useState('')
+  const hasRefreshedComfyOnFirstVisitRef = useRef(false)
   const reloadComfyIframe = useCallback(() => {
+    setComfyReloadRequestId('')
     setComfyIframeNonce((n) => n + 1)
   }, [])
+  // The frame is mounted while hidden so direct ComfyUI jobs can keep running,
+  // but on application startup it can race the ComfyUI server/frontend boot.
+  // Chromium then keeps the failed/blank document indefinitely. Refresh once
+  // when the user first visits this workspace, which is late enough for ComfyUI
+  // to be ready and mirrors the manual Reload that recovers the frame.
+  useEffect(() => {
+    if (mainTab !== 'comfyui' || hasRefreshedComfyOnFirstVisitRef.current) return undefined
+    hasRefreshedComfyOnFirstVisitRef.current = true
+    const timer = setTimeout(() => reloadComfyIframe(), 250)
+    return () => clearTimeout(timer)
+  }, [mainTab, reloadComfyIframe])
   const [comfySaveState, setComfySaveState] = useState({ phase: 'idle', name: '', message: '', error: '' })
   const capturedComfyGraphRef = useRef(null)
   const comfySaveNameInputRef = useRef(null)
@@ -235,6 +251,7 @@ function App() {
     const stop = attachProjectDirtyWatchers({
       timelineStore: useTimelineStore,
       assetsStore: useAssetsStore,
+      generationHistoryStore: useGenerationHistoryStore,
       projectStore: useProjectStore,
     })
     return () => { try { stop?.() } catch (_) { /* ignore */ } }
@@ -258,12 +275,13 @@ function App() {
     }
   }, [mainTab])
 
-  // Auto-import outputs from custom workflows run while the embedded
-  // ComfyUI tab is active. Managed Generate jobs use their own import path.
+  // Auto-import newly completed unmanaged outputs from the connected
+  // ComfyUI instance. Keep this independent of the selected Lumeweft tab:
+  // users commonly switch back to Assets while a ComfyUI run is finishing.
+  // The bridge establishes a history baseline at startup, so old outputs are
+  // not imported, while managed Generate jobs remain on their own path.
   useEffect(() => {
-    const stop = startComfyAutoImport({
-      shouldImportUnmanagedPrompt: () => mainTabRef.current === 'comfyui',
-    })
+    const stop = startComfyAutoImport()
     return () => { try { stop?.() } catch (_) { /* ignore */ } }
   }, [])
 
@@ -317,8 +335,8 @@ function App() {
     }
   }, [])
 
-  // Flow AI used to mount immediately after project-open even while its tab was
-  // hidden. That means a runtime error in Flow AI could black out the whole app
+  // CANVAS used to mount immediately after project-open even while its tab was
+  // hidden. That means a runtime error in the canvas could black out the whole app
   // during project selection. Lazy-mount it on first visit so hidden-tab
   // failures cannot take down the main editor.
   useEffect(() => {
@@ -358,11 +376,15 @@ function App() {
 
   // Allow Generate tab to open ComfyUI directly (used for workflow import guidance).
   useEffect(() => {
-    const handler = () => {
+    const handler = (event) => {
       setMainTab('comfyui')
+      if (event?.detail?.reloadIframe) {
+        setComfyReloadRequestId(String(event.detail.reloadRequestId || ''))
+        setComfyIframeNonce((nonce) => nonce + 1)
+      }
     }
-    window.addEventListener('comfystudio-open-comfyui-tab', handler)
-    return () => window.removeEventListener('comfystudio-open-comfyui-tab', handler)
+    window.addEventListener(OPEN_COMFY_TAB_EVENT, handler)
+    return () => window.removeEventListener(OPEN_COMFY_TAB_EVENT, handler)
   }, [])
 
   // Load persisted layout on mount (single read)
@@ -728,7 +750,7 @@ function App() {
                 title="Save the workflow currently open below to your library (Generate → Custom), so you can reopen it here anytime"
               >
                 {comfySaveState.phase === 'busy' ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <BookmarkPlus className="w-3.5 h-3.5" />}
-                Save to Velorn
+                Save to Lumeweft
               </button>
             )}
             <button
@@ -756,6 +778,11 @@ function App() {
             title="ComfyUI"
             className="flex-1 w-full min-h-0 border-0"
             sandbox="allow-scripts allow-same-origin allow-forms allow-popups allow-popups-to-escape-sandbox allow-downloads"
+            onLoad={() => {
+              window.dispatchEvent(new CustomEvent(COMFY_IFRAME_LOADED_EVENT, {
+                detail: { reloadRequestId: comfyReloadRequestId },
+              }))
+            }}
           />
         </div>
         {/* Generate tab – mounted on first visit, then kept mounted so

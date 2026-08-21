@@ -1,9 +1,9 @@
 import { useState, useEffect, useRef, useCallback, useMemo } from 'react'
 import {
-  Sparkles, Video, Image as ImageIcon, Music, RefreshCw, Loader2,
+  Sparkles, Video, Image as ImageIcon, Music, RefreshCw, Loader2, Languages,
   ChevronLeft, ChevronRight, Play, Pause, Upload, X, Film, Search,
   FolderOpen, Wand2, Volume2, Mic, Clock, Settings, Terminal, ChevronDown, ChevronUp, PenLine, KeyRound,
-  Copy,
+  Copy, Download,
 } from 'lucide-react'
 import { jsPDF } from 'jspdf'
 import ImageAnnotationModal from './ImageAnnotationModal'
@@ -17,6 +17,7 @@ import ShortFilmEasyMode from './generate/ShortFilmEasyMode'
 import WorkflowBrowser from './generate/WorkflowBrowser'
 import WorkflowDetail from './generate/WorkflowDetail'
 import TemplateDetail from './generate/TemplateDetail'
+import GenerationLibrary from './generate/GenerationLibrary'
 import {
   IMPORTED_WORKFLOWS_CHANGED_EVENT,
   IMPORTED_WORKFLOW_ID_PREFIX,
@@ -36,10 +37,13 @@ import useAssetsStore from '../stores/assetsStore'
 import useProjectStore from '../stores/projectStore'
 import useTimelineStore from '../stores/timelineStore'
 import useGenerationMonitorStore from '../stores/generationMonitorStore'
+import useGenerationHistoryStore from '../stores/generationHistoryStore'
 import { useFrameForAIStore } from '../stores/frameForAIStore'
 import { BUILTIN_WORKFLOW_PATHS } from '../config/workflowRegistry'
 import { comfyui, validateCustomKeyframeWorkflow, validateCustomVideoWorkflow } from '../services/comfyui'
 import { convertCustomLibraryWorkflowToApi } from '../services/customWorkflowLibrary'
+import { normalizeCustomWorkflowJson } from '../services/customWorkflowImport'
+import { getLocalComfyConnectionSync } from '../services/localComfyConnection'
 import { markPromptHandledByApp } from '../services/comfyPromptGuard'
 import {
   GENERATION_COMPLETION_SOUND_CHANGED_EVENT,
@@ -65,6 +69,7 @@ import { extractVisualStyleNotes } from '../utils/musicVisualStyle'
 import { checkWorkflowDependencies, buildMissingDependencyClipboardText } from '../services/workflowDependencies'
 import { openApiWorkflowInComfyUi, openBundledWorkflowInComfyUi } from '../services/workflowSetupManager'
 import { useWorkflowSetupFlow } from '../hooks/useWorkflowSetupFlow'
+import { translatePrompt } from '../services/promptTranslation'
 import { useI18n } from '../i18n/I18nContext'
 import {
   getComfyLauncherSnapshot,
@@ -76,6 +81,7 @@ import {
 } from '../services/comfyLauncher'
 import {
   GENERATE_WORKFLOW_CATALOG,
+  GENERATE_WORKFLOW_ROUTES,
   getWorkflowManifestByWorkflowId,
 } from '../config/generateWorkflowCatalog'
 import {
@@ -152,12 +158,24 @@ import { TOPAZ_VIDEO_UPSCALE_WORKFLOW_ID } from '../config/topazVideoUpscaleConf
 import {
   buildShortFilmVideoPrompt,
   ELEVENLABS_TTS_WORKFLOW_ID,
+  IRODORI_TTS_MODEL_FILENAME,
+  IRODORI_TTS_WORKFLOW_ID,
   SHORT_FILM_DIALOGUE_VIDEO_WORKFLOW_ID,
   SHORT_FILM_KEYFRAME_WORKFLOW_OPTIONS,
   SHORT_FILM_VIDEO_WORKFLOW_ID,
 } from '../config/shortFilmConfig'
 
 const MCP_MY_WORKFLOW_ID_PREFIX = 'my-workflow:'
+const MUSIC_TIMING_ENGINE_OPTIONS = Object.freeze([
+  { id: 'auto', label: 'Auto', description: 'Try Local Whisper first, then fall back to ComfyUI.' },
+  { id: 'local', label: 'Local Whisper', description: 'Use whisper.cpp without ComfyUI.' },
+  { id: 'comfyui', label: 'ComfyUI', description: 'Use the Qwen3-ASR ComfyUI workflow.' },
+])
+
+function normalizeMusicTimingEngine(value) {
+  const normalized = String(value || '').trim().toLowerCase()
+  return MUSIC_TIMING_ENGINE_OPTIONS.some((option) => option.id === normalized) ? normalized : 'auto'
+}
 
 function getMcpMyWorkflowLibraryId(workflowId = '') {
   const normalized = String(workflowId || '').trim()
@@ -3441,7 +3459,7 @@ function loadPersistedGenerateWorkspaceState(project, projectHandle) {
 // Main GenerateWorkspace Component
 // ============================================
 function GenerateWorkspace({ onOpenWorkflowSetup = null }) {
-  const { t } = useI18n()
+  const { t, language } = useI18n()
   const {
     currentProjectHandle,
     currentProject,
@@ -3459,13 +3477,19 @@ function GenerateWorkspace({ onOpenWorkflowSetup = null }) {
   ), [currentProject?.created, currentProject?.name, currentProjectHandle])
 
   // UI mode
-  const [generationMode, setGenerationMode] = useState(persistedState?.generationMode || 'single')
+  const [generationMode, setGenerationMode] = useState(persistedState?.generationMode === 'prompter' ? 'history' : (persistedState?.generationMode || 'single'))
 
   // Category + workflow selection
   const [category, setCategory] = useState(persistedState?.category || 'video')
   const [workflowId, setWorkflowId] = useState(persistedState?.workflowId || 'wan22-i2v')
   const [selectedWorkflowManifestId, setSelectedWorkflowManifestId] = useState(persistedState?.selectedWorkflowManifestId || persistedState?.workflowId || 'wan22-i2v')
   const [workflowRoute, setWorkflowRoute] = useState(() => {
+    const savedRoute = persistedState?.workflowRoute === 'external'
+      ? GENERATE_WORKFLOW_ROUTES.community
+      : persistedState?.workflowRoute
+    if (['featured', 'custom', 'templates', GENERATE_WORKFLOW_ROUTES.community].includes(savedRoute)) {
+      return savedRoute
+    }
     // Manifests keep data-level local/cloud routes; the browser shows both
     // under the single "Featured" tab.
     const manifestRoute = getWorkflowManifestByWorkflowId(persistedState?.workflowId || 'wan22-i2v')?.route || 'local'
@@ -3479,6 +3503,10 @@ function GenerateWorkspace({ onOpenWorkflowSetup = null }) {
   // Input asset (store ID, will resolve to object)
   const [selectedAssetId, setSelectedAssetId] = useState(persistedState?.selectedAssetId || null)
   const [selectedAsset, setSelectedAsset] = useState(null)
+  const [queueImageImporting, setQueueImageImporting] = useState(false)
+  const [promptTranslating, setPromptTranslating] = useState(false)
+  const [promptOriginal, setPromptOriginal] = useState('')
+  const [promptTranslationActive, setPromptTranslationActive] = useState(false)
   const [selectedAudioAssetId, setSelectedAudioAssetId] = useState(persistedState?.selectedAudioAssetId || null)
   const [selectedAudioAsset, setSelectedAudioAsset] = useState(null)
   const [selectedAssetFieldIds, setSelectedAssetFieldIds] = useState(
@@ -3609,6 +3637,9 @@ function GenerateWorkspace({ onOpenWorkflowSetup = null }) {
   const [yoloMusicAudioAssetId, setYoloMusicAudioAssetId] = useState(persistedState?.yoloMusicAudioAssetId || null)
   const [yoloMusicAudioKind, setYoloMusicAudioKind] = useState(persistedState?.yoloMusicAudioKind || 'mixed_track')
   const [yoloMusicAsrLanguage, setYoloMusicAsrLanguage] = useState(persistedState?.yoloMusicAsrLanguage || 'English')
+  const [yoloMusicTranscriptionEngine, setYoloMusicTranscriptionEngine] = useState(() => (
+    normalizeMusicTimingEngine(persistedState?.yoloMusicTranscriptionEngine)
+  ))
   // Lyrics field accepts plain text, SRT, or LRC — auto-detected by
   // detectTimedLyricsFormat. When the paste is SRT/LRC the planner uses real
   // per-line timings (tier 2 of audioStart resolution); when it's plain
@@ -3788,6 +3819,7 @@ function GenerateWorkspace({ onOpenWorkflowSetup = null }) {
   const [creatingStoryboardPdf, setCreatingStoryboardPdf] = useState(false)
   const [yoloMusicAudioImporting, setYoloMusicAudioImporting] = useState(false)
   const [yoloMusicCastImageImporting, setYoloMusicCastImageImporting] = useState(false)
+  const [ugcReferenceImageImporting, setUgcReferenceImageImporting] = useState('')
   const [yoloMusicTranscribingSrt, setYoloMusicTranscribingSrt] = useState(false)
   const [yoloMusicTranscriptionStatus, setYoloMusicTranscriptionStatus] = useState('')
   const [confirmDialog, setConfirmDialog] = useState(null) // { title, message, confirmLabel, cancelLabel, tone }
@@ -3822,6 +3854,8 @@ function GenerateWorkspace({ onOpenWorkflowSetup = null }) {
   const [workflowInfoExpanded, setWorkflowInfoExpanded] = useState(true)
   const comfyLogEndRef = useRef(null)
   const importedMediaSignaturesRef = useRef(new Set())
+  const executedWorkflowByJobIdRef = useRef(new Map())
+  const [jobWorkflowSnapshots, setJobWorkflowSnapshots] = useState({})
   const storyboardPdfBatchesRef = useRef(new Map())
   const COMFY_LOG_MAX = 400
   const addComfyLog = useCallback((type, msg) => {
@@ -4041,6 +4075,7 @@ function GenerateWorkspace({ onOpenWorkflowSetup = null }) {
         yoloMusicAudioAssetId,
         yoloMusicAudioKind,
         yoloMusicAsrLanguage,
+        yoloMusicTranscriptionEngine,
         yoloMusicLyrics,
         yoloMusicProvidedLyrics,
         yoloMusicAlignProvidedLyrics,
@@ -4134,6 +4169,7 @@ function GenerateWorkspace({ onOpenWorkflowSetup = null }) {
     yoloMusicAudioAssetId,
     yoloMusicAudioKind,
     yoloMusicAsrLanguage,
+    yoloMusicTranscriptionEngine,
     yoloMusicLyrics,
     yoloMusicProvidedLyrics,
     yoloMusicAlignProvidedLyrics,
@@ -4731,6 +4767,81 @@ function GenerateWorkspace({ onOpenWorkflowSetup = null }) {
     setOpenWorkflowHint('')
   }, [addComfyLog, generationMode, workflowId])
 
+  const handleQueueImageImport = useCallback(async () => {
+    if (queueImageImporting) return
+    if (!currentProjectHandle) {
+      setFormError(t('generate.messages.openProjectForImage'))
+      return
+    }
+    setQueueImageImporting(true)
+    setFormError(null)
+    try {
+      let selectedFile = null
+      if (isElectron() && window.electronAPI?.selectFile) {
+        selectedFile = await window.electronAPI.selectFile({
+          title: t('generate.queue.selectReferenceImage'),
+          filters: [
+            { name: 'Image Files', extensions: ['png', 'jpg', 'jpeg', 'webp', 'gif', 'bmp', 'tif', 'tiff'] },
+            { name: 'All Files', extensions: ['*'] },
+          ],
+        })
+      } else {
+        selectedFile = await new Promise((resolve) => {
+          const input = document.createElement('input')
+          input.type = 'file'
+          input.accept = 'image/*,.png,.jpg,.jpeg,.webp,.gif,.bmp,.tif,.tiff'
+          input.onchange = () => resolve(input.files?.[0] || null)
+          input.click()
+        })
+      }
+      if (!selectedFile) return
+      const assetInfo = await importAsset(currentProjectHandle, selectedFile, 'images')
+      const sessionUrl = typeof selectedFile !== 'string'
+        ? URL.createObjectURL(selectedFile)
+        : assetInfo.path
+          ? await getProjectFileUrl(currentProjectHandle, assetInfo.path)
+          : null
+      const asset = addAsset({
+        ...assetInfo,
+        type: 'image',
+        url: sessionUrl || assetInfo.url || '',
+        isImported: true,
+        settings: { ...(assetInfo.settings || {}), width: assetInfo.width, height: assetInfo.height },
+      })
+      if (!asset) throw new Error(t('generate.messages.imageRegisterFailed'))
+      setSelectedAsset(asset)
+      setSelectedAssetId(asset.id)
+      await saveProject?.()
+      addComfyLog('status', `Imported reference image: ${asset.name || 'image'}`)
+    } catch (error) {
+      setFormError(error instanceof Error ? error.message : t('generate.messages.imageImportFailed'))
+    } finally {
+      setQueueImageImporting(false)
+    }
+  }, [addAsset, addComfyLog, currentProjectHandle, queueImageImporting, saveProject, t])
+
+  const handleTranslatePrompt = useCallback(async (target = 'en') => {
+    if (promptTranslating) return
+    const source = promptTranslationActive && promptOriginal ? promptOriginal : prompt
+    if (!promptTranslationActive) setPromptOriginal(prompt)
+    setPromptTranslating(true)
+    setFormError(null)
+    try {
+      setPrompt(await translatePrompt(source, target, language))
+      setPromptTranslationActive(true)
+    } catch (error) {
+      setFormError(error instanceof Error ? error.message : t('generate.messages.translationFailed'))
+    } finally {
+      setPromptTranslating(false)
+    }
+  }, [language, prompt, promptOriginal, promptTranslating, promptTranslationActive, t])
+
+  const handleRestorePrompt = useCallback(() => {
+    if (!promptTranslationActive) return
+    setPrompt(promptOriginal)
+    setPromptTranslationActive(false)
+  }, [promptOriginal, promptTranslationActive])
+
   const dependencyCheckInProgress = generationMode === 'single' && dependencyCheck.status === 'checking'
   const hasBlockingDependencies = generationMode === 'single' && dependencyCheck.hasBlockingIssues
   const baseGenerateDisabled = (
@@ -5041,6 +5152,89 @@ function GenerateWorkspace({ onOpenWorkflowSetup = null }) {
     saveProject,
     yoloMusicCastImageImporting,
   ])
+
+  const handleImportUgcReferenceImage = useCallback(async (referenceType = 'reference') => {
+    if (ugcReferenceImageImporting) return null
+    if (!currentProjectHandle) {
+      const message = t('generate.director.ugc.references.openProjectRequired', {}, 'Open or create a project before uploading a reference image.')
+      setFormError(message)
+      addComfyLog('error', message)
+      return null
+    }
+
+    const typeLabel = {
+      product: t('generate.director.ugc.references.product', {}, 'Product'),
+      creator: t('generate.director.ugc.references.creator', {}, 'Creator'),
+      room: t('generate.director.ugc.references.room', {}, 'Room'),
+    }[referenceType] || t('generate.director.ugc.references.reference', {}, 'Reference')
+
+    let selectedFile = null
+    try {
+      if (isElectron() && window.electronAPI?.selectFile) {
+        selectedFile = await window.electronAPI.selectFile({
+          title: t('generate.director.ugc.references.selectImage', { type: typeLabel }, `Select ${typeLabel} image`),
+          filters: [
+            { name: 'Image Files', extensions: ['png', 'jpg', 'jpeg', 'webp', 'gif', 'bmp', 'tif', 'tiff'] },
+            { name: 'All Files', extensions: ['*'] },
+          ],
+        })
+      } else {
+        selectedFile = await new Promise((resolve) => {
+          const input = document.createElement('input')
+          input.type = 'file'
+          input.accept = 'image/*,.png,.jpg,.jpeg,.webp,.gif,.bmp,.tif,.tiff'
+          input.onchange = () => resolve(input.files?.[0] || null)
+          input.click()
+        })
+      }
+    } catch (error) {
+      const message = error?.message || t('generate.director.ugc.references.pickerFailed', {}, 'Could not open the image picker.')
+      setFormError(message)
+      addComfyLog('error', `UGC reference picker failed: ${message}`)
+      return null
+    }
+    if (!selectedFile) return null
+    if (typeof selectedFile !== 'string' && selectedFile.type && !String(selectedFile.type).startsWith('image/')) {
+      const message = t('generate.director.ugc.references.imagesOnly', {}, 'Only image files can be used as references.')
+      setFormError(message)
+      addComfyLog('error', message)
+      return null
+    }
+
+    setFormError(null)
+    setUgcReferenceImageImporting(referenceType)
+    try {
+      const assetInfo = await importAsset(currentProjectHandle, selectedFile, 'images')
+      const sessionUrl = typeof selectedFile !== 'string'
+        ? URL.createObjectURL(selectedFile)
+        : assetInfo.path
+          ? await getProjectFileUrl(currentProjectHandle, assetInfo.path)
+          : null
+      const newAsset = addAsset({
+        ...assetInfo,
+        type: 'image',
+        url: sessionUrl || assetInfo.url || '',
+        isImported: true,
+        settings: {
+          ...(assetInfo.settings || {}),
+          width: assetInfo.width,
+          height: assetInfo.height,
+          ugcReferenceType: referenceType,
+        },
+      })
+      if (!newAsset) throw new Error(t('generate.messages.imageRegisterFailed'))
+      await saveProject?.()
+      addComfyLog('status', `Imported UGC ${referenceType} reference: ${newAsset.name || 'image'}`)
+      return newAsset
+    } catch (error) {
+      const message = error?.message || t('generate.messages.imageImportFailed')
+      setFormError(message)
+      addComfyLog('error', `Could not import UGC ${referenceType} reference: ${message}`)
+      return null
+    } finally {
+      setUgcReferenceImageImporting('')
+    }
+  }, [addAsset, addComfyLog, currentProjectHandle, saveProject, t, ugcReferenceImageImporting])
   const createYoloMusicCustomKeyframeStarter = useCallback(async () => {
     const starter = {
       '1': {
@@ -5356,6 +5550,38 @@ function GenerateWorkspace({ onOpenWorkflowSetup = null }) {
     return readBrowserFile()
   }, [])
 
+  const normalizeSelectedCustomWorkflow = useCallback(async (selected) => {
+    let parsed
+    try {
+      parsed = JSON.parse(selected?.text || '')
+    } catch {
+      throw new Error('The selected file is not valid JSON.')
+    }
+
+    const normalized = await normalizeCustomWorkflowJson(parsed, {
+      convertUiWorkflow: async (workflowGraph) => {
+        const api = typeof window !== 'undefined' ? window.electronAPI : null
+        if (!api?.convertComfyWorkflowGraph) {
+          throw new Error('UI workflow JSON conversion is only available in the Lumeweft desktop app.')
+        }
+        const conversion = await api.convertComfyWorkflowGraph({
+          workflowGraph,
+          comfyBaseUrl: getLocalComfyConnectionSync().httpBase,
+        })
+        if (!conversion?.success || !conversion.output) {
+          throw new Error(conversion?.error || 'Could not convert the UI workflow. Make sure local ComfyUI is running.')
+        }
+        return conversion.output
+      },
+    })
+
+    return {
+      ...selected,
+      workflow: normalized.workflow,
+      sourceFormat: normalized.sourceFormat,
+    }
+  }, [])
+
   const createGenerateCustomImageStarter = useCallback(async () => {
     const starter = {
       '1': {
@@ -5495,7 +5721,8 @@ function GenerateWorkspace({ onOpenWorkflowSetup = null }) {
       const selected = await readCustomWorkflowJsonFromUser(`Select custom ComfyUI ${isVideo ? 'video' : 'image'} workflow JSON`)
       if (!selected) return
 
-      const workflow = JSON.parse(selected.text)
+      const normalized = await normalizeSelectedCustomWorkflow(selected)
+      const workflow = normalized.workflow
       const validation = isVideo
         ? validateCustomVideoWorkflow(workflow, { requireInputImage: false })
         : validateCustomKeyframeWorkflow(workflow, { requireInputImage: false })
@@ -5512,14 +5739,14 @@ function GenerateWorkspace({ onOpenWorkflowSetup = null }) {
       selectGenerateCustomWorkflow(kind)
       setFormError(validation.ok ? null : validation.message)
       addComfyLog(validation.ok ? 'ok' : 'warning', validation.ok
-        ? `Loaded custom ${isVideo ? 'video' : 'image'} workflow: ${selected.name || 'Custom workflow'}`
+        ? `Loaded custom ${isVideo ? 'video' : 'image'} workflow: ${selected.name || 'Custom workflow'}${normalized.sourceFormat === 'ui' ? ' (converted from UI JSON)' : ''}`
         : `Custom ${isVideo ? 'video' : 'image'} workflow loaded but is not ready: ${validation.message}`)
     } catch (error) {
       const message = error?.message || `Could not import custom ${isVideo ? 'video' : 'image'} workflow`
       setFormError(message)
       addComfyLog('error', message)
     }
-  }, [addComfyLog, readCustomWorkflowJsonFromUser, selectGenerateCustomWorkflow])
+  }, [addComfyLog, normalizeSelectedCustomWorkflow, readCustomWorkflowJsonFromUser, selectGenerateCustomWorkflow])
 
   const handleOpenCustomGenerateWorkflowInComfyUi = useCallback(async (kind = 'image') => {
     const isVideo = kind === 'video'
@@ -5602,7 +5829,8 @@ function GenerateWorkspace({ onOpenWorkflowSetup = null }) {
       const selected = await readCustomWorkflowJsonFromUser('Select custom ComfyUI ad keyframe workflow JSON')
       if (!selected) return
 
-      const workflow = JSON.parse(selected.text)
+      const normalized = await normalizeSelectedCustomWorkflow(selected)
+      const workflow = normalized.workflow
       const validation = validateCustomKeyframeWorkflow(workflow, { requireInputImage: false })
       setYoloAdCustomKeyframeWorkflow({
         name: selected.name || 'Custom ad keyframe workflow',
@@ -5611,14 +5839,14 @@ function GenerateWorkspace({ onOpenWorkflowSetup = null }) {
       })
       setFormError(validation.ok ? null : validation.message)
       addComfyLog(validation.ok ? 'ok' : 'warning', validation.ok
-        ? `Loaded custom ad keyframe workflow: ${selected.name || 'Custom workflow'}`
+        ? `Loaded custom ad keyframe workflow: ${selected.name || 'Custom workflow'}${normalized.sourceFormat === 'ui' ? ' (converted from UI JSON)' : ''}`
         : `Custom ad keyframe workflow loaded but is not ready: ${validation.message}`)
     } catch (error) {
       const message = error?.message || 'Could not import custom ad keyframe workflow'
       setFormError(message)
       addComfyLog('error', message)
     }
-  }, [addComfyLog, readCustomWorkflowJsonFromUser])
+  }, [addComfyLog, normalizeSelectedCustomWorkflow, readCustomWorkflowJsonFromUser])
 
   const handleOpenYoloAdCustomKeyframeWorkflowInComfyUi = useCallback(async () => {
     try {
@@ -5678,45 +5906,11 @@ function GenerateWorkspace({ onOpenWorkflowSetup = null }) {
 
   const handleImportYoloMusicCustomKeyframeWorkflow = useCallback(async () => {
     setCustomWorkflowBridgeTarget('music-keyframe')
-    const readBrowserFile = () => new Promise((resolve) => {
-      const input = document.createElement('input')
-      input.type = 'file'
-      input.accept = 'application/json,.json'
-      input.onchange = async () => {
-        const file = input.files?.[0] || null
-        if (!file) {
-          resolve(null)
-          return
-        }
-        const text = await file.text()
-        resolve({ name: file.name, text })
-      }
-      input.click()
-    })
-
     try {
-      let selected = null
-      if (isElectron() && window.electronAPI?.selectFile && window.electronAPI?.readFile) {
-        const filePath = await window.electronAPI.selectFile({
-          title: 'Select custom ComfyUI keyframe workflow JSON',
-          filters: [
-            { name: 'ComfyUI Workflow JSON', extensions: ['json'] },
-            { name: 'All Files', extensions: ['*'] },
-          ],
-        })
-        if (!filePath) return
-        const readResult = await window.electronAPI.readFile(filePath, { encoding: 'utf8' })
-        if (!readResult?.success) throw new Error(readResult?.error || 'Could not read workflow JSON')
-        selected = {
-          name: String(filePath).split(/[\\/]/).pop() || 'Custom workflow',
-          text: readResult.data,
-        }
-      } else {
-        selected = await readBrowserFile()
-        if (!selected) return
-      }
-
-      const workflow = JSON.parse(selected.text)
+      const selected = await readCustomWorkflowJsonFromUser('Select custom ComfyUI keyframe workflow JSON')
+      if (!selected) return
+      const normalized = await normalizeSelectedCustomWorkflow(selected)
+      const workflow = normalized.workflow
       const validation = validateCustomKeyframeWorkflow(workflow, { requireInputImage: false })
       setYoloMusicCustomKeyframeWorkflow({
         name: selected.name || 'Custom workflow',
@@ -5726,14 +5920,14 @@ function GenerateWorkspace({ onOpenWorkflowSetup = null }) {
       setYoloMusicKeyframeWorkflowId(CUSTOM_MUSIC_KEYFRAME_WORKFLOW_ID)
       setFormError(validation.ok ? null : validation.message)
       addComfyLog(validation.ok ? 'ok' : 'warning', validation.ok
-        ? `Loaded custom keyframe workflow: ${selected.name || 'Custom workflow'}`
+        ? `Loaded custom keyframe workflow: ${selected.name || 'Custom workflow'}${normalized.sourceFormat === 'ui' ? ' (converted from UI JSON)' : ''}`
         : `Custom keyframe workflow loaded but is not ready: ${validation.message}`)
     } catch (error) {
       const message = error?.message || 'Could not import custom workflow'
       setFormError(message)
       addComfyLog('error', message)
     }
-  }, [addComfyLog, setYoloMusicKeyframeWorkflowId])
+  }, [addComfyLog, normalizeSelectedCustomWorkflow, readCustomWorkflowJsonFromUser, setYoloMusicKeyframeWorkflowId])
 
   const handleOpenYoloMusicCustomKeyframeWorkflowInComfyUi = useCallback(async () => {
     try {
@@ -5795,45 +5989,11 @@ function GenerateWorkspace({ onOpenWorkflowSetup = null }) {
 
   const handleImportYoloMusicCustomVideoWorkflow = useCallback(async () => {
     setCustomWorkflowBridgeTarget('music-video')
-    const readBrowserFile = () => new Promise((resolve) => {
-      const input = document.createElement('input')
-      input.type = 'file'
-      input.accept = 'application/json,.json'
-      input.onchange = async () => {
-        const file = input.files?.[0] || null
-        if (!file) {
-          resolve(null)
-          return
-        }
-        const text = await file.text()
-        resolve({ name: file.name, text })
-      }
-      input.click()
-    })
-
     try {
-      let selected = null
-      if (isElectron() && window.electronAPI?.selectFile && window.electronAPI?.readFile) {
-        const filePath = await window.electronAPI.selectFile({
-          title: 'Select custom ComfyUI video workflow JSON',
-          filters: [
-            { name: 'ComfyUI Workflow JSON', extensions: ['json'] },
-            { name: 'All Files', extensions: ['*'] },
-          ],
-        })
-        if (!filePath) return
-        const readResult = await window.electronAPI.readFile(filePath, { encoding: 'utf8' })
-        if (!readResult?.success) throw new Error(readResult?.error || 'Could not read workflow JSON')
-        selected = {
-          name: String(filePath).split(/[\\/]/).pop() || 'Custom workflow',
-          text: readResult.data,
-        }
-      } else {
-        selected = await readBrowserFile()
-        if (!selected) return
-      }
-
-      const workflow = JSON.parse(selected.text)
+      const selected = await readCustomWorkflowJsonFromUser('Select custom ComfyUI video workflow JSON')
+      if (!selected) return
+      const normalized = await normalizeSelectedCustomWorkflow(selected)
+      const workflow = normalized.workflow
       const validation = validateCustomVideoWorkflow(workflow)
       setYoloMusicCustomVideoWorkflow({
         name: selected.name || 'Custom workflow',
@@ -5843,14 +6003,14 @@ function GenerateWorkspace({ onOpenWorkflowSetup = null }) {
       setYoloMusicVideoWorkflowId(CUSTOM_MUSIC_VIDEO_WORKFLOW_ID)
       setFormError(validation.ok ? null : validation.message)
       addComfyLog(validation.ok ? 'ok' : 'warning', validation.ok
-        ? `Loaded custom video workflow: ${selected.name || 'Custom workflow'}`
+        ? `Loaded custom video workflow: ${selected.name || 'Custom workflow'}${normalized.sourceFormat === 'ui' ? ' (converted from UI JSON)' : ''}`
         : `Custom video workflow loaded but is not ready: ${validation.message}`)
     } catch (error) {
       const message = error?.message || 'Could not import custom video workflow'
       setFormError(message)
       addComfyLog('error', message)
     }
-  }, [addComfyLog, setYoloMusicVideoWorkflowId])
+  }, [addComfyLog, normalizeSelectedCustomWorkflow, readCustomWorkflowJsonFromUser, setYoloMusicVideoWorkflowId])
 
   const handleOpenYoloMusicCustomVideoWorkflowInComfyUi = useCallback(async () => {
     try {
@@ -6096,6 +6256,8 @@ function GenerateWorkspace({ onOpenWorkflowSetup = null }) {
     const shouldAlignProvidedLyrics = Boolean(yoloMusicAlignProvidedLyrics && providedLyricsLines.length > 0)
     const outputLyricsText = String(yoloMusicLyrics || '').trim()
     const effectiveLanguage = String(options.language || yoloMusicAsrLanguage || 'English').trim()
+    const requestedEngine = normalizeMusicTimingEngine(options.engine || yoloMusicTranscriptionEngine)
+    const engineAttempts = requestedEngine === 'auto' ? ['local', 'comfyui'] : [requestedEngine]
 
     if (outputLyricsText && !shouldAlignProvidedLyrics) {
       if (options.replaceExisting !== true) {
@@ -6113,20 +6275,44 @@ function GenerateWorkspace({ onOpenWorkflowSetup = null }) {
     setYoloMusicTranscribingSrt(true)
     setYoloMusicTranscriptionStatus(shouldAlignProvidedLyrics
       ? 'Preparing ASR timing pass for provided lyrics...'
-      : 'Preparing Qwen ASR transcription...')
+      : `Preparing ${requestedEngine === 'local' ? 'Local Whisper' : requestedEngine === 'comfyui' ? 'ComfyUI' : 'automatic'} transcription...`)
 
     try {
-      const result = await transcribeAsset(yoloMusicAudioAsset, {
-        // Pinned to Qwen3-ASR: proven on sung vocals over instrumentals.
-        // Unpin once whisper has been A/B'd on a real song.
-        engine: 'comfyui',
-        language: effectiveLanguage,
-        onProgress: (progress) => {
-          setYoloMusicTranscriptionStatus(progress?.message || (shouldAlignProvidedLyrics
-            ? 'Detecting vocal timing from song audio...'
-            : 'Transcribing song audio...'))
-        },
-      })
+      let result = null
+      let engineUsed = engineAttempts[0]
+      const attemptErrors = []
+      for (let index = 0; index < engineAttempts.length; index += 1) {
+        const engine = engineAttempts[index]
+        engineUsed = engine
+        const engineLabel = engine === 'local' ? 'Local Whisper' : 'ComfyUI'
+        if (index > 0) {
+          setYoloMusicTranscriptionStatus(`Local Whisper was unavailable. Falling back to ${engineLabel}...`)
+          addComfyLog('warning', `Music timing fallback: ${attemptErrors[0]?.message || 'Local Whisper failed'}. Trying ${engineLabel}.`)
+        }
+        try {
+          result = await transcribeAsset(yoloMusicAudioAsset, {
+            engine,
+            language: effectiveLanguage,
+            onProgress: (progress) => {
+              setYoloMusicTranscriptionStatus(progress?.message || (shouldAlignProvidedLyrics
+                ? `Detecting vocal timing with ${engineLabel}...`
+                : `Transcribing song audio with ${engineLabel}...`))
+            },
+          })
+          break
+        } catch (error) {
+          attemptErrors.push({ engine, message: error?.message || 'Unknown transcription error' })
+          if (index === engineAttempts.length - 1) {
+            if (attemptErrors.length > 1) {
+              throw new Error(`Automatic transcription failed. ${attemptErrors.map((item) => `${item.engine === 'local' ? 'Local Whisper' : 'ComfyUI'}: ${item.message}`).join(' | ')}`)
+            }
+            throw error
+          }
+        }
+      }
+
+      if (!result) throw new Error('No transcription engine returned a result.')
+      const engineLabel = engineUsed === 'local' ? 'Local Whisper' : 'ComfyUI'
       let timingResult = shouldAlignProvidedLyrics
         ? buildSrtFromProvidedLyricsAndAsrTiming(providedLyricsText, result?.cues || [], result?.words || [])
         : {
@@ -6145,11 +6331,11 @@ function GenerateWorkspace({ onOpenWorkflowSetup = null }) {
         const sourceNote = timingResult.timingSource === 'asr-word-alignment'
           ? ' using raw ASR word timings'
           : ''
-        setYoloMusicTranscriptionStatus(`Aligned ${timingResult.lyricLineCount} provided lyric line${timingResult.lyricLineCount === 1 ? '' : 's'} to ${timingResult.cueCount} ASR timing cue${timingResult.cueCount === 1 ? '' : 's'}${sourceNote}.`)
-        addComfyLog('status', `Music video lyric timing generated from ${yoloMusicAudioAsset.name || 'song audio'} without replacing provided lyrics`)
+        setYoloMusicTranscriptionStatus(`Aligned ${timingResult.lyricLineCount} provided lyric line${timingResult.lyricLineCount === 1 ? '' : 's'} to ${timingResult.cueCount} ASR timing cue${timingResult.cueCount === 1 ? '' : 's'}${sourceNote} with ${engineLabel}.`)
+        addComfyLog('status', `Music video lyric timing generated with ${engineLabel} from ${yoloMusicAudioAsset.name || 'song audio'} without replacing provided lyrics`)
       } else {
-        setYoloMusicTranscriptionStatus(`Transcribed ${result.cues.length} timed lyric line${result.cues.length === 1 ? '' : 's'} into SRT.`)
-        addComfyLog('status', `Music video SRT generated from ${yoloMusicAudioAsset.name || 'song audio'}`)
+        setYoloMusicTranscriptionStatus(`Transcribed ${result.cues.length} timed lyric line${result.cues.length === 1 ? '' : 's'} into SRT with ${engineLabel}.`)
+        addComfyLog('status', `Music video SRT generated with ${engineLabel} from ${yoloMusicAudioAsset.name || 'song audio'}`)
       }
       return {
         success: true,
@@ -6157,6 +6343,7 @@ function GenerateWorkspace({ onOpenWorkflowSetup = null }) {
         cueCount: Number(timingResult.cueCount) || 0,
         lyricLineCount: Number(timingResult.lyricLineCount) || null,
         timingSource: timingResult.timingSource || 'asr',
+        engineUsed,
         srt,
       }
     } catch (error) {
@@ -6174,6 +6361,7 @@ function GenerateWorkspace({ onOpenWorkflowSetup = null }) {
     yoloMusicAudioAsset,
     yoloMusicLyrics,
     yoloMusicProvidedLyrics,
+    yoloMusicTranscriptionEngine,
     yoloMusicTranscribingSrt,
   ])
   // Resolved cast: hydrate each entry's assetId to a real image asset so the
@@ -7338,7 +7526,7 @@ function GenerateWorkspace({ onOpenWorkflowSetup = null }) {
       if (statusChanged && ACTIVE_JOB_STATUSES.includes(next.status) && !next.startedAt) {
         next.startedAt = Date.now()
       }
-      if (statusChanged && (next.status === 'done' || next.status === 'error') && !next.completedAt) {
+      if (statusChanged && (next.status === 'done' || next.status === 'error' || next.status === 'cancelled') && !next.completedAt) {
         next.completedAt = Date.now()
         const start = Number(next.startedAt || next.createdAt)
         if (Number.isFinite(start) && start > 0) {
@@ -7359,7 +7547,7 @@ function GenerateWorkspace({ onOpenWorkflowSetup = null }) {
       if (statusChanged && ACTIVE_JOB_STATUSES.includes(next.status) && !next.startedAt) {
         next.startedAt = Date.now()
       }
-      if (statusChanged && (next.status === 'done' || next.status === 'error') && !next.completedAt) {
+      if (statusChanged && (next.status === 'done' || next.status === 'error' || next.status === 'cancelled') && !next.completedAt) {
         next.completedAt = Date.now()
         const start = Number(next.startedAt || next.createdAt)
         if (Number.isFinite(start) && start > 0) {
@@ -7895,7 +8083,7 @@ function GenerateWorkspace({ onOpenWorkflowSetup = null }) {
     }
 
     for (const job of generationQueue || []) {
-      if (job?.status === 'error') continue
+      if (['error', 'cancelled', 'canceled'].includes(String(job?.status || '').toLowerCase())) continue
       addYoloKeys(job?.yolo)
     }
 
@@ -7941,6 +8129,19 @@ function GenerateWorkspace({ onOpenWorkflowSetup = null }) {
     addComfyLog('status', 'Generation queue cleared')
   }, [addComfyLog, generationQueue, requestConfirm])
 
+  const handleCancelQueuedGenerationJob = useCallback((jobId) => {
+    const normalizedJobId = String(jobId || '').trim()
+    if (!normalizedJobId) return false
+    const job = queueRef.current.find((entry) => entry?.id === normalizedJobId)
+    if (!job || !['queued', 'paused'].includes(String(job.status || '').toLowerCase())) return false
+    if (startedJobIdsRef.current.has(normalizedJobId) || activeJobId === normalizedJobId) return false
+
+    startedJobIdsRef.current.delete(normalizedJobId)
+    setGenerationQueue((current) => current.filter((entry) => entry?.id !== normalizedJobId))
+    addComfyLog('status', `Removed waiting job from queue: ${job.workflowLabel || job.workflowId || normalizedJobId}`)
+    return true
+  }, [activeJobId, addComfyLog])
+
   const handleResumeQueue = useCallback(() => {
     const pausedIds = queueRef.current
       .filter((job) => job.status === 'paused')
@@ -7979,6 +8180,30 @@ function GenerateWorkspace({ onOpenWorkflowSetup = null }) {
     }))
     addComfyLog('status', `Retrying failed job: ${failedJob.workflowLabel || failedJob.workflowId || failedJob.id}`)
   }, [addComfyLog])
+
+  const handleOpenJobWorkflowInComfyUi = useCallback(async (job) => {
+    const apiWorkflow = jobWorkflowSnapshots[job?.id]
+    if (!apiWorkflow) return
+    const label = `${job?.workflowLabel || job?.workflowId || 'Generation'} — ${job?.status || 'job'}`
+    // Do not recreate the iframe while a job is running. Generation itself is
+    // server-side, but destroying the embedded frontend during execution can
+    // leave ComfyUI's Vite singleton half-initialized; loadGraphData then fails
+    // inside the canvas with errors such as "reading '_s'". Loading the saved
+    // API snapshot into the existing root canvas is safe and does not alter the
+    // prompt already queued on the server.
+    const result = await openApiWorkflowInComfyUi(apiWorkflow, {
+      label,
+      reloadComfyUi: false,
+    })
+    if (result.success) {
+      setFormError(null)
+      addComfyLog('info', result.hint || `${label}をComfyUIタブで開きました。`)
+    } else {
+      const message = result.error || 'ワークフローをComfyUIタブで開けませんでした。'
+      setFormError(message)
+      addComfyLog('error', message)
+    }
+  }, [addComfyLog, jobWorkflowSnapshots])
 
   const createQueuedJob = useCallback((overrides = {}) => {
     const jobId = `job_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`
@@ -8128,6 +8353,7 @@ function GenerateWorkspace({ onOpenWorkflowSetup = null }) {
       characters = [],
       title = 'Short Film',
       voiceWorkflow = 'text_to_speech',
+      voiceProvider = 'elevenlabs',
     } = payload || {}
 
     if (voiceWorkflow !== 'text_to_speech') {
@@ -8159,12 +8385,13 @@ function GenerateWorkspace({ onOpenWorkflowSetup = null }) {
       return { queued: 0, skipped: 0, message }
     }
 
-    const depsOk = await validateDependenciesForQueue(
-      [ELEVENLABS_TTS_WORKFLOW_ID],
-      'short film voices'
-    )
+    const providerId = String(voiceProvider || '').trim() === 'irodori' ? 'irodori' : 'elevenlabs'
+    const voiceWorkflowId = providerId === 'irodori' ? IRODORI_TTS_WORKFLOW_ID : ELEVENLABS_TTS_WORKFLOW_ID
+    const providerLabel = providerId === 'irodori' ? 'Irodori-TTS' : 'ElevenLabs'
+    const depsOk = await validateDependenciesForQueue([voiceWorkflowId], `short film voices (${providerLabel})`)
     if (!depsOk) {
-      return { queued: 0, skipped: 0, message: 'Voice queue blocked by missing ElevenLabs workflow requirements.' }
+      onOpenWorkflowSetup?.()
+      return { queued: 0, skipped: 0, message: `Voice queue blocked by missing ${providerLabel} requirements. Use Workflow Setup to install them, restart ComfyUI when prompted, then queue again.` }
     }
 
     const characterBySlug = new Map()
@@ -8175,7 +8402,7 @@ function GenerateWorkspace({ onOpenWorkflowSetup = null }) {
     const activeLineIds = new Set(
       generationQueue
         .filter((job) => (
-          job?.workflowId === ELEVENLABS_TTS_WORKFLOW_ID &&
+          job?.workflowId === voiceWorkflowId &&
           NON_TERMINAL_JOB_STATUSES.includes(job.status) &&
           (!job?.shortFilm?.title || job.shortFilm.title === title) &&
           job?.shortFilm?.dialogueId
@@ -8194,12 +8421,14 @@ function GenerateWorkspace({ onOpenWorkflowSetup = null }) {
 
       const character = characterBySlug.get(line.slug) || null
       const voicePreset = String(character?.voicePreset || '').trim() || 'Roger (male, american)'
+      const voiceDescription = String(character?.voiceNotes || '').trim()
+        || `Natural Japanese voice for ${line.speaker}; grounded, clear, and emotionally appropriate for the scene.`
       const speakerToken = slugifyNameToken(line.speaker || line.slug, { fallback: 'character', maxLength: 18 })
 
       jobs.push(createQueuedJob({
         category: 'audio',
-        workflowId: ELEVENLABS_TTS_WORKFLOW_ID,
-        workflowLabel: 'Short Film Voices (ElevenLabs)',
+        workflowId: voiceWorkflowId,
+        workflowLabel: `Short Film Voices (${providerLabel})`,
         needsImage: false,
         inputAssetType: null,
         inputAssetId: null,
@@ -8223,6 +8452,17 @@ function GenerateWorkspace({ onOpenWorkflowSetup = null }) {
           languageCode: '',
           outputFormat: 'mp3_44100_192',
         },
+        irodoriTts: {
+          text: line.text,
+          model: IRODORI_TTS_MODEL_FILENAME,
+          seconds: 0,
+          numSteps: 40,
+          modelDevice: 'cuda',
+          modelPrecision: 'bf16',
+          codecDevice: 'cpu',
+          codecPrecision: 'fp32',
+          runtimeCachePolicy: 'offload_after_use',
+        },
         shortFilm: {
           kind: 'dialogue-voice',
           title,
@@ -8232,6 +8472,8 @@ function GenerateWorkspace({ onOpenWorkflowSetup = null }) {
           slug: line.slug,
           text: line.text,
           voicePreset,
+          voiceDescription,
+          voiceProvider: providerId,
           workflow: voiceWorkflow,
         },
       }))
@@ -8248,13 +8490,14 @@ function GenerateWorkspace({ onOpenWorkflowSetup = null }) {
     setGenerationQueue((prev) => [...prev, ...jobs])
     setFormError(null)
     const message = `Queued ${jobs.length} voice line${jobs.length === 1 ? '' : 's'}${skipped > 0 ? ` (${skipped} already active)` : ''}.`
-    addComfyLog('status', `Short film voices queued: ${jobs.length} job${jobs.length === 1 ? '' : 's'}`)
+    addComfyLog('status', `Short film ${providerLabel} voices queued: ${jobs.length} job${jobs.length === 1 ? '' : 's'}`)
     return { queued: jobs.length, skipped, message }
   }, [
     addComfyLog,
     createQueuedJob,
     generationQueue,
     isConnected,
+    onOpenWorkflowSetup,
     seed,
     validateDependenciesForQueue,
   ])
@@ -13604,8 +13847,9 @@ function GenerateWorkspace({ onOpenWorkflowSetup = null }) {
     const usingTimelineFrame = !!frameForAI?.file && canUseTimelineFrame
     const requiresPrimaryAsset = Boolean(primaryAssetSlot) || (currentWorkflow?.needsImage && assetInputSlots.length === 0)
     if (requiresPrimaryAsset && !selectedAsset && !usingTimelineFrame) {
-      const primaryLabel = primaryAssetSlot?.label || 'input asset'
-      const message = `Please select ${String(primaryLabel).toLowerCase()}${canUseTimelineFrame ? ' or use a timeline frame' : ''} first`
+      const message = t('generate.messages.selectReference', {
+        timeline: canUseTimelineFrame ? t('generate.messages.orTimelineFrame') : '',
+      })
       setFormError(message)
       return { success: false, message }
     }
@@ -15615,6 +15859,66 @@ function GenerateWorkspace({ onOpenWorkflowSetup = null }) {
         didImportAny = true
       }
     }
+    if (didImportAny && importsIntoActiveProject && importedAssets.length > 0) {
+      try {
+        const history = useGenerationHistoryStore.getState()
+        const existingRecordId = String(job?.generationRecordId || '').trim()
+        const existingRecord = existingRecordId
+          ? history.records.find((record) => record.id === existingRecordId)
+          : null
+        const record = existingRecord || history.createRecord({
+          title: job?.workflowLabel || getWorkflowDisplayLabel(job?.workflowId || wfId) || resolvedName,
+          timelineId: job?.targetTimelineId || null,
+          clipId: job?.targetClipId || null,
+        })
+        const inputAssetIds = Array.from(new Set([
+          job?.inputAssetId,
+          job?.audioAssetId,
+          job?.musicAudioAssetId,
+          job?.referenceAssetId1,
+          job?.referenceAssetId2,
+          ...Object.values(job?.assetFieldIds || {}),
+        ].filter(Boolean)))
+        const outputAssetIds = importedAssets.map((asset) => asset?.id).filter(Boolean)
+        const version = history.appendVersion(record.id, {
+          workflowId: job?.workflowId || wfId,
+          workflowLabel: job?.workflowLabel || getWorkflowDisplayLabel(job?.workflowId || wfId),
+          prompt: jobPrompt || jobTags,
+          sourcePrompt: job?.sourcePrompt || job?.originalPrompt || '',
+          promptLanguage: job?.promptLanguage || null,
+          seed: jobSeed,
+          settings: {
+            negativePrompt: job?.negativePrompt || '',
+            duration: jobDuration ?? null,
+            fps: jobFps ?? null,
+            resolution: jobResolution || null,
+            templateParameters: job?.templateParameters || {},
+          },
+          inputAssetIds,
+          outputAssetIds,
+          apiWorkflow: executedWorkflowByJobIdRef.current.get(job?.id) || null,
+          parentVersionId: job?.parentGenerationVersionId || existingRecord?.activeVersionId || null,
+        })
+        if (version) {
+          const assetsState = useAssetsStore.getState()
+          outputAssetIds.forEach((assetId) => assetsState.updateAsset(assetId, {
+            generationRecordId: record.id,
+            generationVersionId: version.id,
+          }))
+          for (let index = 0; index < importedAssets.length; index += 1) {
+            importedAssets[index] = {
+              ...importedAssets[index],
+              generationRecordId: record.id,
+              generationVersionId: version.id,
+            }
+          }
+          await saveProject()
+        }
+      } catch (error) {
+        // A media result must never be lost because history metadata failed.
+        console.warn('Failed to record generation history:', error)
+      }
+    }
     return { didImportAny, importedAssets }
   }
 
@@ -15734,6 +16038,10 @@ function GenerateWorkspace({ onOpenWorkflowSetup = null }) {
     let importedAssets = []
 
     try {
+      if (String(job?.workflowId || '').startsWith('ltx23-')) {
+        addComfyLog('status', 'LTX 2.3用にComfyUIの未使用モデルとキャッシュを解放しています…')
+        await comfyui.freeMemory({ unloadModels: true, freeMemory: true })
+      }
       let uploadedFilename = null
       let uploadedVideoFilename = null
       let referenceFilenames = []
@@ -16151,6 +16459,7 @@ function GenerateWorkspace({ onOpenWorkflowSetup = null }) {
         modifyMusicWorkflow,
         modifyMusicVideoShotWorkflow,
         modifyElevenLabsTextToSpeechWorkflow,
+        modifyIrodoriTextToSpeechWorkflow,
         modifyLocalApiWorkflow,
         modifyFrameInterpolationWorkflow,
         modifyTopazVideoUpscaleWorkflow,
@@ -16576,6 +16885,15 @@ function GenerateWorkspace({ onOpenWorkflowSetup = null }) {
             filenamePrefix: outputPrefix || 'audio/short_film_voice',
           })
           break
+        case IRODORI_TTS_WORKFLOW_ID:
+          modifiedWorkflow = modifyIrodoriTextToSpeechWorkflow(workflowJson, {
+            ...(job.irodoriTts || {}),
+            text: job.irodoriTts?.text || job.prompt,
+            model: job.irodoriTts?.model || IRODORI_TTS_MODEL_FILENAME,
+            seed: job.seed,
+            filenamePrefix: outputPrefix || 'audio/short_film_irodori',
+          })
+          break
         default:
           if (importedJobEntry?.bindings) {
             modifiedWorkflow = applyImportedWorkflowBindings(workflowJson, importedJobEntry.bindings, {
@@ -16596,7 +16914,9 @@ function GenerateWorkspace({ onOpenWorkflowSetup = null }) {
           throw new Error('Unhandled workflow: ' + job.workflowId)
       }
 
+      setJobWorkflowSnapshots((current) => ({ ...current, [job.id]: modifiedWorkflow }))
       updateJob(job.id, { status: 'queuing', progress: 40 })
+      executedWorkflowByJobIdRef.current.set(job.id, modifiedWorkflow)
       const promptId = await comfyui.queuePrompt(modifiedWorkflow)
       if (!promptId) throw new Error('Failed to queue prompt')
 
@@ -16641,7 +16961,10 @@ function GenerateWorkspace({ onOpenWorkflowSetup = null }) {
         })
       }
     } catch (err) {
-      const msg = err?.message || 'Generation failed'
+      const rawMessage = err?.message || 'Generation failed'
+      const msg = /HostBuffer\.read_file_slice failed/i.test(rawMessage)
+        ? 'モデル読込用のシステムメモリまたは仮想メモリが不足しました。ほかの重いアプリを閉じ、失敗したジョブを再試行してください。繰り返す場合はWindowsのページファイルを増やすか、軽量なモデル／ワークフローを使用してください。 (HostBuffer.read_file_slice failed)'
+        : rawMessage
       addComfyLog('error', msg)
       updateJob(job.id, {
         status: 'error',
@@ -16649,6 +16972,7 @@ function GenerateWorkspace({ onOpenWorkflowSetup = null }) {
         progress: 0
       })
     } finally {
+      executedWorkflowByJobIdRef.current.delete(job.id)
       await finalizeStoryboardPdfBatchForJob(job, importedAssets)
     }
   }, [assets, currentProjectHandle, updateJob, saveGenerationResult, pollForResult, addComfyLog, finalizeStoryboardPdfBatchForJob, rememberLatestWorkflowPreview])
@@ -16890,8 +17214,8 @@ function GenerateWorkspace({ onOpenWorkflowSetup = null }) {
             )}
             {!launcherIsBooting && !launcherWaitingForExternal && launcherCanAutoStart && (
               <>
-                <span className="font-semibold">ComfyUI is offline.</span>{' '}
-                <span className="text-sky-200/85">Hit Start (or just queue a job) and Velorn will boot it for you.</span>
+                <span className="font-semibold">{t('generate.director.common.offline', {}, 'ComfyUI is offline.')}</span>{' '}
+                <span className="text-sky-200/85">{t('generate.director.common.offlineHelp', {}, 'Hit Start (or just queue a job) and Lumeweft will boot it for you.')}</span>
               </>
             )}
           </div>
@@ -16901,7 +17225,7 @@ function GenerateWorkspace({ onOpenWorkflowSetup = null }) {
               onClick={() => { void startComfyLauncher() }}
               className="text-[11px] font-semibold px-2.5 py-1 rounded bg-sky-500 hover:bg-sky-400 text-white transition-colors"
             >
-              Start ComfyUI
+              {t('generate.director.common.startComfy', {}, 'Start ComfyUI')}
             </button>
           )}
         </div>
@@ -16929,6 +17253,15 @@ function GenerateWorkspace({ onOpenWorkflowSetup = null }) {
               className={`px-3 py-1 rounded text-xs transition-colors ${generationMode === 'yolo' ? 'bg-sf-accent text-white' : 'text-sf-text-muted hover:text-sf-text-primary'}`}
             >
               {t('generate.mode.director')}
+            </button>
+            <button
+              onClick={() => {
+                setGenerationMode('history')
+                setWorkflowDetailOpen(false)
+              }}
+              className={`px-3 py-1 rounded text-xs transition-colors ${generationMode === 'history' ? 'bg-sf-accent text-white' : 'text-sf-text-muted hover:text-sf-text-primary'}`}
+            >
+              {t('generate.mode.history')}
             </button>
           </div>
         </div>
@@ -17041,6 +17374,19 @@ function GenerateWorkspace({ onOpenWorkflowSetup = null }) {
                   />
                 )}
               </>
+            )}
+
+            {generationMode === 'history' && (
+              <GenerationLibrary
+                onUseInQueue={({ positive, negative }) => {
+                  setPrompt(positive)
+                  setNegativePrompt(negative)
+                  setPromptOriginal(positive)
+                  setPromptTranslationActive(false)
+                  setGenerationMode('single')
+                  setWorkflowDetailOpen(false)
+                }}
+              />
             )}
 
             {generationMode === 'single' && false && (
@@ -17450,7 +17796,7 @@ function GenerateWorkspace({ onOpenWorkflowSetup = null }) {
                       className="sticky top-0 z-20 inline-flex items-center gap-2 self-start rounded-lg border border-sf-dark-700 bg-sf-dark-950/90 px-3 py-1.5 text-xs text-sf-text-secondary shadow-sm backdrop-blur transition-colors hover:border-sf-dark-500 hover:text-sf-text-primary"
                     >
                       <ChevronLeft className="h-3.5 w-3.5" />
-                      Back to create workflows
+                      {t('generate.director.common.backToWorkflows', {}, 'Back to create workflows')}
                     </button>
 
                 {(isAdEasyMode || isBusinessAdCreator || isUgcAdCreator) ? (
@@ -17504,6 +17850,8 @@ function GenerateWorkspace({ onOpenWorkflowSetup = null }) {
                     handleQueueUgcVoicePreviews={handleQueueUgcVoicePreviews}
                     handleQueueUgcOneShot={handleQueueUgcOneShot}
                     voicePreviews={voicePreviews}
+                    handleImportUgcReferenceImage={handleImportUgcReferenceImage}
+                    ugcReferenceImageImporting={ugcReferenceImageImporting}
                     handleOpenYoloAdCustomKeyframeWorkflowInComfyUi={handleOpenYoloAdCustomKeyframeWorkflowInComfyUi}
                     handleImportYoloAdCustomKeyframeWorkflow={handleImportYoloAdCustomKeyframeWorkflow}
                     handleClearYoloAdCustomKeyframeWorkflow={handleClearYoloAdCustomKeyframeWorkflow}
@@ -17525,6 +17873,8 @@ function GenerateWorkspace({ onOpenWorkflowSetup = null }) {
                     setYoloMusicAudioKind={setYoloMusicAudioKind}
                     yoloMusicAsrLanguage={yoloMusicAsrLanguage}
                     setYoloMusicAsrLanguage={setYoloMusicAsrLanguage}
+                    yoloMusicTranscriptionEngine={yoloMusicTranscriptionEngine}
+                    setYoloMusicTranscriptionEngine={setYoloMusicTranscriptionEngine}
                     yoloMusicAudioAsset={yoloMusicAudioAsset}
                     yoloMusicStyleNotes={yoloMusicStyleNotes}
                     setYoloMusicStyleNotes={setYoloMusicStyleNotes}
@@ -17586,6 +17936,7 @@ function GenerateWorkspace({ onOpenWorkflowSetup = null }) {
                     handleQueueYoloStoryboards={handleQueueYoloStoryboards}
                     handleQueueYoloShotStoryboard={handleQueueYoloShotStoryboard}
                     handleQueueYoloShotStoryboards={handleQueueYoloShotStoryboards}
+                    handleCancelQueuedGenerationJob={handleCancelQueuedGenerationJob}
                     handleReplaceYoloMusicKeyframe={handleReplaceYoloMusicKeyframe}
                     handleReplaceYoloMusicVideo={handleReplaceYoloMusicVideo}
                     handleQueueYoloVideos={handleQueueYoloVideos}
@@ -17766,6 +18117,22 @@ function GenerateWorkspace({ onOpenWorkflowSetup = null }) {
                               </button>
                             </div>
                           </div>
+                          <label className="mt-2 block max-w-xs">
+                            <span className="text-[10px] uppercase text-sf-text-muted">Timing Engine</span>
+                            <select
+                              value={yoloMusicTranscriptionEngine}
+                              onChange={(event) => setYoloMusicTranscriptionEngine(normalizeMusicTimingEngine(event.target.value))}
+                              disabled={yoloMusicTranscribingSrt}
+                              className="mt-1 w-full rounded-lg border border-sf-dark-600 bg-sf-dark-800 px-3 py-2 text-xs text-sf-text-primary outline-none focus:border-sf-accent disabled:opacity-60"
+                            >
+                              {MUSIC_TIMING_ENGINE_OPTIONS.map((option) => (
+                                <option key={option.id} value={option.id}>{option.label}</option>
+                              ))}
+                            </select>
+                            <span className="mt-1 block text-[10px] text-sf-text-muted">
+                              {MUSIC_TIMING_ENGINE_OPTIONS.find((option) => option.id === yoloMusicTranscriptionEngine)?.description}
+                            </span>
+                          </label>
                           <div className="mt-2 rounded-lg border border-sf-dark-700 bg-sf-dark-900/60 p-3">
                             <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
                               <div className="text-[10px] leading-5 text-sf-text-secondary">
@@ -19747,7 +20114,7 @@ function GenerateWorkspace({ onOpenWorkflowSetup = null }) {
         </div>
 
         {/* Right: Progress + Generate (collapsible) */}
-        <div className={`${rightSidebarCollapsed ? 'w-12' : 'w-80'} flex-shrink-0 min-h-0 border-l border-sf-dark-700 bg-sf-dark-900 flex flex-col overflow-hidden transition-all duration-200`}>
+        <div className={`${generationMode === 'history' ? 'hidden' : (rightSidebarCollapsed ? 'w-12' : 'w-80')} flex-shrink-0 min-h-0 border-l border-sf-dark-700 bg-sf-dark-900 flex flex-col overflow-hidden transition-all duration-200`}>
           {rightSidebarCollapsed ? (
             <button
               type="button"
@@ -19772,6 +20139,41 @@ function GenerateWorkspace({ onOpenWorkflowSetup = null }) {
           </div>
           <div className="flex-1 min-h-0 overflow-y-auto flex flex-col">
           <div className="flex-shrink-0 p-4 border-b border-sf-dark-700">
+            {generationMode === 'single' && (
+              <div className="mb-3 space-y-2">
+                {currentWorkflow?.needsImage && (
+                  <div>
+                    <div className="mb-1 text-[10px] font-medium text-sf-text-muted">{t('generate.queue.referenceImage')}</div>
+                    {selectedAsset ? (
+                      <div className="flex items-center gap-2 rounded-lg border border-sf-dark-600 bg-sf-dark-800 p-2">
+                        {selectedAsset.url && <img src={selectedAsset.url} alt="" className="h-10 w-10 rounded object-cover" />}
+                        <div className="min-w-0 flex-1 truncate text-[10px] text-sf-text-primary">{selectedAsset.name}</div>
+                        <button type="button" onClick={() => { void handleQueueImageImport() }} className="shrink-0 text-[10px] text-sf-accent hover:text-sf-accent-hover">{t('generate.queue.replace')}</button>
+                      </div>
+                    ) : (
+                      <button type="button" onClick={() => { void handleQueueImageImport() }} disabled={queueImageImporting} className="flex w-full items-center justify-center gap-1.5 rounded-lg border border-dashed border-sf-dark-500 bg-sf-dark-800/50 px-3 py-2 text-[10px] text-sf-text-secondary hover:border-sf-accent hover:text-sf-text-primary disabled:opacity-50">
+                        {queueImageImporting ? <Loader2 className="h-3 w-3 animate-spin" /> : <FolderOpen className="h-3 w-3" />}
+                        {t('generate.queue.pickLocalImage')}
+                      </button>
+                    )}
+                  </div>
+                )}
+                <div>
+                  <div className="mb-1 flex items-center justify-between gap-2">
+                    <label className="text-[10px] font-medium text-sf-text-muted">{t('generate.queue.prompt')}</label>
+                    <div className="flex items-center gap-1">
+                    <button type="button" onClick={handleRestorePrompt} disabled={promptTranslating || !promptTranslationActive} className="rounded border border-sf-dark-600 px-1.5 py-0.5 text-[9px] text-sf-text-secondary hover:border-sf-accent hover:text-sf-text-primary disabled:cursor-not-allowed disabled:opacity-40">{t('generate.queue.restoreOriginal')}</button>
+                    <button type="button" onClick={() => { void handleTranslatePrompt('zh-cn') }} disabled={promptTranslating || !prompt.trim() || String(language).toLowerCase().startsWith('zh')} className="rounded border border-sf-dark-600 px-1.5 py-0.5 text-[9px] text-sf-text-secondary hover:border-sf-accent hover:text-sf-text-primary disabled:cursor-not-allowed disabled:opacity-40" title={t('generate.queue.translateHelp')}>{t('generate.queue.translateChinese')}</button>
+                    <button type="button" onClick={() => { void handleTranslatePrompt('en') }} disabled={promptTranslating || !prompt.trim() || String(language).toLowerCase().startsWith('en')} className="inline-flex items-center gap-1 rounded border border-sf-dark-600 px-1.5 py-0.5 text-[9px] text-sf-text-secondary hover:border-sf-accent hover:text-sf-text-primary disabled:cursor-not-allowed disabled:opacity-40" title={t('generate.queue.translateHelp')}>
+                      {promptTranslating ? <Loader2 className="h-3 w-3 animate-spin" /> : <Languages className="h-3 w-3" />}
+                      {promptTranslating ? t('generate.queue.translating') : t('generate.queue.translateEnglish')}
+                    </button>
+                    </div>
+                  </div>
+                  <textarea value={prompt} onChange={(event) => { setPrompt(event.target.value); if (!promptTranslationActive) setPromptOriginal(event.target.value) }} rows={3} placeholder={t('generate.queue.promptPlaceholder')} className="w-full resize-y rounded-lg border border-sf-dark-600 bg-sf-dark-800 px-2.5 py-2 text-[11px] text-sf-text-primary outline-none placeholder:text-sf-text-muted focus:border-sf-accent" />
+                </div>
+              </div>
+            )}
             <button
               onClick={handleGenerate}
               disabled={isGenerateDisabled}
@@ -19923,7 +20325,51 @@ function GenerateWorkspace({ onOpenWorkflowSetup = null }) {
                 )}
 
                 {(dependencyCheck.status === 'missing' || dependencyCheck.status === 'partial') && (
-                  <div className="mt-2 flex flex-wrap items-center gap-2">
+                  <div className="mt-2 space-y-2">
+                    {workflowSetupFlow.mode === 'setup' && (
+                      <button
+                        type="button"
+                        onClick={() => { void workflowSetupFlow.startSetup() }}
+                        disabled={workflowSetupFlow.insufficientDiskSpace}
+                        className="inline-flex w-full items-center justify-center gap-1.5 rounded bg-sf-accent px-2 py-1.5 text-[10px] font-semibold text-white hover:bg-sf-accent-hover disabled:cursor-not-allowed disabled:opacity-50"
+                      >
+                        <Download className="h-3 w-3" />
+                        {t('generate.dependencies.autoInstall')}
+                      </button>
+                    )}
+                    {workflowSetupFlow.mode === 'choose-root' && (
+                      <button
+                        type="button"
+                        onClick={() => { void workflowSetupFlow.chooseComfyFolder() }}
+                        className="inline-flex w-full items-center justify-center gap-1.5 rounded bg-sf-accent px-2 py-1.5 text-[10px] font-semibold text-white hover:bg-sf-accent-hover"
+                      >
+                        <FolderOpen className="h-3 w-3" />
+                        {t('generate.dependencies.chooseFolder')}
+                      </button>
+                    )}
+                    {workflowSetupFlow.mode === 'installing' && (
+                      <div className="rounded border border-sf-dark-600 bg-sf-dark-900/60 p-2">
+                        <div className="flex items-center gap-1.5 text-[10px] text-sf-text-secondary">
+                          <Loader2 className="h-3 w-3 animate-spin text-sf-accent" />
+                          {workflowSetupFlow.progress.currentLabel || t('generate.dependencies.installing')}
+                        </div>
+                        <div className="mt-1.5 h-1 overflow-hidden rounded-full bg-sf-dark-700">
+                          <div className="h-full bg-sf-accent" style={{ width: `${Math.max(2, workflowSetupFlow.progress.overallPercent || 0)}%` }} />
+                        </div>
+                      </div>
+                    )}
+                    {workflowSetupFlow.mode === 'needs-restart' && (
+                      <button
+                        type="button"
+                        onClick={() => { void workflowSetupFlow.restartNow() }}
+                        disabled={!['restart', 'start'].includes(workflowSetupFlow.restartCapability)}
+                        className="inline-flex w-full items-center justify-center gap-1.5 rounded bg-yellow-500 px-2 py-1.5 text-[10px] font-semibold text-black hover:bg-yellow-400 disabled:cursor-not-allowed disabled:opacity-50"
+                      >
+                        <RefreshCw className="h-3 w-3" />
+                        {t('generate.dependencies.restartComfy')}
+                      </button>
+                    )}
+                    <div className="flex flex-wrap items-center gap-2">
                     <button
                       type="button"
                       onClick={() => { void handleCopyDependencyReport() }}
@@ -19957,6 +20403,7 @@ function GenerateWorkspace({ onOpenWorkflowSetup = null }) {
                         {t('generate.dependencies.openRegistry')}
                       </a>
                     )}
+                    </div>
                   </div>
                 )}
               </div>
@@ -19977,7 +20424,7 @@ function GenerateWorkspace({ onOpenWorkflowSetup = null }) {
               <div className="mt-2 rounded-md border border-red-500/30 bg-red-500/10 p-2 text-left">
                 <div className="flex items-start justify-between gap-2">
                   <div className="min-w-0 text-[10px] font-semibold text-red-200">
-                    Generation message
+                    {t('generate.messages.title')}
                   </div>
                   <button
                     type="button"
@@ -20097,7 +20544,7 @@ function GenerateWorkspace({ onOpenWorkflowSetup = null }) {
                         <div className="text-[9px] text-sf-error">{job.error}</div>
                       </div>
                     )}
-                    {(canCreateAngleSheet || job.status === 'error') && (
+                    {(canCreateAngleSheet || job.status === 'error' || jobWorkflowSnapshots[job.id]) && (
                       <div className="mt-2 flex items-center gap-2">
                         {canCreateAngleSheet && (
                           <>
@@ -20113,6 +20560,17 @@ function GenerateWorkspace({ onOpenWorkflowSetup = null }) {
                               <span className="text-[9px] text-sf-error">{job.combineError}</span>
                             )}
                           </>
+                        )}
+                        {jobWorkflowSnapshots[job.id] && (
+                          <button
+                            type="button"
+                            onClick={() => { void handleOpenJobWorkflowInComfyUi(job) }}
+                            className="inline-flex items-center gap-1.5 rounded border border-sf-dark-600 bg-sf-dark-700 px-2 py-1 text-[10px] text-sf-text-secondary transition-colors hover:border-sf-accent/50 hover:bg-sf-dark-600 hover:text-sf-text-primary"
+                            title="このジョブで実行したノード構成をComfyUIタブで開く"
+                          >
+                            <Terminal className="h-3 w-3" />
+                            ComfyUIでフローを開く
+                          </button>
                         )}
                         {job.status === 'error' && (
                           <button

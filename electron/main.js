@@ -43,6 +43,59 @@ const { loadMyWorkflowCatalog } = require('./myWorkflowCatalog')
 
 const isDev = !app.isPackaged
 
+const promptTranslatorPromises = new Map()
+
+async function getPromptTranslator(modelId) {
+  if (!promptTranslatorPromises.has(modelId)) {
+    const promise = (async () => {
+      const { env, pipeline } = await import('@huggingface/transformers')
+      env.cacheDir = path.join(app.getPath('userData'), 'translation-models')
+      env.allowLocalModels = true
+      env.allowRemoteModels = true
+      return pipeline('translation', modelId, { dtype: 'q8' })
+    })().catch((error) => {
+      promptTranslatorPromises.delete(modelId)
+      throw error
+    })
+    promptTranslatorPromises.set(modelId, promise)
+  }
+  return promptTranslatorPromises.get(modelId)
+}
+
+async function runPromptTranslation(source, modelId) {
+  const translator = await getPromptTranslator(modelId)
+  const result = await translator(source, { max_new_tokens: 1024 })
+  const translated = String(result?.[0]?.translation_text || '').trim()
+  if (!translated) throw new Error('翻訳結果が空でした。')
+  return translated
+}
+
+ipcMain.handle('prompt:translate', async (_event, payload = {}) => {
+  const source = String(payload?.text || '').trim()
+  const sourceLanguage = String(payload?.sourceLanguage || 'ja').trim().toLowerCase().split('-')[0]
+  const target = String(payload?.target || 'en').trim().toLowerCase()
+  if (!source) throw new Error('翻訳するプロンプトを入力してください。')
+  if (source.length > 12000) throw new Error('プロンプトが長すぎます。12,000文字以内にしてください。')
+  if (!['en', 'zh-cn'].includes(target)) throw new Error('未対応の翻訳先です。')
+  const normalizedTarget = target === 'zh-cn' ? 'zh' : target
+  if (sourceLanguage === normalizedTarget) return source
+  try {
+    const routes = {
+      'ja:en': ['onnx-community/opus-mt-ja-en'],
+      'ja:zh': ['onnx-community/opus-mt-ja-en', 'onnx-community/opus-mt-en-zh'],
+      'en:zh': ['onnx-community/opus-mt-en-zh'],
+      'zh:en': ['onnx-community/opus-mt-zh-en'],
+    }
+    const route = routes[`${sourceLanguage}:${normalizedTarget}`]
+    if (!route) throw new Error(`翻訳経路が未登録です: ${sourceLanguage} → ${normalizedTarget}`)
+    let translated = source
+    for (const modelId of route) translated = await runPromptTranslation(translated, modelId)
+    return translated
+  } catch (error) {
+    throw new Error(`端末内翻訳を実行できませんでした。初回は翻訳モデルの取得にネット接続が必要です。${error?.message ? ` (${error.message})` : ''}`)
+  }
+})
+
 // App icon (build/icon.png) – used for window and taskbar/dock
 const iconPath = path.join(__dirname, '..', 'build', 'icon.png')
 
@@ -89,14 +142,14 @@ let settingsWriteQueue = Promise.resolve()
 
 function performMcpRendererAction(request = {}) {
   if (!mainWindow || mainWindow.isDestroyed()) {
-    return Promise.reject(new Error('No Velorn window is available.'))
+    return Promise.reject(new Error('No Lumeweft window is available.'))
   }
 
   const id = `mcp-action-${crypto.randomUUID()}`
   return new Promise((resolve, reject) => {
     const timeout = setTimeout(() => {
       pendingMcpActionRequests.delete(id)
-      reject(new Error('Timed out waiting for Velorn to apply MCP action.'))
+      reject(new Error('Timed out waiting for Lumeweft to apply MCP action.'))
     }, 60000)
 
     pendingMcpActionRequests.set(id, { resolve, reject, timeout })
@@ -149,7 +202,7 @@ function getFfmpegUnavailableError(binaryPath = ffmpegPath) {
   if (!binaryPath) return 'FFmpeg binary not available.'
   if (!fsSync.existsSync(binaryPath)) {
     const recovery = binaryPath === ffmpegPath
-      ? 'Reinstall Velorn (or run npm install in a dev checkout) to restore it.'
+      ? 'Reinstall Lumeweft (or run npm install in a dev checkout) to restore it.'
       : 'Choose another hardware-export FFmpeg path or restore the selected file.'
     return `FFmpeg binary is missing at ${binaryPath}. ${recovery}`
   }
@@ -1460,13 +1513,67 @@ async function downloadFileWithProgress(task, targetPath, progressMeta = {}) {
 
   let response = null
   try {
-    response = await net.fetch(task.downloadUrl)
+    const requestHeaders = task?.requestHeaders && typeof task.requestHeaders === 'object'
+      ? { ...task.requestHeaders }
+      : undefined
+    const initialFetch = task?.stripAuthorizationOnRedirect ? globalThis.fetch : net.fetch
+    response = await initialFetch(task.downloadUrl, {
+      headers: requestHeaders,
+      redirect: task?.stripAuthorizationOnRedirect ? 'manual' : 'follow',
+      signal: task?.signal,
+    })
+
+    // Civitai authenticates the API endpoint, then redirects to a signed R2
+    // object URL. Electron's network stack may forward Authorization across
+    // that cross-origin redirect; R2 rejects the otherwise valid signed URL
+    // with 400. Follow this one redirect ourselves and deliberately remove
+    // credentials before contacting the delivery host.
+    if (task?.stripAuthorizationOnRedirect && response.status >= 300 && response.status < 400) {
+      const location = String(response.headers.get('location') || '').trim()
+      let redirectUrl = null
+      try { redirectUrl = new URL(location, task.downloadUrl) } catch { /* handled below */ }
+      const redirectHost = redirectUrl?.hostname?.toLowerCase() || ''
+      const allowedDeliveryHost = (
+        redirectHost === 'civitai.com'
+        || redirectHost.endsWith('.civitai.com')
+        || redirectHost === 'civitai.red'
+        || redirectHost.endsWith('.civitai.red')
+        || redirectHost.endsWith('.r2.cloudflarestorage.com')
+      )
+      if (redirectUrl?.protocol !== 'https:' || !allowedDeliveryHost) {
+        throw new Error(`Civitai returned an unsafe download redirect for ${task.filename}.`)
+      }
+      const deliveryHeaders = Object.fromEntries(
+        Object.entries(requestHeaders || {}).filter(([key]) => key.toLowerCase() !== 'authorization')
+      )
+      response = await net.fetch(redirectUrl.toString(), {
+        headers: deliveryHeaders,
+        redirect: 'follow',
+        signal: task?.signal,
+      })
+    }
   } catch (error) {
     throw new Error(`Could not reach ${task.downloadUrl}: ${error.message}`)
   }
 
   if (!response.ok) {
+    if (response.status === 401 || response.status === 403) {
+      throw new Error(`Download authorization failed for ${task.filename}. Add a Civitai API key for login-only files.`)
+    }
     throw new Error(`Download failed for ${task.filename} (${response.status} ${response.statusText})`)
+  }
+
+  const responseContentType = String(response.headers.get('content-type') || '').toLowerCase()
+  if (responseContentType.includes('application/json')) {
+    let apiMessage = ''
+    try {
+      const payload = await response.json()
+      apiMessage = String(payload?.message || payload?.error || '').trim()
+    } catch (_) { /* keep the generic message */ }
+    if (/log(?:ged)?\s*in|unauthori[sz]ed|authentication/i.test(apiMessage)) {
+      throw new Error(`Civitai requires login for ${task.filename}. Add your Civitai API key, then retry.`)
+    }
+    throw new Error(`Civitai returned an API response instead of the model file${apiMessage ? `: ${apiMessage}` : '.'}`)
   }
 
   const totalBytes = Number(response.headers.get('content-length') || task.sizeBytes || 0)
@@ -1939,7 +2046,7 @@ async function getComfyCloudCreditBalanceFromEmbeddedComfy() {
   }
 }
 
-async function loadWorkflowGraphInEmbeddedComfy({ workflowGraph, comfyBaseUrl, waitForMs = 12000 }) {
+async function loadWorkflowGraphInEmbeddedComfy({ workflowGraph, workflowName = 'Lumeweft workflow', comfyBaseUrl, waitForMs = 45000 }) {
   const frame = await findEmbeddedComfyFrame(comfyBaseUrl, waitForMs)
   if (!frame) {
     throw new Error('Could not locate the embedded ComfyUI tab. Enable the ComfyUI tab and make sure the local server is running.')
@@ -1948,47 +2055,47 @@ async function loadWorkflowGraphInEmbeddedComfy({ workflowGraph, comfyBaseUrl, w
   const script = `
     (async () => {
       const graphData = ${JSON.stringify(workflowGraph)};
+      const workflowName = ${JSON.stringify(String('' + (workflowName || 'Lumeweft workflow')))};
       const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
-      const ensureCanvasVisible = async (appInstance) => {
-        for (let attempt = 0; attempt < 20; attempt += 1) {
-          const canvasEl = appInstance?.canvasEl || appInstance?.canvas?.canvas || document.querySelector('canvas');
-          const rect = canvasEl?.getBoundingClientRect?.();
-          if (rect && rect.width > 0 && rect.height > 0) {
-            return true;
-          }
-          await sleep(100);
-        }
-        return false;
-      };
-
-      let comfyApp = globalThis.app || globalThis.__COMFYUI_APP__ || null;
-      for (let attempt = 0; attempt < 20; attempt += 1) {
-        if (!comfyApp) {
-          try {
-            const appModule = await import('/scripts/app.js');
-            comfyApp = appModule?.app || globalThis.app || globalThis.__COMFYUI_APP__ || null;
-          } catch (_) {
-            // Ignore temporary frontend boot timing failures and keep polling.
-          }
+      let comfyApp = null;
+      for (let attempt = 0; attempt < 180; attempt += 1) {
+        comfyApp = globalThis.__COMFYUI_APP__ || globalThis.app || comfyApp;
+        try {
+          // Prefer ComfyUI's exported singleton. Some extensions expose an
+          // unrelated window.app before the real frontend has finished setup.
+          const appModule = await import('/scripts/app.js');
+          comfyApp = appModule?.app || globalThis.__COMFYUI_APP__ || globalThis.app || comfyApp;
+        } catch (_) {
+          // Ignore temporary frontend boot timing failures and keep polling.
         }
 
+        // rootGraph/canvasEl are private implementation details and no longer
+        // exist consistently in recent ComfyUI frontend builds. loadGraphData
+        // is the actual capability required to replace the active workflow.
         if (comfyApp?.loadGraphData) break;
         await sleep(250);
-        comfyApp = comfyApp || globalThis.app || globalThis.__COMFYUI_APP__ || null;
       }
 
       if (!comfyApp?.loadGraphData) {
-        return { success: false, error: 'ComfyUI frontend app is not ready yet.' };
+        return { success: false, error: 'ComfyUI frontend workflow loader is not ready yet.' };
       }
 
       try {
-        const canvasVisible = await ensureCanvasVisible(comfyApp);
-        if (!canvasVisible) {
-          return { success: false, error: 'ComfyUI canvas is still hidden, so the workflow could not be loaded safely yet.' };
-        }
+        await comfyApp.loadGraphData(graphData, true, true, workflowName, {
+          openSource: 'template',
+          deferWarnings: false,
+        });
+        await sleep(100);
 
-        await comfyApp.loadGraphData(graphData);
-        await sleep(0);
+        const activeNodes = comfyApp?.canvas?.graph?._nodes
+          || comfyApp?.graph?._nodes
+          || comfyApp?.rootGraph?._nodes
+          || comfyApp?.workflowManager?.activeWorkflow?.graph?._nodes
+          || null;
+        const expectedNodeCount = Array.isArray(graphData?.nodes) ? graphData.nodes.length : 0;
+        if (expectedNodeCount > 0 && Array.isArray(activeNodes) && activeNodes.length === 0) {
+          return { success: false, error: 'ComfyUI accepted the workflow but left the active canvas empty.' };
+        }
         if (comfyApp.canvas?.resize) {
           comfyApp.canvas.resize();
         }
@@ -1998,15 +2105,24 @@ async function loadWorkflowGraphInEmbeddedComfy({ workflowGraph, comfyBaseUrl, w
         if (comfyApp.canvas?.draw) {
           comfyApp.canvas.draw(true, true);
         }
-        return { success: true };
+        return {
+          success: true,
+          expectedNodeCount,
+          activeNodeCount: Array.isArray(activeNodes) ? activeNodes.length : null,
+        };
       } catch (error) {
-        return { success: false, error: error?.message || String(error) };
+        return {
+          success: false,
+          error: error?.message || String(error),
+          stack: error?.stack || '',
+        };
       }
     })()
   `
 
   const result = await frame.executeJavaScript(script, true)
   if (!result?.success) {
+    console.warn('[ComfyUI] embedded workflow load failed:', result?.stack || result?.error)
     throw new Error(result?.error || 'ComfyUI refused to load the workflow graph.')
   }
 
@@ -2551,6 +2667,7 @@ function deriveWorkflowIdFromFile(filename = '') {
     '1_click_multiple_scene_angles-v1.0': 'multi-angles-scene',
     api_bytedance_seedream_5_0_lite_image_edit: 'seedream-5-lite-image-edit',
     api_elevenlabs_text_to_speech: 'elevenlabs-tts',
+    irodori_tts: 'irodori-tts',
     api_google_gemini: 'google-gemini-flash-lite',
     api_google_nano_banana2_image_edit: 'nano-banana-2',
     api_grok_text_to_image: 'grok-text-to-image',
@@ -3481,9 +3598,10 @@ ipcMain.handle('window:toggleMaximize', () => {
 })
 
 ipcMain.handle('window:close', () => {
-  if (mainWindow) {
-    mainWindow.close()
-  }
+  // Closing Lumeweft means quitting the application, not just destroying the
+  // editor window. Auxiliary BrowserWindows (preview popouts, auth dialogs,
+  // export workers) can otherwise keep Electron and the dev launcher alive.
+  app.quit()
   return true
 })
 
@@ -3562,7 +3680,7 @@ async function createWindow(restoredWindowState = null) {
     minHeight: 800,
     icon: iconPath,
     backgroundColor: '#0a0a0b',
-    titleBarStyle: 'hiddenInset',
+    ...(process.platform === 'darwin' ? { titleBarStyle: 'hiddenInset' } : {}),
     frame: process.platform === 'darwin' ? true : false,
     webPreferences: {
       nodeIntegration: false,
@@ -3580,6 +3698,7 @@ async function createWindow(restoredWindowState = null) {
   // otherwise invisible in support logs.
   const appLogPath = path.join(app.getPath('userData'), 'app.log')
   if (beginCappedLogSession(appLogPath, '--- app session started')) {
+    const rendererCrashTimes = []
     const appLog = (line) => {
       try { fsSync.appendFileSync(appLogPath, `${line}\n`) } catch { /* ignore */ }
     }
@@ -3588,12 +3707,25 @@ async function createWindow(restoredWindowState = null) {
     })
     mainWindow.webContents.on('render-process-gone', (_event, details) => {
       appLog(`!!! MAIN WINDOW RENDER PROCESS GONE: ${JSON.stringify(details)}`)
+      if (!['crashed', 'oom'].includes(String(details?.reason || ''))) return
+      const now = Date.now()
+      rendererCrashTimes.push(now)
+      while (rendererCrashTimes.length > 0 && now - rendererCrashTimes[0] > 60000) rendererCrashTimes.shift()
+      if (rendererCrashTimes.length > 3) {
+        appLog('!!! MAIN WINDOW AUTO-RECOVERY STOPPED: repeated renderer crashes')
+        return
+      }
+      setTimeout(() => {
+        if (!mainWindow || mainWindow.isDestroyed()) return
+        appLog('!!! RELOADING MAIN WINDOW AFTER RENDERER CRASH')
+        mainWindow.reload()
+      }, 500)
     })
     mainWindow.on('unresponsive', () => {
       appLog('!!! MAIN WINDOW UNRESPONSIVE')
     })
   } else {
-    console.error(`[Velorn] Could not write ${appLogPath}; main-window console mirroring disabled for this session.`)
+    console.error(`[Lumeweft] Could not write ${appLogPath}; main-window console mirroring disabled for this session.`)
   }
 
   // Start maximized rather than true fullscreen. Maximized uses the full
@@ -3805,7 +3937,7 @@ async function createWindow(restoredWindowState = null) {
         return {
           action: 'allow',
           overrideBrowserWindowOptions: {
-            title: 'Velorn Preview',
+            title: 'Lumeweft Preview',
             autoHideMenuBar: true,
             backgroundColor: '#000000',
             minWidth: 240,
@@ -3896,9 +4028,9 @@ async function createWindow(restoredWindowState = null) {
         buttons: ['Stop ComfyUI & quit', 'Leave ComfyUI running', 'Cancel'],
         defaultId: 0,
         cancelId: 2,
-        title: 'Quit Velorn?',
+        title: 'Quit Lumeweft?',
         message: 'ComfyUI is still running.',
-        detail: 'Velorn started ComfyUI. Choose what happens to it when you quit.\n\n• Stop ComfyUI & quit — shuts down ComfyUI and cancels any in-flight generation jobs.\n• Leave ComfyUI running — Velorn will quit but ComfyUI stays up. Handy when you\'re just relaunching Velorn and don\'t want to wait for ComfyUI to boot again.',
+        detail: 'Lumeweft started ComfyUI. Choose what happens to it when you quit.\n\n• Stop ComfyUI & quit — shuts down ComfyUI and cancels any in-flight generation jobs.\n• Leave ComfyUI running — Lumeweft will quit but ComfyUI stays up. Handy when you\'re just relaunching Lumeweft and don\'t want to wait for ComfyUI to boot again.',
       })
       if (choice.response === 2) return
       launcherQuitConfirmed = true
@@ -3927,6 +4059,12 @@ async function createWindow(restoredWindowState = null) {
       mainWindowStateSaveTimer = null
     }
     mainWindow = null
+    // Alt+F4 and the native Windows/Linux close action bypass the renderer IPC
+    // above. Explicitly quit so any surviving auxiliary windows cannot leave
+    // Lumeweft running invisibly. Keep the standard macOS close-window model.
+    if (process.platform !== 'darwin') {
+      app.quit()
+    }
   })
 
   mainWindow.on('restore', () => {
@@ -4929,6 +5067,344 @@ ipcMain.handle('settings:delete', async (event, key) => {
   }
 })
 
+ipcMain.handle('civitai:getModel', async (_event, modelId) => {
+  const normalizedId = Number(modelId)
+  if (!Number.isSafeInteger(normalizedId) || normalizedId <= 0) {
+    return { success: false, error: 'Invalid Civitai model ID.' }
+  }
+
+  const controller = new AbortController()
+  const timer = setTimeout(() => controller.abort(), 20_000)
+  try {
+    const settings = await readSettingsRaw().catch(() => ({}))
+    const civitaiApiKey = String(settings?.civitaiApiKey || '').trim()
+    const response = await fetch(`https://civitai.com/api/v1/models/${normalizedId}`, {
+      signal: controller.signal,
+      headers: {
+        Accept: 'application/json',
+        'User-Agent': `Lumeweft/${app.getVersion()}`,
+        ...(civitaiApiKey ? { Authorization: `Bearer ${civitaiApiKey}` } : {}),
+      },
+    })
+    if (!response.ok) {
+      if (response.status === 404) return { success: false, error: 'Civitai could not find that model.' }
+      if (response.status === 401 || response.status === 403) {
+        return { success: false, error: 'Civitai requires authentication or does not allow access to this model.' }
+      }
+      return { success: false, error: `Civitai model request failed (${response.status}).` }
+    }
+    const model = await response.json()
+    if (!model || Number(model.id) !== normalizedId || !Array.isArray(model.modelVersions)) {
+      return { success: false, error: 'Civitai returned an unexpected model response.' }
+    }
+    return { success: true, model }
+  } catch (error) {
+    const message = error?.name === 'AbortError'
+      ? 'Civitai model request timed out.'
+      : (error?.message || 'Could not reach Civitai.')
+    return { success: false, error: message }
+  } finally {
+    clearTimeout(timer)
+  }
+})
+
+ipcMain.handle('civitai:getImageGenerationData', async (_event, imageId) => {
+  const normalizedId = Number(imageId)
+  if (!Number.isSafeInteger(normalizedId) || normalizedId <= 0) {
+    return { success: false, error: 'Invalid Civitai image ID.' }
+  }
+
+  const controller = new AbortController()
+  const timer = setTimeout(() => controller.abort(), 20_000)
+  try {
+    const settings = await readSettingsRaw().catch(() => ({}))
+    const civitaiApiKey = String(settings?.civitaiApiKey || '').trim()
+    if (!civitaiApiKey) {
+      return { success: false, error: 'Add a Civitai API key to read example generation data.' }
+    }
+    const input = encodeURIComponent(JSON.stringify({ json: { id: normalizedId } }))
+    const response = await fetch(`https://civitai.com/api/trpc/image.getGenerationData?input=${input}`, {
+      signal: controller.signal,
+      headers: {
+        Accept: 'application/json',
+        Authorization: `Bearer ${civitaiApiKey}`,
+        'User-Agent': `Lumeweft/${app.getVersion()}`,
+      },
+    })
+    if (!response.ok) {
+      if (response.status === 401 || response.status === 403) {
+        return { success: false, error: 'Civitai did not authorize access to this example generation data.' }
+      }
+      return { success: false, error: `Civitai generation-data request failed (${response.status}).` }
+    }
+    const payload = await response.json()
+    const generationData = payload?.result?.data?.json
+    if (!generationData || typeof generationData !== 'object') {
+      return { success: false, error: 'This Civitai example has no readable generation data.' }
+    }
+
+    // Generation-data responses intentionally omit the media URL. The public
+    // post page still exposes its first image (or a video's static poster) as
+    // an image.civitai.com CDN URL, which is sufficient for a tiny UI preview.
+    // Only accept Civitai's image CDN so arbitrary page content can never turn
+    // into a renderer URL.
+    let thumbnailUrl = ''
+    try {
+      const pageResponse = await fetch(`https://civitai.com/images/${normalizedId}`, {
+        signal: controller.signal,
+        headers: {
+          Accept: 'text/html',
+          'User-Agent': `Lumeweft/${app.getVersion()}`,
+          ...(civitaiApiKey ? { Authorization: `Bearer ${civitaiApiKey}` } : {}),
+        },
+      })
+      if (pageResponse.ok) {
+        const html = await pageResponse.text()
+        const candidates = html.match(/https:\/\/image\.civitai\.com\/[^"'\\\s<>]+/g) || []
+        const decoded = candidates.map((value) => value.replace(/&amp;/g, '&').replace(/\\u0026/g, '&'))
+        thumbnailUrl = decoded.find((value) => /anim=false/i.test(value) && /\.(?:png|jpe?g|webp)(?:[?#]|$)/i.test(value))
+          || decoded.find((value) => /\.(?:png|jpe?g|webp)(?:[?#]|$)/i.test(value))
+          || ''
+      }
+    } catch {
+      // Thumbnail lookup is optional; generation metadata remains usable.
+    }
+
+    return { success: true, generationData: { ...generationData, thumbnailUrl } }
+  } catch (error) {
+    const message = error?.name === 'AbortError'
+      ? 'Civitai generation-data request timed out.'
+      : (error?.message || 'Could not read Civitai generation data.')
+    return { success: false, error: message }
+  } finally {
+    clearTimeout(timer)
+  }
+})
+
+const CIVITAI_ALLOWED_MODEL_SUBDIRS = new Set([
+  'checkpoints',
+  'diffusion_models',
+  'loras',
+  'vae',
+  'text_encoders',
+  'controlnet',
+  'embeddings',
+  'upscale_models',
+])
+let activeCivitaiDownloadController = null
+
+ipcMain.handle('civitai:cancelDownload', async () => {
+  if (!activeCivitaiDownloadController) {
+    return { success: false, error: 'There is no active Civitai download.' }
+  }
+  activeCivitaiDownloadController.abort()
+  return { success: true }
+})
+
+function normalizeCivitaiInstallTask(task = {}) {
+  const filename = String(task.filename || '').trim()
+  const targetSubdir = String(task.targetSubdir || '').trim().toLowerCase()
+  const downloadUrl = String(task.downloadUrl || '').trim()
+  const sha256 = String(task.sha256 || '').trim().toLowerCase()
+  if (!filename || filename !== path.basename(filename) || filename === '.' || filename === '..') {
+    throw new Error('Civitai returned an unsafe model filename.')
+  }
+  if (!CIVITAI_ALLOWED_MODEL_SUBDIRS.has(targetSubdir)) {
+    throw new Error(`Unsupported ComfyUI model folder: ${targetSubdir || '(none)'}.`)
+  }
+  let parsedUrl = null
+  try { parsedUrl = new URL(downloadUrl) } catch { /* handled below */ }
+  const host = parsedUrl?.hostname?.toLowerCase() || ''
+  if (
+    parsedUrl?.protocol !== 'https:'
+      || !(host === 'civitai.com' || host === 'www.civitai.com' || host === 'civitai.red' || host === 'www.civitai.red')
+      || !/^\/api\/download\/models\/\d+$/i.test(parsedUrl.pathname)
+  ) {
+    throw new Error('Civitai download URL was rejected.')
+  }
+  if (sha256 && !/^[a-f0-9]{64}$/.test(sha256)) throw new Error(`Invalid SHA-256 for ${filename}.`)
+  return {
+    filename,
+    targetSubdir,
+    downloadUrl,
+    sha256,
+    sizeBytes: Math.max(0, Number(task.sizeBytes) || 0),
+    displayName: String(task.displayName || filename).trim() || filename,
+  }
+}
+
+function escapeRegExp(value) {
+  return String(value || '').replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+}
+
+async function cleanupCivitaiPartialDownloads(modelsPath, tasks = []) {
+  if (activeCivitaiDownloadController) return []
+  const removed = []
+  const grouped = new Map()
+  for (const task of tasks) {
+    const directory = path.join(modelsPath, task.targetSubdir)
+    const patterns = grouped.get(directory) || []
+    patterns.push(new RegExp(`^${escapeRegExp(task.filename)}\\.\\d+\\.\\d+\\.download$`, 'i'))
+    grouped.set(directory, patterns)
+  }
+  for (const [directory, patterns] of grouped) {
+    let entries = []
+    try { entries = await fs.readdir(directory, { withFileTypes: true }) } catch { continue }
+    for (const entry of entries) {
+      if (!entry.isFile() || !patterns.some((pattern) => pattern.test(entry.name))) continue
+      const partialPath = path.join(directory, entry.name)
+      try {
+        await fs.unlink(partialPath)
+        removed.push(partialPath)
+      } catch {
+        // A still-locked Windows file will be retried on the next check.
+      }
+    }
+  }
+  return removed
+}
+
+ipcMain.handle('civitai:checkInstalledFiles', async (_event, payload = {}) => {
+  const validation = await validateWorkflowSetupRootInternal(payload?.comfyRootPath)
+  if (!validation.isValid || !validation.modelsPath) {
+    return { success: false, error: validation.error || 'Choose a valid ComfyUI folder first.', files: [] }
+  }
+  let tasks = []
+  try {
+    tasks = (Array.isArray(payload?.files) ? payload.files : []).map(normalizeCivitaiInstallTask)
+  } catch (error) {
+    return { success: false, error: error?.message || 'Invalid Civitai file check.', files: [] }
+  }
+  const removedPartials = await cleanupCivitaiPartialDownloads(validation.modelsPath, tasks)
+  const files = []
+  for (const task of tasks) {
+    const targetPath = path.join(validation.modelsPath, task.targetSubdir, task.filename)
+    let exists = false
+    try {
+      const stat = await fs.stat(targetPath)
+      exists = stat.isFile()
+    } catch { /* missing or unreadable */ }
+    files.push({
+      filename: task.filename,
+      targetSubdir: task.targetSubdir,
+      targetPath,
+      exists,
+      installed: exists,
+    })
+  }
+  return { success: true, files, removedPartials, allInstalled: files.length > 0 && files.every((file) => file.installed) }
+})
+
+ipcMain.on('window:moveBy', (event, payload = {}) => {
+  const window = BrowserWindow.fromWebContents(event.sender)
+  if (!window || window.isDestroyed() || window !== mainWindow) return
+  const dx = Math.max(-200, Math.min(200, Number(payload.dx) || 0))
+  const dy = Math.max(-200, Math.min(200, Number(payload.dy) || 0))
+  const cursorX = Number(payload.screenX)
+  const cursorY = Number(payload.screenY)
+  if (window.isFullScreen()) window.setFullScreen(false)
+  if (window.isMaximized()) {
+    const normal = window.getNormalBounds()
+    window.unmaximize()
+    if (Number.isFinite(cursorX) && Number.isFinite(cursorY)) {
+      window.setBounds({
+        x: Math.round(cursorX - (normal.width / 2)),
+        y: Math.round(cursorY - 20),
+        width: normal.width,
+        height: normal.height,
+      })
+    }
+    return
+  }
+  if (!dx && !dy) return
+  const [x, y] = window.getPosition()
+  window.setPosition(Math.round(x + dx), Math.round(y + dy), false)
+})
+
+ipcMain.handle('civitai:installFiles', async (_event, payload = {}) => {
+  const validation = await validateWorkflowSetupRootInternal(payload?.comfyRootPath)
+  if (!validation.isValid || !validation.modelsPath) {
+    return { success: false, error: validation.error || 'Choose a valid ComfyUI folder first.', files: [] }
+  }
+
+  let tasks = []
+  try {
+    tasks = (Array.isArray(payload?.files) ? payload.files : []).map(normalizeCivitaiInstallTask)
+  } catch (error) {
+    return { success: false, error: error?.message || 'Invalid Civitai install request.', files: [] }
+  }
+  if (tasks.length === 0) return { success: false, error: 'Select at least one installable model file.', files: [] }
+  if (activeCivitaiDownloadController) {
+    return { success: false, error: 'Another Civitai download is already active.', files: [] }
+  }
+
+  const results = []
+  const errors = []
+  const downloadController = new AbortController()
+  activeCivitaiDownloadController = downloadController
+  const settings = await readSettingsRaw().catch(() => ({}))
+  const civitaiApiKey = String(settings?.civitaiApiKey || '').trim()
+  let completedTasks = 0
+  emitWorkflowSetupProgress({
+    stage: 'download', status: 'active', totalTasks: tasks.length, completedTasks: 0, overallPercent: 0,
+    message: 'Starting Civitai model download...', source: 'civitai',
+  })
+  for (const task of tasks) {
+    const targetPath = path.join(validation.modelsPath, task.targetSubdir, task.filename)
+    try {
+      if (task.targetSubdir === 'diffusion_models') {
+        const legacyCheckpointPath = path.join(validation.modelsPath, 'checkpoints', task.filename)
+        let targetExists = false
+        let legacyExists = false
+        try { targetExists = (await fs.stat(targetPath)).isFile() } catch { /* target is missing */ }
+        try { legacyExists = (await fs.stat(legacyCheckpointPath)).isFile() } catch { /* no reusable legacy file */ }
+        if (!targetExists && legacyExists) {
+          await fs.mkdir(path.dirname(targetPath), { recursive: true })
+          try {
+            await fs.link(legacyCheckpointPath, targetPath)
+          } catch {
+            await fs.copyFile(legacyCheckpointPath, targetPath)
+          }
+        }
+      }
+      results.push(await downloadFileWithProgress({
+        ...task,
+        signal: downloadController.signal,
+        stripAuthorizationOnRedirect: true,
+        requestHeaders: {
+          Accept: 'application/octet-stream',
+          'User-Agent': `Lumeweft/${app.getVersion()}`,
+          ...(civitaiApiKey ? { Authorization: `Bearer ${civitaiApiKey}` } : {}),
+        },
+      }, targetPath, {
+        currentTaskIndex: completedTasks + 1,
+        totalTasks: tasks.length,
+        completedTasks,
+      }))
+    } catch (error) {
+      const cancelled = downloadController.signal.aborted
+      errors.push(cancelled ? 'Download cancelled.' : (error?.message || `Failed to download ${task.filename}.`))
+      if (cancelled) break
+    }
+    completedTasks += 1
+  }
+  const cancelled = downloadController.signal.aborted
+  activeCivitaiDownloadController = null
+  emitWorkflowSetupProgress({
+    stage: 'download', status: cancelled ? 'cancelled' : 'finished', level: errors.length ? 'warning' : 'success',
+    totalTasks: tasks.length, completedTasks, overallPercent: cancelled ? undefined : 100,
+    message: cancelled ? 'Civitai download cancelled.' : (errors.length ? 'Civitai download finished with errors.' : 'Civitai download finished.'), source: 'civitai',
+  })
+  return {
+    success: errors.length === 0,
+    error: errors.join(' '),
+    errors,
+    files: results,
+    comfyRootPath: validation.normalizedPath,
+    modelsPath: validation.modelsPath,
+  }
+})
+
 // ============================================
 // NVIDIA RTX Video Super Resolution
 // ============================================
@@ -5279,12 +5755,14 @@ ipcMain.handle('comfyui:loadWorkflowGraph', async (event, payload = {}) => {
 
     await loadWorkflowGraphInEmbeddedComfy({
       workflowGraph: payload.workflowGraph,
+      workflowName: payload.workflowName,
       comfyBaseUrl: payload.comfyBaseUrl || 'http://127.0.0.1:8188',
       waitForMs: payload.waitForMs,
     })
 
     return { success: true }
   } catch (error) {
+    console.warn('[ComfyUI] workflow graph load failed:', error?.stack || error)
     return {
       success: false,
       error: error?.message || 'Could not load the workflow into the embedded ComfyUI tab.',
@@ -7649,9 +8127,9 @@ app.on('before-quit', async (event) => {
       buttons: ['Stop ComfyUI & quit', 'Leave ComfyUI running', 'Cancel'],
       defaultId: 0,
       cancelId: 2,
-      title: 'Quit Velorn?',
+      title: 'Quit Lumeweft?',
       message: 'ComfyUI is still running.',
-      detail: 'Velorn started ComfyUI. Choose what happens to it when you quit.\n\n• Stop ComfyUI & quit — shuts down ComfyUI and cancels any in-flight generation jobs.\n• Leave ComfyUI running — Velorn will quit but ComfyUI stays up. Handy when you\'re just relaunching Velorn and don\'t want to wait for ComfyUI to boot again.',
+      detail: 'Lumeweft started ComfyUI. Choose what happens to it when you quit.\n\n• Stop ComfyUI & quit — shuts down ComfyUI and cancels any in-flight generation jobs.\n• Leave ComfyUI running — Lumeweft will quit but ComfyUI stays up. Handy when you\'re just relaunching Lumeweft and don\'t want to wait for ComfyUI to boot again.',
     })
     if (choice.response === 2) {
       return

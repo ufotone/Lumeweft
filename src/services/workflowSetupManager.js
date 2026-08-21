@@ -1,5 +1,9 @@
 import { AVAILABLE_WORKFLOWS, BUILTIN_WORKFLOWS, BUILTIN_WORKFLOW_PATHS } from '../config/workflowRegistry'
-import { OPEN_COMFY_TAB_EVENT, getWorkflowDisplayLabel } from '../config/generateWorkspaceConfig'
+import {
+  COMFY_IFRAME_LOADED_EVENT,
+  OPEN_COMFY_TAB_EVENT,
+  getWorkflowDisplayLabel,
+} from '../config/generateWorkspaceConfig'
 import { getModelInstallInfo, getNodeInstallInfo } from '../config/workflowInstallCatalog'
 import { buildComfyGraphFromApiWorkflow } from './comfyWorkflowGraph'
 import { comfyui } from './comfyui'
@@ -55,13 +59,34 @@ function isComfyIframeVisible() {
   return true
 }
 
-async function waitForVisibleComfyIframe(timeoutMs = 4000) {
+async function waitForVisibleComfyIframe(timeoutMs = 15000) {
   const deadline = Date.now() + timeoutMs
   while (Date.now() <= deadline) {
     if (isComfyIframeVisible()) return true
     await new Promise((resolve) => window.requestAnimationFrame(resolve))
   }
   return isComfyIframeVisible()
+}
+
+function waitForComfyIframeReload(reloadRequestId, timeoutMs = 30000) {
+  return new Promise((resolve) => {
+    let timeoutId = null
+    const cleanup = () => {
+      window.removeEventListener(COMFY_IFRAME_LOADED_EVENT, handleLoad)
+      if (timeoutId) window.clearTimeout(timeoutId)
+    }
+    const handleLoad = (event) => {
+      if (String(event?.detail?.reloadRequestId || '') !== reloadRequestId) return
+      cleanup()
+      resolve(true)
+    }
+
+    window.addEventListener(COMFY_IFRAME_LOADED_EVENT, handleLoad)
+    timeoutId = window.setTimeout(() => {
+      cleanup()
+      resolve(false)
+    }, timeoutMs)
+  })
 }
 
 function enrichMissingNode(node = {}) {
@@ -397,7 +422,7 @@ export async function openBundledWorkflowInComfyUi(workflowId) {
     }
 
     const apiWorkflow = await response.json()
-    await loadApiWorkflowGraphIntoComfyUi(apiWorkflow)
+    await loadApiWorkflowGraphIntoComfyUi(apiWorkflow, getWorkflowDisplayLabel(normalizedWorkflowId) || normalizedWorkflowId)
 
     return {
       success: true,
@@ -411,7 +436,7 @@ export async function openBundledWorkflowInComfyUi(workflowId) {
   }
 }
 
-async function loadApiWorkflowGraphIntoComfyUi(apiWorkflow) {
+async function loadApiWorkflowGraphIntoComfyUi(apiWorkflow, workflowName = 'Lumeweft workflow') {
   const objectInfo = await comfyui.getObjectInfo()
   const workflowGraph = await buildComfyGraphFromApiWorkflow(apiWorkflow, objectInfo)
   const comfyBaseUrl = getLocalComfyConnectionSync().httpBase
@@ -420,15 +445,16 @@ async function loadApiWorkflowGraphIntoComfyUi(apiWorkflow) {
     throw new Error('Workflow loading into the embedded ComfyUI tab is only available in the desktop build.')
   }
 
-  const becameVisible = await waitForVisibleComfyIframe(4000)
+  const becameVisible = await waitForVisibleComfyIframe(15000)
   if (!becameVisible) {
     throw new Error('The embedded ComfyUI tab did not become visible in time.')
   }
 
   const loadResult = await window.electronAPI.loadComfyUiWorkflowGraph({
     workflowGraph,
+    workflowName,
     comfyBaseUrl,
-    waitForMs: 12000,
+    waitForMs: 45000,
   })
 
   if (!loadResult?.success) {
@@ -448,15 +474,16 @@ export async function openUiWorkflowInComfyUi(uiWorkflow, { label = 'ComfyUI tem
       throw new Error('Workflow loading into the embedded ComfyUI tab is only available in the desktop build.')
     }
 
-    const becameVisible = await waitForVisibleComfyIframe(4000)
+    const becameVisible = await waitForVisibleComfyIframe(15000)
     if (!becameVisible) {
       throw new Error('The embedded ComfyUI tab did not become visible in time.')
     }
 
     const loadResult = await window.electronAPI.loadComfyUiWorkflowGraph({
       workflowGraph: uiWorkflow,
+      workflowName: label,
       comfyBaseUrl: getLocalComfyConnectionSync().httpBase,
-      waitForMs: 12000,
+      waitForMs: 45000,
     })
     if (!loadResult?.success) {
       throw new Error(loadResult?.error || 'Could not load the workflow into the embedded ComfyUI tab.')
@@ -474,13 +501,31 @@ export async function openUiWorkflowInComfyUi(uiWorkflow, { label = 'ComfyUI tem
   }
 }
 
-export async function openApiWorkflowInComfyUi(apiWorkflow, { label = 'Custom workflow' } = {}) {
+export async function openApiWorkflowInComfyUi(apiWorkflow, { label = 'Custom workflow', reloadComfyUi = false } = {}) {
   try {
+    const reloadRequestId = reloadComfyUi
+      ? `workflow-${Date.now()}-${Math.random().toString(36).slice(2)}`
+      : ''
+    const reloadPromise = reloadComfyUi
+      ? waitForComfyIframeReload(reloadRequestId)
+      : null
+
     window.dispatchEvent(new CustomEvent(OPEN_COMFY_TAB_EVENT, {
-      detail: { label },
+      detail: { label, reloadIframe: Boolean(reloadComfyUi), reloadRequestId },
     }))
 
-    await loadApiWorkflowGraphIntoComfyUi(apiWorkflow)
+    // Newly downloaded model files may already be visible to ComfyUI's API
+    // while the embedded frontend still holds the combo choices registered at
+    // page startup. Wait for the replacement iframe's load event so Electron
+    // cannot find and inject into the old frame while React is remounting it.
+    if (reloadComfyUi) {
+      const reloaded = await reloadPromise
+      if (!reloaded) {
+        throw new Error('The embedded ComfyUI tab did not finish reloading in time.')
+      }
+    }
+
+    await loadApiWorkflowGraphIntoComfyUi(apiWorkflow, label)
 
     return {
       success: true,

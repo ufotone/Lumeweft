@@ -2,6 +2,7 @@ import { TOPAZ_VIDEO_UPSCALE_WORKFLOW_ID } from './topazVideoUpscaleConfig'
 import { MUSIC_VIDEO_SHOT_WORKFLOW_ID, VOCAL_EXTRACT_WORKFLOW_ID } from './musicVideoShotConfig'
 import {
   ELEVENLABS_TTS_WORKFLOW_ID,
+  IRODORI_TTS_WORKFLOW_ID,
   SHORT_FILM_DIALOGUE_VIDEO_WORKFLOW_ID,
 } from './shortFilmConfig'
 
@@ -52,6 +53,7 @@ export const BUILTIN_WORKFLOWS = [
   { id: VOCAL_EXTRACT_WORKFLOW_ID, label: 'Vocal Extract (Mel-Band RoFormer)', category: 'audio', needsImage: false, description: 'Isolate vocals from a mixed song using Mel-Band RoFormer. Used as a one-time preprocessing step for music-video projects.', file: 'vocal_extract_melband.json' },
   { id: 'caption-qwen-asr', label: 'Caption Transcription (Qwen ASR)', category: 'audio', needsImage: false, description: 'Transcribe timeline audio, video audio, or music-video songs into timed SRT captions using Qwen ASR.', file: 'caption_qwen_asr_transcription.json' },
   { id: ELEVENLABS_TTS_WORKFLOW_ID, label: 'ElevenLabs Text to Speech', category: 'audio', needsImage: false, description: 'Generate one dialogue audio clip from text using an ElevenLabs voice profile. Used by Short Film Creation.', file: 'api_elevenlabs_text_to_speech.json' },
+  { id: IRODORI_TTS_WORKFLOW_ID, label: 'Irodori-TTS v3', category: 'audio', needsImage: false, description: 'Generate local Japanese dialogue clips with Irodori-TTS v3. Used by Short Film Creation.', file: 'irodori_tts.json' },
   { id: 'multi-angles', label: 'Multiple Angles (Characters)', category: 'image', needsImage: true, description: 'Generate 8 camera angles from one character image', file: '1_click_multiple_angles.json' },
   { id: 'multi-angles-scene', label: 'Multiple Angles (Scenes)', category: 'image', needsImage: true, description: 'Generate 8 camera angles from one scene image', file: '1_click_multiple_scene_angles-v1.0.json' },
   { id: 'image-edit', label: 'Image Edit', category: 'image', needsImage: true, description: 'Edit image with text prompt', file: 'image_qwen_image_edit_2509.json' },
@@ -70,6 +72,7 @@ export const BUILTIN_WORKFLOWS = [
   { id: 'music-gen', label: 'Music Generation', category: 'audio', needsImage: false, description: 'Generate music from tags and lyrics', file: 'music_generation.json' },
   { id: 'sonilo-v2m', label: 'Video to Music (Sonilo)', category: 'audio', needsImage: true, description: 'Cloud video-to-music generation with Sonilo', file: 'api_sonilo_v2m.json' },
   { id: 'google-gemini-flash-lite', label: 'Prompt Helper (Gemini 3.1 Flash Lite)', category: 'text', needsImage: false, description: 'Cloud prompt-writing helper using Gemini 3.1 Flash Lite', file: 'api_google_gemini.json' },
+  { id: 'minimax-h3-media-promptor', label: 'Media to Prompt (MiniMax H3 Promptor)', category: 'text', needsImage: false, description: 'Analyze an image or video and write a structured MiniMax H3 generation prompt.', file: 'minimax_h3_media_promptor.json' },
 ]
 
 // Map workflow id -> public path (for loading JSON)
@@ -94,6 +97,7 @@ export const BUILTIN_WORKFLOW_PATHS = {
   [SHORT_FILM_DIALOGUE_VIDEO_WORKFLOW_ID]: getBundledWorkflowPath('short_film_dialogue_ltx2_3_ia2v.json'),
   [VOCAL_EXTRACT_WORKFLOW_ID]: getBundledWorkflowPath('vocal_extract_melband.json'),
   [ELEVENLABS_TTS_WORKFLOW_ID]: getBundledWorkflowPath('api_elevenlabs_text_to_speech.json'),
+  [IRODORI_TTS_WORKFLOW_ID]: getBundledWorkflowPath('irodori_tts.json'),
   'multi-angles': getBundledWorkflowPath('1_click_multiple_angles.json'),
   'multi-angles-scene': getBundledWorkflowPath('1_click_multiple_scene_angles-v1.0.json'),
   'image-edit': getBundledWorkflowPath('image_qwen_image_edit_2509.json'),
@@ -114,6 +118,7 @@ export const BUILTIN_WORKFLOW_PATHS = {
   'music-gen': getBundledWorkflowPath('music_generation.json'),
   'sonilo-v2m': getBundledWorkflowPath('api_sonilo_v2m.json'),
   'google-gemini-flash-lite': getBundledWorkflowPath('api_google_gemini.json'),
+  'minimax-h3-media-promptor': getBundledWorkflowPath('minimax_h3_media_promptor.json'),
   'caption-qwen-asr': getBundledWorkflowPath('caption_qwen_asr_transcription.json'),
   'mask-gen': getBundledWorkflowPath('mask_generation_text_prompt.json'),
 }

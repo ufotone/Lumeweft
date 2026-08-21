@@ -131,7 +131,7 @@ function ComfyLauncherSettingsSection({ onOpenLogViewer }) {
     await updateConfig({ launcherMode: 'script', launcherScript: candidate.path })
   }
 
-  const startupTimeoutSeconds = useMemo(() => Math.max(10, Math.round((config.startupTimeoutMs || 120000) / 1000)), [config.startupTimeoutMs])
+  const startupTimeoutSeconds = useMemo(() => Math.max(10, Math.round((config.startupTimeoutMs || 300000) / 1000)), [config.startupTimeoutMs])
 
   if (!available) {
     return (
@@ -144,7 +144,7 @@ function ComfyLauncherSettingsSection({ onOpenLogViewer }) {
   const hasLauncherTarget = launcherMode === 'mac-app' ? Boolean(config.macAppPath) : Boolean(config.launcherScript)
   const canControlMacApp = isMacPlatform && launcherMode === 'mac-app' && state.ownership === 'app'
   const canStart = (state.state === 'idle' || state.state === 'stopped' || state.state === 'crashed' || state.state === 'unknown') && hasLauncherTarget
-  const canStop = state.state === 'running' && (state.ownership === 'ours' || canControlMacApp)
+  const canStop = (state.state === 'running' || state.state === 'starting') && (state.ownership === 'ours' || canControlMacApp)
   const canRestart = state.state === 'running' && (state.ownership === 'ours' || canControlMacApp)
   const statusMessage = state.statusMessage === 'ComfyUI is not running.'
     ? t('settings.launcher.status.notRunning')
@@ -396,7 +396,7 @@ function ComfyLauncherSettingsSection({ onOpenLogViewer }) {
             max={900}
             value={startupTimeoutSeconds}
             onChange={(e) => {
-              const seconds = Math.max(10, Math.min(900, Number(e.target.value) || 120))
+              const seconds = Math.max(10, Math.min(900, Number(e.target.value) || 300))
               void updateConfig({ startupTimeoutMs: seconds * 1000 })
             }}
             className="w-32 bg-sf-dark-800 border border-sf-dark-600 rounded px-2 py-1.5 text-xs text-sf-text-primary focus:outline-none focus:border-sf-accent"

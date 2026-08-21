@@ -2157,6 +2157,21 @@ function AssetsPanel({ isActive = true }) {
             >
               <FolderPlus className="w-3.5 h-3.5 text-sf-text-secondary" />
             </button>
+            {currentFolder && (
+              <button
+                type="button"
+                onClick={async () => {
+                  const parentFolderId = currentFolder.parentId || null
+                  const deleted = await handleDeleteFolder(currentFolder.id, currentFolder.name)
+                  if (deleted) setCurrentFolderId(parentFolderId)
+                }}
+                className="p-1 hover:bg-sf-error/20 rounded transition-colors"
+                title={`Delete current folder: ${currentFolder.name}`}
+                aria-label={`Delete current folder: ${currentFolder.name}`}
+              >
+                <Trash2 className="w-3.5 h-3.5 text-sf-error" />
+              </button>
+            )}
           </div>
         )}
         <div className="flex items-center gap-2">

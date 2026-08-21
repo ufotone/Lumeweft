@@ -443,6 +443,17 @@ contextBridge.exposeInMainWorld('electronAPI', {
    */
   deleteSetting: (key) => ipcRenderer.invoke('settings:delete', key),
 
+  /**
+   * Fetch public metadata for one Civitai model through the main process.
+   * Keeping this request native avoids renderer CORS differences and gives
+   * the main process one strict place to validate the upstream host/id.
+   */
+  getCivitaiModel: (modelId) => ipcRenderer.invoke('civitai:getModel', modelId),
+  getCivitaiImageGenerationData: (imageId) => ipcRenderer.invoke('civitai:getImageGenerationData', imageId),
+  installCivitaiFiles: (payload = {}) => ipcRenderer.invoke('civitai:installFiles', payload),
+  checkInstalledCivitaiFiles: (payload = {}) => ipcRenderer.invoke('civitai:checkInstalledFiles', payload),
+  cancelCivitaiDownload: () => ipcRenderer.invoke('civitai:cancelDownload'),
+
   // ============================================
   // MCP Server
   // ============================================
@@ -475,6 +486,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
   openExternalUrl: (url) => ipcRenderer.invoke('shell:openExternal', url),
   showItemInFolder: (targetPath) => ipcRenderer.invoke('shell:showItemInFolder', targetPath),
   installWorkflowSetup: (payload = {}) => ipcRenderer.invoke('workflowSetup:install', payload),
+  translatePrompt: (payload) => ipcRenderer.invoke('prompt:translate', payload),
   onWorkflowSetupProgress: (cb) => {
     const handler = (_, data) => cb(data)
     ipcRenderer.on('workflowSetup:progress', handler)
@@ -540,6 +552,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
   minimizeWindow: () => ipcRenderer.invoke('window:minimize'),
   toggleMaximizeWindow: () => ipcRenderer.invoke('window:toggleMaximize'),
   toggleFullScreenWindow: () => ipcRenderer.invoke('window:toggleFullScreen'),
+  moveWindowBy: (payload = {}) => ipcRenderer.send('window:moveBy', payload),
   closeWindow: () => ipcRenderer.invoke('window:close'),
   isWindowMaximized: () => ipcRenderer.invoke('window:isMaximized'),
   getWindowState: () => ipcRenderer.invoke('window:getState'),

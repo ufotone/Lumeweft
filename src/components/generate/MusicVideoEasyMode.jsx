@@ -33,6 +33,7 @@ import {
 } from '../../config/generateWorkspaceConfig'
 import { BUILTIN_WORKFLOW_PATHS } from '../../config/workflowRegistry'
 import CustomWorkflowSlotCard from './CustomWorkflowSlotCard'
+import { useI18n } from '../../i18n/I18nContext'
 
 const DRAFT_STORAGE_KEY = 'comfystudio-music-video-easy-mode-draft-v1'
 const DRAFT_PROJECT_STORAGE_PREFIX = `${DRAFT_STORAGE_KEY}:project:`
@@ -54,6 +55,7 @@ const ASPECT_RATIO_OPTIONS = [
 const RESOLUTION_OPTIONS = [
   { id: '720p', label: '720p' },
   { id: '1080p', label: '1080p' },
+  { id: 'custom', label: 'Custom' },
 ]
 
 const PEOPLE_WIZARD_IMAGE_SIZE_OPTIONS = [
@@ -67,7 +69,13 @@ const PEOPLE_WIZARD_IMAGE_ORIENTATION_OPTIONS = [
 ]
 
 const FPS_OPTIONS = [24, 25, 30]
+const CARD_DENSITY_OPTIONS = [2, 3, 4]
 const PERFORMANCE_PASS_OPTIONS = [0, 1, 2, 3]
+const TIMING_ENGINE_OPTIONS = [
+  { id: 'auto', label: 'Auto', helper: 'Local Whisper first; ComfyUI fallback.' },
+  { id: 'local', label: 'Local Whisper', helper: 'Runs locally without ComfyUI.' },
+  { id: 'comfyui', label: 'ComfyUI', helper: 'Uses the Qwen3-ASR workflow.' },
+]
 const COVERAGE_PRESET_OPTIONS = [
   {
     id: 'simple',
@@ -149,7 +157,12 @@ const DEFAULT_DRAFT = Object.freeze({
   step: 'song',
   aspectRatio: 'landscape_16x9',
   resolutionPreset: '720p',
+  customWidth: 1280,
+  customHeight: 720,
   videoFps: 24,
+  customVideoFps: 60,
+  cardDensity: 4,
+  promptsExpanded: false,
   coveragePreset: 'standard',
   performancePassCount: 1,
   includeStoryBroll: true,
@@ -166,6 +179,22 @@ function normalizeResolutionPreset(value) {
   const normalized = String(value || '').trim()
   if (normalized === '2k') return '1080p'
   return normalizeDraftOption(normalized, RESOLUTION_OPTIONS, DEFAULT_DRAFT.resolutionPreset)
+}
+
+function normalizeCustomDimension(value, fallback) {
+  const numeric = Number(value)
+  if (!Number.isFinite(numeric)) return fallback
+  return Math.min(4096, Math.max(64, Math.round(numeric / 8) * 8))
+}
+
+function normalizeCustomFps(value, fallback = DEFAULT_DRAFT.customVideoFps) {
+  const numeric = Number(value)
+  return Number.isFinite(numeric) ? Math.min(120, Math.max(1, Math.round(numeric))) : fallback
+}
+
+function normalizeCardDensity(value) {
+  const numeric = Number(value)
+  return CARD_DENSITY_OPTIONS.includes(numeric) ? numeric : DEFAULT_DRAFT.cardDensity
 }
 
 function getGeneratedKeyframeWorkflowLabel(asset, fallbackLabel) {
@@ -211,7 +240,12 @@ function loadDraft(storageKey = '') {
       step: normalizeDraftStep(parsed.step),
       aspectRatio: normalizeDraftOption(parsed.aspectRatio, ASPECT_RATIO_OPTIONS, DEFAULT_DRAFT.aspectRatio),
       resolutionPreset: normalizeResolutionPreset(parsed.resolutionPreset),
-      videoFps: normalizeDraftNumber(parsed.videoFps, FPS_OPTIONS, DEFAULT_DRAFT.videoFps),
+      customWidth: normalizeCustomDimension(parsed.customWidth, DEFAULT_DRAFT.customWidth),
+      customHeight: normalizeCustomDimension(parsed.customHeight, DEFAULT_DRAFT.customHeight),
+      videoFps: normalizeCustomFps(parsed.videoFps, DEFAULT_DRAFT.videoFps),
+      customVideoFps: normalizeCustomFps(parsed.customVideoFps),
+      cardDensity: normalizeCardDensity(parsed.cardDensity),
+      promptsExpanded: normalizeDraftBoolean(parsed.promptsExpanded, DEFAULT_DRAFT.promptsExpanded),
       coveragePreset: normalizeCoveragePreset(parsed.coveragePreset),
       performancePassCount: normalizeDraftNumber(parsed.performancePassCount, PERFORMANCE_PASS_OPTIONS, DEFAULT_DRAFT.performancePassCount),
       includeStoryBroll: normalizeDraftBoolean(parsed.includeStoryBroll, DEFAULT_DRAFT.includeStoryBroll),
@@ -265,7 +299,13 @@ function getShotTypeId(shot) {
   return String(shot?.musicShotType || shot?.shotType || '').trim()
 }
 
-function resolveOutputResolution(aspectRatio, resolutionPreset) {
+function resolveOutputResolution(aspectRatio, resolutionPreset, customWidth, customHeight) {
+  if (resolutionPreset === 'custom') {
+    return {
+      width: normalizeCustomDimension(customWidth, DEFAULT_DRAFT.customWidth),
+      height: normalizeCustomDimension(customHeight, DEFAULT_DRAFT.customHeight),
+    }
+  }
   const is1080 = (resolutionPreset === '2k' ? '1080p' : resolutionPreset) === '1080p'
   if (aspectRatio === 'vertical_9x16') {
     return is1080 ? { width: 1080, height: 1920 } : { width: 720, height: 1280 }
@@ -290,6 +330,7 @@ function workflowSupports1080Resolution(workflowId) {
 function getResolutionFallbackForWorkflow(workflowId, resolutionPreset) {
   const normalizedPreset = resolutionPreset === '2k' ? '1080p' : resolutionPreset
   if (workflowSupports1080Resolution(workflowId)) {
+    if (normalizedPreset === 'custom') return 'custom'
     return normalizedPreset === '1080p' ? '1080p' : '720p'
   }
   return '720p'
@@ -499,6 +540,8 @@ export default function MusicVideoEasyMode({
   setYoloMusicAudioKind,
   yoloMusicAsrLanguage = 'English',
   setYoloMusicAsrLanguage,
+  yoloMusicTranscriptionEngine = 'auto',
+  setYoloMusicTranscriptionEngine,
   yoloMusicAudioAsset,
   yoloMusicStyleNotes = '',
   setYoloMusicStyleNotes,
@@ -559,6 +602,7 @@ export default function MusicVideoEasyMode({
   handleQueueYoloStoryboards,
   handleQueueYoloShotStoryboard,
   handleQueueYoloShotStoryboards,
+  handleCancelQueuedGenerationJob,
   handleReplaceYoloMusicKeyframe,
   handleReplaceYoloMusicVideo,
   handleQueueYoloVideos,
@@ -573,13 +617,19 @@ export default function MusicVideoEasyMode({
   setResolution,
   setImageResolution,
 }) {
+  const { t } = useI18n()
   const draftStorageKey = useMemo(() => getDraftStorageKey(draftStorageScope), [draftStorageScope])
   const initialDraft = useMemo(() => loadDraft(draftStorageKey), [draftStorageKey])
   const audioDefaultMigratedRef = useRef(false)
   const [step, setStep] = useState(initialDraft.step)
   const [aspectRatio, setAspectRatio] = useState(initialDraft.aspectRatio)
   const [resolutionPreset, setResolutionPreset] = useState(initialDraft.resolutionPreset)
+  const [customWidth, setCustomWidth] = useState(initialDraft.customWidth)
+  const [customHeight, setCustomHeight] = useState(initialDraft.customHeight)
   const [videoFps, setVideoFps] = useState(initialDraft.videoFps)
+  const [customVideoFps, setCustomVideoFps] = useState(initialDraft.customVideoFps)
+  const [cardDensity, setCardDensity] = useState(initialDraft.cardDensity)
+  const [promptsExpanded, setPromptsExpanded] = useState(initialDraft.promptsExpanded)
   const [coveragePreset, setCoveragePreset] = useState(initialDraft.coveragePreset)
   const [performancePassCount, setPerformancePassCount] = useState(initialDraft.performancePassCount)
   const [includeStoryBroll, setIncludeStoryBroll] = useState(initialDraft.includeStoryBroll)
@@ -618,7 +668,12 @@ export default function MusicVideoEasyMode({
       step,
       aspectRatio,
       resolutionPreset,
+      customWidth,
+      customHeight,
       videoFps,
+      customVideoFps,
+      cardDensity,
+      promptsExpanded,
       coveragePreset,
       performancePassCount,
       includeStoryBroll,
@@ -627,12 +682,17 @@ export default function MusicVideoEasyMode({
     }))
   }, [
     aspectRatio,
+    cardDensity,
     coveragePreset,
+    customHeight,
+    customVideoFps,
+    customWidth,
     includeDetailBroll,
     includeEnvironmentalBroll,
     includeStoryBroll,
     performancePassCount,
     resolutionPreset,
+    promptsExpanded,
     step,
     videoFps,
     draftStorageKey,
@@ -883,8 +943,8 @@ export default function MusicVideoEasyMode({
   const selectedAudioKindOption = getMusicVideoAudioKindOption(yoloMusicAudioKind) || getMusicVideoAudioKindOption('mixed_track')
   const selectedAudioModeHelper = getAudioModeHelper(selectedAudioKindOption?.id)
   const outputResolution = useMemo(
-    () => resolveOutputResolution(aspectRatio, resolutionPreset),
-    [aspectRatio, resolutionPreset]
+    () => resolveOutputResolution(aspectRatio, resolutionPreset, customWidth, customHeight),
+    [aspectRatio, customHeight, customWidth, resolutionPreset]
   )
   const outputResolutionLabel = formatResolutionLabel(outputResolution)
   const rememberImageDimensions = useCallback((asset, imageElement) => {
@@ -1076,6 +1136,27 @@ export default function MusicVideoEasyMode({
     setVideoStatus('')
   }
 
+  const commitCustomDimension = (axis) => {
+    if (axis === 'width') {
+      setCustomWidth((value) => normalizeCustomDimension(value, DEFAULT_DRAFT.customWidth))
+    } else {
+      setCustomHeight((value) => normalizeCustomDimension(value, DEFAULT_DRAFT.customHeight))
+    }
+  }
+
+  const handleCustomFpsChange = (value) => {
+    setCustomVideoFps(value)
+    const normalized = normalizeCustomFps(value)
+    setVideoFps(normalized)
+    setVideoStatus('')
+  }
+
+  const commitCustomFps = () => {
+    const normalized = normalizeCustomFps(customVideoFps)
+    setCustomVideoFps(normalized)
+    setVideoFps(normalized)
+  }
+
   const handleShotSelection = (event, index) => {
     if (!Number.isInteger(index) || index < 0 || index >= flatShots.length) return
     if (event?.shiftKey) {
@@ -1118,13 +1199,14 @@ export default function MusicVideoEasyMode({
   }
 
   const getKeyframeCardState = (variant, asset) => {
-    if (asset) return { state: 'ready', label: 'Keyframe ready', job: null }
     const job = variant?.key ? storyboardJobMap.get(variant.key) : null
-    if (job && JOB_ERROR_STATUSES.has(String(job.status || '').toLowerCase())) {
-      return { state: 'error', label: 'Keyframe failed', job }
-    }
     if (job && JOB_BUSY_STATUSES.has(String(job.status || '').toLowerCase())) {
       return { state: 'generating', label: 'Generating keyframe', job }
+    }
+    if (asset) return { state: 'ready', label: 'Keyframe ready', job: null }
+    if (job && JOB_ERROR_STATUSES.has(String(job.status || '').toLowerCase())) {
+      const cancelled = ['cancelled', 'canceled'].includes(String(job.status || '').toLowerCase())
+      return { state: cancelled ? 'cancelled' : 'error', label: cancelled ? 'Keyframe cancelled' : 'Keyframe failed', job }
     }
     return { state: 'missing', label: 'Needs keyframe', job: null }
   }
@@ -1142,7 +1224,8 @@ export default function MusicVideoEasyMode({
       return { state: 'generating', label: 'Generating video', job }
     }
     if (job && JOB_ERROR_STATUSES.has(String(job.status || '').toLowerCase()) && !asset) {
-      return { state: 'error', label: 'Video failed', job }
+      const cancelled = ['cancelled', 'canceled'].includes(String(job.status || '').toLowerCase())
+      return { state: cancelled ? 'cancelled' : 'error', label: cancelled ? 'Video cancelled' : 'Video failed', job }
     }
     if (asset) return { state: 'ready', label: 'Video ready', job: null }
     if (!variant) return { state: 'missing', label: 'No video variant', job: null }
@@ -1317,6 +1400,63 @@ export default function MusicVideoEasyMode({
       >
         <Clipboard className="h-3 w-3" />
         Copy
+      </button>
+    )
+  }
+
+  const cardGridClass = cardDensity === 2
+    ? 'grid grid-cols-1 gap-2 md:grid-cols-2'
+    : cardDensity === 3
+      ? 'grid grid-cols-1 gap-2 md:grid-cols-2 xl:grid-cols-3'
+      : 'grid grid-cols-1 gap-2 md:grid-cols-2 xl:grid-cols-4'
+
+  const promptPreviewClass = promptsExpanded
+    ? 'mt-1 whitespace-pre-wrap break-words text-[10px] leading-4 text-sf-text-muted'
+    : 'mt-1 line-clamp-2 text-[10px] text-sf-text-muted'
+
+  const renderCardDisplayControls = () => (
+    <div className="flex flex-wrap items-center gap-1.5">
+      <span className="mr-1 text-[10px] uppercase tracking-wider text-sf-text-muted">Cards per row</span>
+      {CARD_DENSITY_OPTIONS.map((density) => (
+        <button
+          key={`music-card-density-${density}`}
+          type="button"
+          onClick={() => setCardDensity(density)}
+          className={`rounded-md border px-2 py-1 text-[10px] font-semibold transition-colors ${buttonClass(cardDensity === density)}`}
+          title={`Show up to ${density} shot cards per row`}
+        >
+          {density}
+        </button>
+      ))}
+      <button
+        type="button"
+        onClick={() => setPromptsExpanded((value) => !value)}
+        className={`rounded-md border px-2 py-1 text-[10px] font-semibold transition-colors ${buttonClass(promptsExpanded)}`}
+        aria-pressed={promptsExpanded}
+      >
+        {promptsExpanded ? 'Collapse prompts' : 'Expand prompts'}
+      </button>
+    </div>
+  )
+
+  const renderCancelQueuedJobButton = (job, label, statusSetter) => {
+    const status = String(job?.status || '').toLowerCase()
+    if (!job?.id || !['queued', 'paused'].includes(status) || !handleCancelQueuedGenerationJob) return null
+    return (
+      <button
+        type="button"
+        onClick={(event) => {
+          event.stopPropagation()
+          const cancelled = handleCancelQueuedGenerationJob(job.id)
+          statusSetter?.(cancelled
+            ? `${label} removed from the waiting queue.`
+            : `${label} has already started and cannot be removed as a waiting job.`)
+        }}
+        className="inline-flex h-6 w-6 shrink-0 items-center justify-center rounded-md border border-red-500/40 bg-red-500/10 text-red-200 transition-colors hover:border-red-400 hover:bg-red-500/20 focus:outline-none focus:ring-2 focus:ring-red-400/70"
+        title="Remove this waiting job from the queue"
+        aria-label={`Cancel queued ${label}`}
+      >
+        <X className="h-3 w-3" />
       </button>
     )
   }
@@ -1867,7 +2007,7 @@ export default function MusicVideoEasyMode({
           disabled={currentStepIndex === 0}
           className="rounded-lg border border-sf-dark-600 px-3 py-2 text-xs text-sf-text-secondary transition-colors hover:border-sf-dark-500 hover:text-sf-text-primary disabled:cursor-not-allowed disabled:opacity-45"
         >
-          Back
+          {t('generate.director.common.back', {}, 'Back')}
         </button>
         <button
           type="button"
@@ -1875,7 +2015,7 @@ export default function MusicVideoEasyMode({
           disabled={currentStepIndex === STEPS.length - 1}
           className="rounded-lg bg-sf-accent px-3 py-2 text-xs font-semibold text-white transition-colors hover:bg-sf-accent/90 disabled:cursor-not-allowed disabled:opacity-45"
         >
-          Next
+          {t('generate.director.common.next', {}, 'Next')}
         </button>
       </div>
     </div>
@@ -1884,25 +2024,25 @@ export default function MusicVideoEasyMode({
   const renderSongStep = () => (
     <div className="space-y-4">
       {renderStepHeader(
-        'Choose the song source.',
-        'Import your song or vocal stem in the Assets panel first, then select it here. Advanced audio modes are available when needed.'
+        t('generate.director.music.song.title', {}, 'Choose the song source.'),
+        t('generate.director.music.song.description', {}, 'Import your song or vocal stem in the Assets panel first, then select it here. Advanced audio modes are available when needed.')
       )}
 
       <div className="rounded-lg border border-sf-dark-700 bg-sf-dark-900/70 p-4">
         <div className="flex flex-col gap-2 md:flex-row md:items-start md:justify-between">
           <div>
-            <FieldLabel>Output Settings</FieldLabel>
+            <FieldLabel>{t('generate.director.music.fields.outputSettings', {}, 'Output Settings')}</FieldLabel>
             <div className="mt-1 text-sm font-semibold text-sf-text-primary">
               {outputResolutionLabel} / {videoFps} fps
             </div>
             <p className="mt-1 text-xs leading-5 text-sf-text-secondary">
-              These settings apply to both keyframes and videos.
+              {t('generate.director.music.song.outputHelp', {}, 'These settings apply to both keyframes and videos.')}
             </p>
           </div>
         </div>
         <div className="mt-4 grid gap-3 lg:grid-cols-3">
           <div>
-            <FieldLabel>Aspect Ratio</FieldLabel>
+            <FieldLabel>{t('generate.director.common.aspectRatio', {}, 'Aspect Ratio')}</FieldLabel>
             <div className="mt-2 grid grid-cols-3 gap-2">
               {ASPECT_RATIO_OPTIONS.map((option) => (
                 <button
@@ -1918,23 +2058,51 @@ export default function MusicVideoEasyMode({
             </div>
           </div>
           <div>
-            <FieldLabel>Resolution</FieldLabel>
-            <div className="mt-2 grid grid-cols-2 gap-2">
+            <FieldLabel>{t('generate.director.common.resolution', {}, 'Resolution')}</FieldLabel>
+            <div className="mt-2 grid grid-cols-3 gap-2">
               {RESOLUTION_OPTIONS.map((option) => (
                 <button
                   key={option.id}
                   type="button"
                   onClick={() => handleResolutionPresetChange(option.id)}
+                  disabled={getResolutionFallbackForWorkflow(selectedVideoWorkflowId, option.id) !== option.id}
                   className={`rounded-lg border px-3 py-2 text-xs font-semibold transition-colors ${buttonClass(resolutionPreset === option.id)}`}
                 >
                   {option.label}
                 </button>
               ))}
             </div>
+            {resolutionPreset === 'custom' && (
+              <div className="mt-2 grid grid-cols-[1fr_auto_1fr] items-center gap-2">
+                <input
+                  type="number"
+                  min="64"
+                  max="4096"
+                  step="8"
+                  value={customWidth}
+                  onChange={(event) => setCustomWidth(event.target.value)}
+                  onBlur={() => commitCustomDimension('width')}
+                  aria-label="Custom width"
+                  className="min-w-0 rounded-lg border border-sf-dark-600 bg-sf-dark-950 px-2 py-2 text-xs text-sf-text-primary outline-none focus:border-sf-accent"
+                />
+                <span className="text-xs text-sf-text-muted">×</span>
+                <input
+                  type="number"
+                  min="64"
+                  max="4096"
+                  step="8"
+                  value={customHeight}
+                  onChange={(event) => setCustomHeight(event.target.value)}
+                  onBlur={() => commitCustomDimension('height')}
+                  aria-label="Custom height"
+                  className="min-w-0 rounded-lg border border-sf-dark-600 bg-sf-dark-950 px-2 py-2 text-xs text-sf-text-primary outline-none focus:border-sf-accent"
+                />
+              </div>
+            )}
           </div>
           <div>
-            <FieldLabel>Frames Per Second</FieldLabel>
-            <div className="mt-2 grid grid-cols-3 gap-2">
+            <FieldLabel>{t('generate.director.common.fps', {}, 'Frames Per Second')}</FieldLabel>
+            <div className="mt-2 grid grid-cols-4 gap-2">
               {FPS_OPTIONS.map((fpsOption) => (
                 <button
                   key={fpsOption}
@@ -1945,7 +2113,27 @@ export default function MusicVideoEasyMode({
                   {fpsOption} fps
                 </button>
               ))}
+              <button
+                type="button"
+                onClick={() => setVideoFps(normalizeCustomFps(customVideoFps))}
+                className={`rounded-lg border px-3 py-2 text-xs font-semibold transition-colors ${buttonClass(!FPS_OPTIONS.includes(videoFps))}`}
+              >
+                {t('common.custom', {}, 'Custom')}
+              </button>
             </div>
+            {!FPS_OPTIONS.includes(videoFps) && (
+              <input
+                type="number"
+                min="1"
+                max="120"
+                step="1"
+                value={customVideoFps}
+                onChange={(event) => handleCustomFpsChange(event.target.value)}
+                onBlur={commitCustomFps}
+                aria-label="Custom frames per second"
+                className="mt-2 w-full rounded-lg border border-sf-dark-600 bg-sf-dark-950 px-3 py-2 text-xs text-sf-text-primary outline-none focus:border-sf-accent"
+              />
+            )}
           </div>
         </div>
       </div>
@@ -1953,13 +2141,13 @@ export default function MusicVideoEasyMode({
       <div className="rounded-lg border border-sf-dark-700 bg-sf-dark-900/70 p-4">
         <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
           <div>
-            <FieldLabel>Audio Mode</FieldLabel>
+            <FieldLabel>{t('generate.director.music.fields.audioMode', {}, 'Audio Mode')}</FieldLabel>
             <div className="mt-1 flex items-center gap-2 text-sm font-semibold text-sf-text-primary">
               <Music className="h-4 w-4 text-sf-accent" />
-              {selectedAudioKindOption?.label || 'Finished song (full mix)'}
+              {t(`generate.director.music.audioKinds.${selectedAudioKindOption?.id || 'mixed_track'}.label`, {}, selectedAudioKindOption?.label || 'Finished song (full mix)')}
             </div>
             <p className="mt-2 max-w-3xl text-xs leading-5 text-sf-text-secondary">
-              {selectedAudioModeHelper}
+              {t(`generate.director.music.audioKinds.${selectedAudioKindOption?.id || 'mixed_track'}.help`, {}, selectedAudioModeHelper)}
             </p>
           </div>
           <button
@@ -1967,7 +2155,7 @@ export default function MusicVideoEasyMode({
             onClick={() => setAdvancedAudioOpen((open) => !open)}
             className="rounded-lg border border-sf-dark-600 px-3 py-2 text-xs text-sf-text-secondary transition-colors hover:border-sf-dark-500 hover:text-sf-text-primary"
           >
-            {advancedAudioOpen ? 'Hide Advanced' : 'Advanced Audio'}
+            {advancedAudioOpen ? t('generate.director.music.song.hideAdvanced', {}, 'Hide Advanced') : t('generate.director.music.song.advancedAudio', {}, 'Advanced Audio')}
           </button>
         </div>
         {advancedAudioOpen && (
@@ -1983,9 +2171,9 @@ export default function MusicVideoEasyMode({
                 >
                   <div className="flex items-center gap-2">
                     <Music className="h-4 w-4 text-sf-accent" />
-                    <span className="text-sm font-semibold">{option.label}</span>
+                    <span className="text-sm font-semibold">{t(`generate.director.music.audioKinds.${option.id}.label`, {}, option.label)}</span>
                   </div>
-                  <p className="mt-2 text-xs leading-5 text-sf-text-muted">{option.description}</p>
+                  <p className="mt-2 text-xs leading-5 text-sf-text-muted">{t(`generate.director.music.audioKinds.${option.id}.help`, {}, option.description)}</p>
                 </button>
               )
             })}
@@ -1996,34 +2184,34 @@ export default function MusicVideoEasyMode({
       <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_minmax(280px,0.75fr)]">
         <div className="rounded-lg border border-sf-dark-700 bg-sf-dark-900/70 p-4">
           <div>
-            <FieldLabel>Song Audio</FieldLabel>
+            <FieldLabel>{t('generate.director.music.fields.songAudio', {}, 'Song Audio')}</FieldLabel>
             <div className="mt-1 text-sm font-semibold text-sf-text-primary">
-              {yoloMusicAudioAsset?.name || 'Select audio from Assets panel'}
+              {yoloMusicAudioAsset?.name || t('generate.director.music.song.selectFromAssets', {}, 'Select audio from Assets panel')}
             </div>
             <p className="mt-1 text-xs leading-5 text-sf-text-secondary">
-              Add audio in the Assets panel, then pick it from the list below.
+              {t('generate.director.music.song.addAudioHelp', {}, 'Add audio in the Assets panel, then pick it from the list below.')}
             </p>
           </div>
 
           <div className="mt-4">
-            <FieldLabel>Choose Existing Audio</FieldLabel>
+            <FieldLabel>{t('generate.director.music.fields.chooseAudio', {}, 'Choose Existing Audio')}</FieldLabel>
             <select
               value={yoloMusicAudioAssetId || ''}
               onChange={(event) => setYoloMusicAudioAssetId(event.target.value || null)}
               className="mt-1 w-full rounded-lg border border-sf-dark-600 bg-sf-dark-950 px-3 py-2 text-xs text-sf-text-primary outline-none focus:border-sf-accent"
             >
-              <option value="">Select audio from this project</option>
+              <option value="">{t('generate.director.music.song.selectAudio', {}, 'Select audio from this project')}</option>
               {yoloMusicAudioAssets.map((asset) => (
                 <option key={asset.id} value={asset.id}>{asset.name || asset.id}</option>
               ))}
             </select>
             {yoloMusicAudioAssets.length === 0 && (
-              <p className="mt-2 text-xs text-sf-text-muted">No audio assets in this project yet. Import song audio in Assets first.</p>
+              <p className="mt-2 text-xs text-sf-text-muted">{t('generate.director.music.song.noAudio', {}, 'No audio assets in this project yet. Import song audio in Assets first.')}</p>
             )}
           </div>
 
           <div className="mt-4">
-            <FieldLabel>Song Style / Genre</FieldLabel>
+            <FieldLabel>{t('generate.director.music.fields.genre', {}, 'Song Style / Genre')}</FieldLabel>
             <textarea
               value={yoloMusicStyleNotes || ''}
               onChange={(event) => setYoloMusicStyleNotes?.(event.target.value)}
@@ -2032,20 +2220,20 @@ export default function MusicVideoEasyMode({
               placeholder="e.g. symphonic metal, operatic female vocal, dark fantasy, huge drums, gothic cathedral atmosphere."
             />
             <p className="mt-1 text-[10px] leading-4 text-sf-text-muted">
-              Included in the copied Director Script brief so the LLM does not infer the visual style from lyrics alone.
+              {t('generate.director.music.song.genreHelp', {}, 'Included in the copied Director Script brief so the LLM does not infer the visual style from lyrics alone.')}
             </p>
           </div>
 
           <div className="mt-4 rounded-lg border border-amber-400/30 bg-amber-400/10 p-3">
-            <div className="text-xs font-semibold text-amber-200">Preparing lyric timing might take a moment.</div>
+            <div className="text-xs font-semibold text-amber-200">{t('generate.director.music.timing.notice', {}, 'Preparing lyric timing might take a moment.')}</div>
             <p className="mt-1 text-xs leading-5 text-sf-text-secondary">
-              Wait for this step to finish before copying the LLM brief so the script uses the real song timings.
+              {t('generate.director.music.timing.noticeHelp', {}, 'Wait for this step to finish before copying the LLM brief so the script uses the real song timings.')}
             </p>
           </div>
         </div>
 
         <div className="rounded-lg border border-sf-dark-700 bg-sf-dark-900/70 p-4">
-          <FieldLabel>Lyrics Timing</FieldLabel>
+          <FieldLabel>{t('generate.director.music.timing.title', {}, 'Lyrics Timing')}</FieldLabel>
           <div className="mt-2 flex flex-wrap items-center gap-2">
             <button
               type="button"
@@ -2054,7 +2242,7 @@ export default function MusicVideoEasyMode({
               className="inline-flex items-center gap-2 rounded-lg border border-sf-accent/50 bg-sf-accent/10 px-3 py-2 text-xs font-semibold text-sf-accent transition-colors hover:bg-sf-accent/20 disabled:cursor-not-allowed disabled:opacity-50"
             >
               {yoloMusicTranscribingSrt ? <Loader2 className="h-4 w-4 animate-spin" /> : <Wand2 className="h-4 w-4" />}
-              {yoloMusicTranscribingSrt ? 'Preparing' : 'Prepare Timing'}
+              {yoloMusicTranscribingSrt ? t('generate.director.music.timing.preparing', {}, 'Preparing') : t('generate.director.music.timing.prepare', {}, 'Prepare Timing')}
             </button>
             {timedLineCount > 0 && (
               <span className="inline-flex items-center gap-1 rounded-full border border-emerald-500/40 bg-emerald-500/10 px-2 py-1 text-[10px] text-emerald-200">
@@ -2063,9 +2251,25 @@ export default function MusicVideoEasyMode({
               </span>
             )}
           </div>
-          <div className="mt-3 max-w-xs">
+          <div className="mt-3 grid max-w-2xl gap-3 sm:grid-cols-2">
             <label className="block">
-              <span className="text-[10px] uppercase text-sf-text-muted">ASR Language</span>
+              <span className="text-[10px] uppercase text-sf-text-muted">{t('generate.director.music.timing.engine', {}, 'Timing Engine')}</span>
+              <select
+                value={yoloMusicTranscriptionEngine || 'auto'}
+                onChange={(event) => setYoloMusicTranscriptionEngine?.(event.target.value || 'auto')}
+                disabled={yoloMusicTranscribingSrt}
+                className="mt-1 w-full rounded-lg border border-sf-dark-600 bg-sf-dark-950 px-3 py-2 text-xs text-sf-text-primary outline-none focus:border-sf-accent disabled:opacity-60"
+              >
+                {TIMING_ENGINE_OPTIONS.map((option) => (
+                  <option key={option.id} value={option.id}>{t(`generate.director.music.timing.engines.${option.id}.label`, {}, option.label)}</option>
+                ))}
+              </select>
+              <span className="mt-1 block text-[10px] text-sf-text-muted">
+                {t(`generate.director.music.timing.engines.${yoloMusicTranscriptionEngine || 'auto'}.help`, {}, TIMING_ENGINE_OPTIONS.find((option) => option.id === yoloMusicTranscriptionEngine)?.helper || TIMING_ENGINE_OPTIONS[0].helper)}
+              </span>
+            </label>
+            <label className="block">
+              <span className="text-[10px] uppercase text-sf-text-muted">{t('generate.director.music.timing.language', {}, 'ASR Language')}</span>
               <select
                 value={yoloMusicAsrLanguage || 'English'}
                 onChange={(event) => setYoloMusicAsrLanguage?.(event.target.value || 'English')}
@@ -2080,10 +2284,10 @@ export default function MusicVideoEasyMode({
           <div className="mt-3 rounded-lg border border-sf-dark-700 bg-sf-dark-950/70 p-3">
             <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
               <div className="text-xs leading-5 text-sf-text-secondary">
-                <div className="font-semibold text-sf-text-primary">Lyrics source</div>
+                <div className="font-semibold text-sf-text-primary">{t('generate.director.music.timing.source', {}, 'Lyrics source')}</div>
                 {yoloMusicAlignProvidedLyrics
-                  ? 'Paste plain lyrics below. Velorn listens to the selected audio for timing, then writes your lyrics as SRT.'
-                  : 'Velorn listens to the selected audio and writes timed SRT output.'}
+                  ? t('generate.director.music.timing.alignHelp', {}, 'Paste plain lyrics below. Lumeweft listens to the selected audio for timing, then writes your lyrics as SRT.')
+                  : t('generate.director.music.timing.transcribeHelp', {}, 'Lumeweft listens to the selected audio and writes timed SRT output.')}
               </div>
               <div className="inline-flex rounded-lg border border-sf-dark-600 bg-sf-dark-900 p-1">
                 <button
@@ -2096,7 +2300,7 @@ export default function MusicVideoEasyMode({
                       : 'text-sf-text-secondary hover:text-sf-text-primary'
                   }`}
                 >
-                  Transcribe Song
+                  {t('generate.director.music.timing.transcribe', {}, 'Transcribe Song')}
                 </button>
                 <button
                   type="button"
@@ -2108,7 +2312,7 @@ export default function MusicVideoEasyMode({
                       : 'text-sf-text-secondary hover:text-sf-text-primary'
                   }`}
                 >
-                  Align My Lyrics
+                  {t('generate.director.music.timing.align', {}, 'Align My Lyrics')}
                 </button>
               </div>
             </div>
@@ -2136,11 +2340,11 @@ export default function MusicVideoEasyMode({
           )}
           <div className="mt-3">
             <label className="block">
-              <span className="text-[10px] uppercase text-sf-text-muted">SRT Output</span>
+              <span className="text-[10px] uppercase text-sf-text-muted">{t('generate.director.music.timing.srtOutput', {}, 'SRT Output')}</span>
               <textarea
                 value={yoloMusicLyrics}
                 onChange={(event) => setYoloMusicLyrics(event.target.value)}
-                placeholder="Timed lyrics will appear here after transcription or alignment."
+                placeholder={t('generate.director.music.timing.srtPlaceholder', {}, 'Timed lyrics will appear here after transcription or alignment.')}
                 readOnly={!yoloMusicAlignProvidedLyrics}
                 className={`mt-1 min-h-[220px] w-full resize-y rounded-lg border border-sf-dark-600 bg-sf-dark-950 px-3 py-2 font-mono text-xs leading-5 text-sf-text-primary outline-none focus:border-sf-accent ${!yoloMusicAlignProvidedLyrics ? 'opacity-90' : ''}`}
               />
@@ -2641,14 +2845,14 @@ export default function MusicVideoEasyMode({
   const renderPeopleStep = () => (
     <div className="space-y-4">
       {renderStepHeader(
-        'Define who appears on camera.',
-        'Add reference images for artists, band members, or performers so the script can route shots by Artist fields.'
+        t('generate.director.music.people.title', {}, 'Define who appears on camera.'),
+        t('generate.director.music.people.description', {}, 'Add reference images for artists, band members, or performers so the script can route shots by Artist fields.')
       )}
 
       <div className="rounded-lg border border-sf-dark-700 bg-sf-dark-900/70 p-4">
         <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
           <div>
-            <FieldLabel>Cast References</FieldLabel>
+            <FieldLabel>{t('generate.director.music.fields.castReferences', {}, 'Cast References')}</FieldLabel>
             <div className="mt-1 text-sm font-semibold text-sf-text-primary">
               {plural(yoloMusicResolvedCast.length, 'resolved person', 'resolved people')}
             </div>
@@ -2766,13 +2970,13 @@ export default function MusicVideoEasyMode({
   const renderScriptStep = () => (
     <div className="space-y-4">
       {renderStepHeader(
-        'Create the director script.',
-        'Copy a ready-made LLM brief with timing, cast, and format rules, then paste the returned script here.'
+        t('generate.director.music.script.title', {}, 'Create the director script.'),
+        t('generate.director.music.script.description', {}, 'Copy a ready-made LLM brief with timing, cast, and format rules, then paste the returned script here.')
       )}
       <div className="rounded-lg border border-sf-dark-700 bg-sf-dark-900/70 p-4">
         <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
           <div>
-            <FieldLabel>Coverage Plan</FieldLabel>
+            <FieldLabel>{t('generate.director.music.fields.coveragePlan', {}, 'Coverage Plan')}</FieldLabel>
             <div className="mt-1 text-sm font-semibold text-sf-text-primary">
               {plural(coveragePlan.sections.length, 'section')}: {coverageSummary}
             </div>
@@ -2931,8 +3135,8 @@ export default function MusicVideoEasyMode({
   const renderKeyframesStep = () => (
     <div className="space-y-4">
       {renderStepHeader(
-        'Create keyframes from the script.',
-        'Each parsed script shot gets one starting image. The script, not a separate shot preset list, controls what gets made.'
+        t('generate.director.music.keyframes.title', {}, 'Create keyframes from the script.'),
+        t('generate.director.music.keyframes.description', {}, 'Each parsed script shot gets one starting image. The script, not a separate shot preset list, controls what gets made.')
       )}
       <div className="grid gap-3 md:grid-cols-3">
         <Stat label="Script shots" value={plannedShotCount} />
@@ -3030,16 +3234,19 @@ export default function MusicVideoEasyMode({
                 Preview a shot to inspect the image, edit its prompt, or rerun that keyframe at the current output settings.
               </p>
             </div>
-            <button
-              type="button"
-              onClick={handleRegenerateAllKeyframes}
-              disabled={isQueuingKeyframes || yoloDependencyCheckInProgress || !customKeyframeReady}
-              className="rounded-lg border border-sf-dark-600 px-3 py-2 text-xs font-semibold text-sf-text-secondary transition-colors hover:border-sf-dark-500 hover:text-sf-text-primary disabled:cursor-not-allowed disabled:opacity-50"
-            >
-              Regenerate All
-            </button>
+            <div className="flex flex-wrap items-center gap-2">
+              {renderCardDisplayControls()}
+              <button
+                type="button"
+                onClick={handleRegenerateAllKeyframes}
+                disabled={isQueuingKeyframes || yoloDependencyCheckInProgress || !customKeyframeReady}
+                className="rounded-lg border border-sf-dark-600 px-3 py-2 text-xs font-semibold text-sf-text-secondary transition-colors hover:border-sf-dark-500 hover:text-sf-text-primary disabled:cursor-not-allowed disabled:opacity-50"
+              >
+                Regenerate All
+              </button>
+            </div>
           </div>
-          <div className="grid grid-cols-1 gap-2 md:grid-cols-2 xl:grid-cols-4">
+          <div className={cardGridClass}>
             {flatShots.map(({ scene, shot }, index) => {
               const variant = getVariantForShot(scene.id, shot.id)
               const asset = variant ? yoloStoryboardAssetMap?.get(variant.key) : null
@@ -3108,6 +3315,7 @@ export default function MusicVideoEasyMode({
                     <div className="flex items-start justify-between gap-2">
                       <div className="min-w-0 text-xs font-semibold text-sf-text-primary">Shot {index + 1}: {shot.scriptShotLabel || scene.label || shot.id}</div>
                       <div className="flex shrink-0 items-center gap-1">
+                        {renderCancelQueuedJobButton(cardState.job, `Shot ${index + 1} keyframe`, setKeyframeStatus)}
                         {renderKeyframeRunButton({ scene, shot }, index)}
                         {renderReplaceKeyframeButton({ scene, shot }, index)}
                         {renderCopyPromptButton(keyframePrompt, `Shot ${index + 1} keyframe prompt copied.`, setKeyframeStatus)}
@@ -3118,7 +3326,7 @@ export default function MusicVideoEasyMode({
                         {coverageLabel}
                       </div>
                     )}
-                    <div className="mt-1 line-clamp-2 text-[10px] text-sf-text-muted">{keyframePrompt}</div>
+                    <div className={promptPreviewClass}>{keyframePrompt}</div>
                     {cardState.job?.progress > 0 && (
                       <div className="mt-1 h-1 overflow-hidden rounded-full bg-sf-dark-700">
                         <div className="h-full rounded-full bg-sf-accent" style={{ width: `${Math.min(100, Math.max(0, cardState.job.progress || 0))}%` }} />
@@ -3230,9 +3438,64 @@ export default function MusicVideoEasyMode({
                 </button>
               )
             })}
-            <span className="rounded-lg border border-sf-dark-600 px-2.5 py-1.5 text-[10px] font-semibold text-sf-text-muted">
-              {videoFps} fps
-            </span>
+            {resolutionPreset === 'custom' && (
+              <div className="inline-flex items-center gap-1">
+                <input
+                  type="number"
+                  min="64"
+                  max="4096"
+                  step="8"
+                  value={customWidth}
+                  onChange={(event) => setCustomWidth(event.target.value)}
+                  onBlur={() => commitCustomDimension('width')}
+                  aria-label="Custom video width"
+                  className="w-16 rounded-md border border-sf-dark-600 bg-sf-dark-950 px-1.5 py-1 text-[10px] text-sf-text-primary outline-none focus:border-sf-accent"
+                />
+                <span className="text-[10px] text-sf-text-muted">×</span>
+                <input
+                  type="number"
+                  min="64"
+                  max="4096"
+                  step="8"
+                  value={customHeight}
+                  onChange={(event) => setCustomHeight(event.target.value)}
+                  onBlur={() => commitCustomDimension('height')}
+                  aria-label="Custom video height"
+                  className="w-16 rounded-md border border-sf-dark-600 bg-sf-dark-950 px-1.5 py-1 text-[10px] text-sf-text-primary outline-none focus:border-sf-accent"
+                />
+              </div>
+            )}
+            <span className="ml-1 text-[10px] uppercase tracking-wider text-sf-text-muted">FPS</span>
+            {FPS_OPTIONS.map((fpsOption) => (
+              <button
+                key={`music-video-fps-${fpsOption}`}
+                type="button"
+                onClick={() => setVideoFps(fpsOption)}
+                className={`rounded-lg border px-2.5 py-1.5 text-[10px] font-semibold transition-colors ${buttonClass(videoFps === fpsOption)}`}
+              >
+                {fpsOption}
+              </button>
+            ))}
+            <button
+              type="button"
+              onClick={() => setVideoFps(normalizeCustomFps(customVideoFps))}
+              className={`rounded-lg border px-2.5 py-1.5 text-[10px] font-semibold transition-colors ${buttonClass(!FPS_OPTIONS.includes(videoFps))}`}
+            >
+              Custom
+            </button>
+            {!FPS_OPTIONS.includes(videoFps) && (
+              <input
+                type="number"
+                min="1"
+                max="120"
+                step="1"
+                value={customVideoFps}
+                onChange={(event) => handleCustomFpsChange(event.target.value)}
+                onBlur={commitCustomFps}
+                aria-label="Custom video frames per second"
+                className="w-16 rounded-md border border-sf-dark-600 bg-sf-dark-950 px-1.5 py-1 text-[10px] text-sf-text-primary outline-none focus:border-sf-accent"
+              />
+            )}
             {customVideoWorkflowSelected && (
               <span
                 className="rounded-lg border border-amber-400/30 bg-amber-400/10 px-2.5 py-1.5 text-[10px] font-semibold text-amber-200"
@@ -3341,8 +3604,8 @@ export default function MusicVideoEasyMode({
   const renderVideosStep = () => (
     <div className="space-y-4">
       {renderStepHeader(
-        'Generate videos from the script.',
-        'Each parsed shot can be generated or rerun on its own using the matching keyframe and song timing.'
+        t('generate.director.music.videos.title', {}, 'Generate videos from the script.'),
+        t('generate.director.music.videos.description', {}, 'Each parsed shot can be generated or rerun on its own using the matching keyframe and song timing.')
       )}
       <div className="grid gap-3 md:grid-cols-3">
         <Stat label="Script shots" value={plannedShotCount} />
@@ -3359,16 +3622,19 @@ export default function MusicVideoEasyMode({
                 Preview a shot to inspect the video, edit its motion prompt, or rerun it through {selectedVideoWorkflowLabel}.
               </p>
             </div>
-            <button
-              type="button"
-              onClick={handleRegenerateAllVideos}
-              disabled={!canQueueVideos || isQueuingVideos || yoloDependencyCheckInProgress}
-              className="rounded-lg border border-sf-dark-600 px-3 py-2 text-xs font-semibold text-sf-text-secondary transition-colors hover:border-sf-dark-500 hover:text-sf-text-primary disabled:cursor-not-allowed disabled:opacity-50"
-            >
-              Regenerate All
-            </button>
+            <div className="flex flex-wrap items-center gap-2">
+              {renderCardDisplayControls()}
+              <button
+                type="button"
+                onClick={handleRegenerateAllVideos}
+                disabled={!canQueueVideos || isQueuingVideos || yoloDependencyCheckInProgress}
+                className="rounded-lg border border-sf-dark-600 px-3 py-2 text-xs font-semibold text-sf-text-secondary transition-colors hover:border-sf-dark-500 hover:text-sf-text-primary disabled:cursor-not-allowed disabled:opacity-50"
+              >
+                Regenerate All
+              </button>
+            </div>
           </div>
-          <div className="grid grid-cols-1 gap-2 md:grid-cols-2 xl:grid-cols-4">
+          <div className={cardGridClass}>
             {flatShots.map(({ scene, shot }, index) => {
               const variant = getVariantForShot(scene.id, shot.id)
               const keyframeAsset = variant ? yoloStoryboardAssetMap?.get(variant.key) : null
@@ -3437,6 +3703,7 @@ export default function MusicVideoEasyMode({
                     <div className="flex items-start justify-between gap-2">
                       <div className="min-w-0 text-xs font-semibold text-sf-text-primary">Shot {index + 1}: {shot.scriptShotLabel || scene.label || shot.id}</div>
                       <div className="flex shrink-0 items-center gap-1">
+                        {renderCancelQueuedJobButton(cardState.job, `Shot ${index + 1} video`, setVideoStatus)}
                         {renderVideoRunButton({ scene, shot }, index)}
                         {renderReplaceVideoButton({ scene, shot }, index)}
                         {renderCopyPromptButton(videoPrompt, `Shot ${index + 1} video prompt copied.`, setVideoStatus)}
@@ -3448,7 +3715,7 @@ export default function MusicVideoEasyMode({
                       <span>{start.toFixed(2)}s</span>
                       {length > 0 && <span>{length.toFixed(1)}s</span>}
                     </div>
-                    <div className="mt-1 line-clamp-2 text-[10px] text-sf-text-muted">{videoPrompt}</div>
+                    <div className={promptPreviewClass}>{videoPrompt}</div>
                     {cardState.job?.progress > 0 && (
                       <div className="mt-1 h-1 overflow-hidden rounded-full bg-sf-dark-700">
                         <div className="h-full rounded-full bg-sf-accent" style={{ width: `${Math.min(100, Math.max(0, cardState.job.progress || 0))}%` }} />
@@ -3932,8 +4199,8 @@ export default function MusicVideoEasyMode({
                         : 'border-sf-dark-700 bg-sf-dark-950/70 text-sf-text-secondary hover:border-sf-dark-500 hover:text-sf-text-primary'
                   }`}
                 >
-                  <div className="text-[10px] uppercase text-sf-text-muted">Step {entry.number}</div>
-                  <div className="mt-1 text-xs font-semibold">{entry.label}</div>
+                  <div className="text-[10px] uppercase text-sf-text-muted">{t('generate.director.common.step', { number: entry.number }, `Step ${entry.number}`)}</div>
+                  <div className="mt-1 text-xs font-semibold">{t(`generate.director.music.steps.${entry.id}`, {}, entry.label)}</div>
                 </button>
               )
             })}

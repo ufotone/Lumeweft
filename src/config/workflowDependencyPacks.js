@@ -7,6 +7,8 @@ import { TOPAZ_VIDEO_UPSCALE_WORKFLOW_ID } from './topazVideoUpscaleConfig'
 import { MUSIC_VIDEO_SHOT_WORKFLOW_ID, VOCAL_EXTRACT_WORKFLOW_ID } from './musicVideoShotConfig'
 import {
   ELEVENLABS_TTS_WORKFLOW_ID,
+  IRODORI_TTS_MODEL_FILENAME,
+  IRODORI_TTS_WORKFLOW_ID,
   SHORT_FILM_DIALOGUE_VIDEO_WORKFLOW_ID,
 } from './shortFilmConfig'
 import { getImportedDependencyPack } from './importedWorkflowRegistry'
@@ -54,6 +56,16 @@ const QWEN_IMAGE_EDIT_REQUIRED_NODES = Object.freeze([
 ])
 
 export const WORKFLOW_DEPENDENCY_PACKS = Object.freeze({
+  'minimax-h3-media-promptor': Object.freeze({
+    id: 'minimax-h3-media-promptor',
+    displayName: 'Media to Prompt (MiniMax H3 Promptor)',
+    requiredNodes: Object.freeze([
+      { classType: 'H3_Vision_Analyzer' },
+      { classType: 'H3_Promptor' },
+      { classType: 'PreviewAny' },
+    ]),
+    requiredModels: Object.freeze([]),
+  }),
   'wan22-i2v': Object.freeze({
     id: 'wan22-i2v',
     displayName: 'WAN 2.2 Image-to-Video',
@@ -754,6 +766,25 @@ export const WORKFLOW_DEPENDENCY_PACKS = Object.freeze({
     requiredModels: Object.freeze([]),
     requiresComfyOrgApiKey: true,
     docsUrl: COMFY_REGISTRY_URL,
+  }),
+
+  [IRODORI_TTS_WORKFLOW_ID]: Object.freeze({
+    id: IRODORI_TTS_WORKFLOW_ID,
+    displayName: 'Irodori-TTS v3',
+    requiredNodes: Object.freeze([
+      { classType: 'jupo.IrodoriTTS.ModelLoader' },
+      { classType: 'jupo.IrodoriTTS.Sampler' },
+      { classType: 'SaveAudioMP3' },
+    ]),
+    requiredModels: Object.freeze([
+      {
+        classType: 'jupo.IrodoriTTS.ModelLoader',
+        inputKey: 'model',
+        filename: IRODORI_TTS_MODEL_FILENAME,
+        targetSubdir: 'checkpoints',
+      },
+    ]),
+    docsUrl: 'https://github.com/jupo-ai/comfy-Irodori-TTS',
   }),
 
   'z-image-turbo': Object.freeze({

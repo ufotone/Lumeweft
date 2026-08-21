@@ -1271,6 +1271,8 @@ export const useTimelineStore = create(
     const clipMetadata = options?.metadata && typeof options.metadata === 'object'
       ? JSON.parse(JSON.stringify(options.metadata))
       : null
+    const generationRecordId = String(options?.generationRecordId || asset?.generationRecordId || '').trim() || null
+    const generationVersionId = String(options?.generationVersionId || asset?.generationVersionId || '').trim() || null
     const rawDuration = overrideDuration != null ? overrideDuration : defaultDuration
     const finalDuration = roundDurationToFrame(rawDuration, fps)
     const finalTrimStart = overrideTrimStart != null ? overrideTrimStart : 0
@@ -1321,6 +1323,8 @@ export const useTimelineStore = create(
       url: asset.url,
       thumbnail: asset.url, // For video clips
       ...(clipMetadata ? { metadata: clipMetadata } : {}),
+      ...(generationRecordId ? { generationRecordId } : {}),
+      ...(generationVersionId ? { generationVersionId } : {}),
       ...(syncLock ? { lockMode: 'sync', syncLock } : {}),
       ...(linkGroupId ? { linkGroupId } : {}),
       // 2D Transform properties (NLE-style)

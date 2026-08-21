@@ -1817,7 +1817,7 @@ export default function FlowAIWorkspace({ onOpenWorkflowSetup }) {
         try {
           await generateAssetSprite(assetId, projectPath)
         } catch (error) {
-          console.warn('Failed to generate Flow AI preview sprite:', error)
+          console.warn('Failed to generate CANVAS preview sprite:', error)
         }
       }
     })()
@@ -2146,7 +2146,7 @@ export default function FlowAIWorkspace({ onOpenWorkflowSetup }) {
     if (payload.nodes.length === 0) return false
     flowClipboardRef.current = payload
     setRunNotice(
-      `Copied ${payload.nodes.length} Flow AI node${payload.nodes.length === 1 ? '' : 's'}${payload.edges.length > 0 ? ` and ${payload.edges.length} edge${payload.edges.length === 1 ? '' : 's'}` : ''}.`
+      `Copied ${payload.nodes.length} CANVAS node${payload.nodes.length === 1 ? '' : 's'}${payload.edges.length > 0 ? ` and ${payload.edges.length} edge${payload.edges.length === 1 ? '' : 's'}` : ''}.`
     )
     return true
   }, [edges, nodes, selectedNodeId, selectedNodeIds])
@@ -2173,7 +2173,7 @@ export default function FlowAIWorkspace({ onOpenWorkflowSetup }) {
       ...pasted.edges,
     ])
     setSelectedNodeId(pasted.nodes.length === 1 ? pasted.nodes[0].id : null)
-    setRunNotice(`Pasted ${pasted.nodes.length} Flow AI node${pasted.nodes.length === 1 ? '' : 's'}.`)
+    setRunNotice(`Pasted ${pasted.nodes.length} CANVAS node${pasted.nodes.length === 1 ? '' : 's'}.`)
     return true
   }, [recordFlowHistorySnapshot, setEdges, setNodes])
 
@@ -2304,19 +2304,19 @@ export default function FlowAIWorkspace({ onOpenWorkflowSetup }) {
           : 'Flow finished without new assets.'
       setRunNotice(
         importedCount > 0
-          ? `Flow AI imported ${importedCount} asset${importedCount === 1 ? '' : 's'}.`
+          ? `CANVAS imported ${importedCount} asset${importedCount === 1 ? '' : 's'}.`
           : textCount > 0
-            ? `Flow AI updated ${textCount} prompt output${textCount === 1 ? '' : 's'}.`
-            : 'Flow AI finished without new assets.'
+            ? `CANVAS updated ${textCount} prompt output${textCount === 1 ? '' : 's'}.`
+            : 'CANVAS finished without new assets.'
       )
       setCompletionNotice({
         title: 'Flow Complete',
         detail: completionDetail,
       })
     } catch (error) {
-      const message = error instanceof Error ? error.message : String(error || 'Flow AI run failed.')
+      const message = error instanceof Error ? error.message : String(error || 'CANVAS run failed.')
       const interrupted = /interrupt/i.test(message)
-      setRunNotice(interrupted ? 'Flow AI interrupted.' : message)
+      setRunNotice(interrupted ? 'CANVAS interrupted.' : message)
       setCompletionNotice(null)
       if (selectedNodeId && !interrupted) {
         updateNodeData(selectedNodeId, {
@@ -2355,7 +2355,7 @@ export default function FlowAIWorkspace({ onOpenWorkflowSetup }) {
     try {
       await comfyui.interrupt()
     } catch (error) {
-      const message = error instanceof Error ? error.message : String(error || 'Failed to interrupt Flow AI.')
+      const message = error instanceof Error ? error.message : String(error || 'Failed to interrupt CANVAS.')
       setRunNotice(message)
       setIsStopping(false)
     }
@@ -2367,7 +2367,7 @@ export default function FlowAIWorkspace({ onOpenWorkflowSetup }) {
       activeDocumentId,
     })
     await saveProject()
-    setRunNotice('Saved Flow AI changes to the current project.')
+    setRunNotice('Saved CANVAS changes to the current project.')
   }, [activeDocumentId, flowProjectData, saveProject, setFlowAiData])
 
   const handleResetInspectorWidth = useCallback(() => {
@@ -2589,7 +2589,7 @@ export default function FlowAIWorkspace({ onOpenWorkflowSetup }) {
       <div className="flex h-full min-h-0 w-[270px] flex-shrink-0 flex-col border-r border-sf-dark-800 bg-sf-dark-950/80">
         <div className="flex-shrink-0 border-b border-sf-dark-800 px-4 py-4">
           <div className="text-xs font-semibold uppercase tracking-[0.2em] text-sf-text-muted">
-            Flow AI
+            CANVAS
           </div>
           <div className="mt-2 text-sm text-sf-text-secondary">
             A curated canvas for local ComfyUI and cloud partner workflows.
@@ -2889,7 +2889,7 @@ export default function FlowAIWorkspace({ onOpenWorkflowSetup }) {
               : 'border-sf-dark-800 text-sf-text-muted'
           }`}
         >
-          {runNotice || 'Flow AI writes into the same project assets pipeline used by Generate.'}
+          {runNotice || 'CANVAS writes into the same project assets pipeline used by Generate.'}
         </div>
       </div>
 
@@ -3103,16 +3103,18 @@ export default function FlowAIWorkspace({ onOpenWorkflowSetup }) {
 
                   {selectedNode.type === FLOW_AI_NODE_TYPES.promptAssist && (
                     <>
-                      <InspectorRow label="Inline Brief">
+                      <InspectorRow label={selectedNode.data.workflowId === 'minimax-h3-media-promptor' ? 'Creative Direction (optional)' : 'Inline Brief'}>
                         <textarea
                           rows={5}
                           value={selectedNode.data.inlinePrompt || ''}
                           onChange={(event) => updateNodeData(selectedNode.id, { inlinePrompt: event.target.value })}
-                          placeholder="Optional. Leave blank to use the connected Prompt node."
+                          placeholder={selectedNode.data.workflowId === 'minimax-h3-media-promptor'
+                            ? 'Optional. Describe the action, staging, dialogue, or mood the references should perform.'
+                            : 'Optional. Leave blank to use the connected Prompt node.'}
                           className="w-full rounded-lg border border-sf-dark-700 bg-sf-dark-900 px-3 py-2 text-sm text-sf-text-primary outline-none"
                         />
                       </InspectorRow>
-                      <InspectorRow label="System Prompt Override">
+                      {selectedNode.data.workflowId !== 'minimax-h3-media-promptor' && <InspectorRow label="System Prompt Override">
                         <textarea
                           rows={5}
                           value={selectedNode.data.systemPrompt || ''}
@@ -3120,8 +3122,50 @@ export default function FlowAIWorkspace({ onOpenWorkflowSetup }) {
                           placeholder="Optional. Leave blank to use the bundled Gemini workflow default."
                           className="w-full rounded-lg border border-sf-dark-700 bg-sf-dark-900 px-3 py-2 text-sm text-sf-text-primary outline-none"
                         />
-                      </InspectorRow>
-                      <InspectorRow label="Reference Frame Time (seconds)">
+                      </InspectorRow>}
+                      {selectedNode.data.workflowId === 'minimax-h3-media-promptor' ? (
+                        <>
+                          <InspectorRow label="Target Duration (seconds)">
+                            <input
+                              type="number"
+                              min="4"
+                              max="15"
+                              step="0.5"
+                              value={selectedNode.data.duration ?? 15}
+                              onChange={(event) => updateNodeData(selectedNode.id, { duration: Math.max(4, Math.min(15, Number(event.target.value) || 15)) })}
+                              className="w-full rounded-lg border border-sf-dark-700 bg-sf-dark-900 px-3 py-2 text-sm text-sf-text-primary outline-none"
+                            />
+                          </InspectorRow>
+                          <InspectorRow label="Output Language">
+                            <select
+                              value={selectedNode.data.outputLanguage || 'English'}
+                              onChange={(event) => updateNodeData(selectedNode.id, { outputLanguage: event.target.value })}
+                              className="w-full rounded-lg border border-sf-dark-700 bg-sf-dark-900 px-3 py-2 text-sm text-sf-text-primary outline-none"
+                            >
+                              <option value="English">English</option>
+                              <option value="Chinese">Chinese</option>
+                            </select>
+                          </InspectorRow>
+                          <InspectorRow label="Image Analysis">
+                            <select
+                              value={selectedNode.data.imageAnalysisMode || 'Comprehensive'}
+                              onChange={(event) => updateNodeData(selectedNode.id, { imageAnalysisMode: event.target.value })}
+                              className="w-full rounded-lg border border-sf-dark-700 bg-sf-dark-900 px-3 py-2 text-sm text-sf-text-primary outline-none"
+                            >
+                              {['Comprehensive', 'Subject / Identity', 'Action / Emotion', 'Face & Expression Focus', 'Prop & Object Interaction', 'Lighting & Camera', 'Cinematic Composition', 'Style & Aesthetics', 'Color Palette & Texture'].map((mode) => <option key={mode} value={mode}>{mode}</option>)}
+                            </select>
+                          </InspectorRow>
+                          <InspectorRow label="Video Analysis">
+                            <select
+                              value={selectedNode.data.videoAnalysisMode || 'Comprehensive'}
+                              onChange={(event) => updateNodeData(selectedNode.id, { videoAnalysisMode: event.target.value })}
+                              className="w-full rounded-lg border border-sf-dark-700 bg-sf-dark-900 px-3 py-2 text-sm text-sf-text-primary outline-none"
+                            >
+                              {['Comprehensive', 'Motion Focus', 'Camera Tracking', 'Temporal Flow', 'Physics & Momentum', 'Background Dynamics'].map((mode) => <option key={mode} value={mode}>{mode}</option>)}
+                            </select>
+                          </InspectorRow>
+                        </>
+                      ) : <><InspectorRow label="Reference Frame Time (seconds)">
                         <input
                           type="number"
                           min="0"
@@ -3147,9 +3191,11 @@ export default function FlowAIWorkspace({ onOpenWorkflowSetup }) {
                             Random
                           </button>
                         </div>
-                      </InspectorRow>
+                      </InspectorRow></>}
                       <div className="rounded-xl border border-sf-dark-800 bg-sf-dark-900/70 p-3 text-sm text-sf-text-secondary">
-                        Connect a `Prompt` node for the rough idea, and optionally connect an `Image Input` or generated frame as visual context.
+                        {selectedNode.data.workflowId === 'minimax-h3-media-promptor'
+                          ? 'Connect an Image Input node using its Image or Video port. Video references are uploaded and analyzed as a full temporal reference, not reduced to one frame.'
+                          : 'Connect a `Prompt` node for the rough idea, and optionally connect an `Image Input` or generated frame as visual context.'}
                       </div>
                       <InspectorRow label="Latest Output">
                         <textarea
@@ -3468,7 +3514,7 @@ export default function FlowAIWorkspace({ onOpenWorkflowSetup }) {
                     </div>
                     {!String(selectedNode.data.folderName || '').trim() && (
                       <div className="mt-2 text-xs text-sf-text-muted">
-                        Blank means images go to Flow AI Images, videos to Flow AI Videos, and audio to Flow AI Audio.
+                        Blank means images go to CANVAS Images, videos to CANVAS Videos, and audio to CANVAS Audio.
                       </div>
                     )}
                   </div>

@@ -308,7 +308,7 @@ These tools use the same persistent Director state as the visible Music Video UI
 | `queue_music_video_videos` | Preview or queue missing, all, or selected videos from their generated keyframes. |
 | `replace_music_video_keyframe` | Preview or replace a Step 4 result with an existing project image. |
 | `replace_music_video_video` | Preview or replace a Step 5 result with an existing project video. |
-| `transcribe_music_video_audio` | Preview or run Qwen ASR transcription or provided-lyrics alignment. |
+| `transcribe_music_video_audio` | Preview or run song transcription/provided-lyrics alignment using the selected Auto, Local Whisper, or ComfyUI timing engine. |
 | `assemble_music_video_timeline` | Preview or assemble ready videos and song audio into editable coverage tracks with sync locks. |
 | `replace_music_video_timeline_shot` | Preview or replace an assembled shot while preserving its edit timing, effects, transforms, and sync lock. |
 
@@ -407,7 +407,7 @@ These tools use the same persistent Director state as the visible Music Video UI
 
 | Tool | Purpose |
 | --- | --- |
-| `transcribe_captions` | Preview/start Qwen ASR caption transcription for timeline or asset scope. |
+| `transcribe_captions` | Preview/start local Whisper or ComfyUI caption transcription for timeline or asset scope. |
 | `get_caption_status` | Poll caption transcription/render jobs and get the cue draft. |
 | `update_caption_cues` | Edit the cue draft before rendering. |
 | `generate_captions` | Preview/render an animated transparent caption overlay and place it on the Captions track. |

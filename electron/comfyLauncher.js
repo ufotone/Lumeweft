@@ -29,6 +29,7 @@ const LOG_RING_MAX = 2000
 const LOG_FILE_MAX_BYTES = 50 * 1024 * 1024 // 50 MB per session before rotating
 const STATE_EVENT = 'state'
 const LOG_EVENT = 'log'
+const LEGACY_STARTUP_TIMEOUT_MS = 120_000
 
 const DEFAULT_CONFIG = Object.freeze({
   launcherMode: 'script',
@@ -37,7 +38,7 @@ const DEFAULT_CONFIG = Object.freeze({
   macAppLaunchHidden: true,
   autoStart: false,
   stopOnQuit: true,
-  startupTimeoutMs: 120_000,
+  startupTimeoutMs: 300_000,
   extraArgs: '',
   disableAutoLaunch: true,
 })
@@ -49,6 +50,13 @@ function nowMs() {
 function safeCloneConfig(config) {
   const base = config && typeof config === 'object' ? config : {}
   const launcherMode = base.launcherMode === 'mac-app' ? 'mac-app' : 'script'
+  const configuredStartupTimeoutMs = Number(base.startupTimeoutMs)
+  // Migrate the former two-minute default. Five minutes is more realistic
+  // when custom nodes scan dependencies or large models warm up on first boot.
+  const startupTimeoutMs = !Number.isFinite(configuredStartupTimeoutMs)
+    || configuredStartupTimeoutMs === LEGACY_STARTUP_TIMEOUT_MS
+    ? DEFAULT_CONFIG.startupTimeoutMs
+    : configuredStartupTimeoutMs
   return {
     launcherMode,
     launcherScript: typeof base.launcherScript === 'string' ? base.launcherScript : '',
@@ -56,7 +64,7 @@ function safeCloneConfig(config) {
     macAppLaunchHidden: base.macAppLaunchHidden === undefined ? true : Boolean(base.macAppLaunchHidden),
     autoStart: Boolean(base.autoStart),
     stopOnQuit: base.stopOnQuit === undefined ? true : Boolean(base.stopOnQuit),
-    startupTimeoutMs: Number.isFinite(Number(base.startupTimeoutMs)) ? Number(base.startupTimeoutMs) : DEFAULT_CONFIG.startupTimeoutMs,
+    startupTimeoutMs,
     extraArgs: typeof base.extraArgs === 'string' ? base.extraArgs : '',
     disableAutoLaunch: base.disableAutoLaunch === undefined ? true : Boolean(base.disableAutoLaunch),
   }
@@ -1211,7 +1219,7 @@ class ComfyLauncher extends EventEmitter {
     this._exitCode = null
     this._exitSignal = null
     this._probingSince = nowMs()
-    this._setState('starting', { statusMessage: `Starting ComfyUI (pid ${this._pid}). First boot can take 30-60s.` })
+    this._setState('starting', { statusMessage: `Starting ComfyUI (pid ${this._pid}). First boot can take several minutes.` })
 
     // Persist pid/port so a future Velorn boot can reclaim this child
     // if we crash before it exits. Fire-and-forget: we never block startup
@@ -1351,22 +1359,20 @@ class ComfyLauncher extends EventEmitter {
   _startMacAppProbing(httpBase, timeoutMs) {
     this._stopProbing()
     const startedAt = nowMs()
+    let slowStartupReported = false
     const tick = async () => {
       if (this._state !== 'starting' || this._ownership !== 'app') return
       const elapsed = nowMs() - startedAt
-      if (elapsed > timeoutMs) {
-        const message = `ComfyUI.app did not respond on ${httpBase || 'the configured endpoint'} after ${Math.round(elapsed / 1000)}s.`
+      if (elapsed > timeoutMs && !slowStartupReported) {
+        slowStartupReported = true
+        const message = `ComfyUI.app is taking longer than ${Math.round(timeoutMs / 1000)}s to respond on ${httpBase || 'the configured endpoint'}. The process will remain running while Lumeweft keeps waiting.`
         this._appendLog('system', message)
-        this._ownership = 'none'
-        this._pid = null
-        this._setState('idle', { statusMessage: message, error: 'startup-timeout' })
-        this._closeLogFile()
-        return
+        this._setState('starting', { statusMessage: message, error: 'startup-slow' })
       }
 
       const portOpen = await isPortOpen(httpBase, 500)
       if (!portOpen) {
-        this._probeTimer = setTimeout(tick, 750)
+        this._probeTimer = setTimeout(tick, slowStartupReported ? 2000 : 750)
         return
       }
       const probe = await probeHttp(httpBase, 1500)
@@ -1376,11 +1382,12 @@ class ComfyLauncher extends EventEmitter {
         this._ownership = 'app'
         this._setState('running', {
           statusMessage: `ComfyUI.app ready at ${httpBase}${pid ? ` (pid ${pid})` : ''}.`,
+          error: '',
         })
         this._probeTimer = null
         return
       }
-      this._probeTimer = setTimeout(tick, 750)
+      this._probeTimer = setTimeout(tick, slowStartupReported ? 2000 : 750)
     }
     this._probeTimer = setTimeout(tick, 500)
   }
@@ -1512,29 +1519,30 @@ class ComfyLauncher extends EventEmitter {
   _startProbing(httpBase, timeoutMs) {
     this._stopProbing()
     const startedAt = nowMs()
+    let slowStartupReported = false
     const tick = async () => {
       if (!this._child) return
       const elapsed = nowMs() - startedAt
-      if (elapsed > timeoutMs) {
-        this._appendLog('system', `Startup probe timed out after ${Math.round(elapsed / 1000)}s. Killing process.`)
-        this._setState('stopping', { statusMessage: 'ComfyUI did not become ready in time. Stopping.', error: 'startup-timeout' })
-        try { await killProcessTree(this._child) } catch (_) { /* ignore */ }
-        return
+      if (elapsed > timeoutMs && !slowStartupReported) {
+        slowStartupReported = true
+        const message = `ComfyUI is taking longer than ${Math.round(timeoutMs / 1000)}s to become ready. The process will remain running while Lumeweft keeps waiting.`
+        this._appendLog('system', message)
+        this._setState('starting', { statusMessage: message, error: 'startup-slow' })
       }
 
       const portOpen = await isPortOpen(httpBase, 500)
       if (!portOpen) {
-        this._probeTimer = setTimeout(tick, 750)
+        this._probeTimer = setTimeout(tick, slowStartupReported ? 2000 : 750)
         return
       }
       const probe = await probeHttp(httpBase, 1500)
       if (probe.ok) {
         this._ownership = 'ours'
-        this._setState('running', { statusMessage: `ComfyUI ready at ${httpBase} (pid ${this._pid}).` })
+        this._setState('running', { statusMessage: `ComfyUI ready at ${httpBase} (pid ${this._pid}).`, error: '' })
         this._probeTimer = null
         return
       }
-      this._probeTimer = setTimeout(tick, 750)
+      this._probeTimer = setTimeout(tick, slowStartupReported ? 2000 : 750)
     }
     this._probeTimer = setTimeout(tick, 500)
   }

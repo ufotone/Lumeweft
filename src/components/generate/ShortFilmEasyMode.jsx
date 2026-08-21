@@ -18,11 +18,12 @@ import {
 import {
   buildShortFilmVideoPrompt,
   buildShortFilmDialogueMotionPrompt,
-  ELEVENLABS_TTS_WORKFLOW_ID,
   SHORT_FILM_DIALOGUE_MOUTH_GUIDANCE,
   SHORT_FILM_KEYFRAME_WORKFLOW_OPTIONS,
   SHORT_FILM_VIDEO_RESOLUTION_OPTIONS,
+  SHORT_FILM_VOICE_PROVIDER_OPTIONS,
 } from '../../config/shortFilmConfig'
+import { useI18n } from '../../i18n/I18nContext'
 
 const DRAFT_STORAGE_KEY = 'comfystudio-short-film-easy-mode-draft-v1'
 
@@ -108,6 +109,7 @@ const DEFAULT_DRAFT = Object.freeze({
   videoFps: 24,
   screenplay: DEFAULT_SCREENPLAY,
   voiceWorkflow: 'text_to_speech',
+  voiceProvider: 'elevenlabs',
   keyframeWorkflow: 'nano-banana-2',
 })
 
@@ -217,6 +219,7 @@ function normalizeDraft(rawDraft = {}) {
     videoFps: normalizeNumber(raw.videoFps, FPS_OPTIONS, DEFAULT_DRAFT.videoFps),
     screenplay: String(raw.screenplay || DEFAULT_DRAFT.screenplay),
     voiceWorkflow: normalizeOption(raw.voiceWorkflow, VOICE_WORKFLOW_OPTIONS, DEFAULT_DRAFT.voiceWorkflow),
+    voiceProvider: normalizeOption(raw.voiceProvider, SHORT_FILM_VOICE_PROVIDER_OPTIONS, DEFAULT_DRAFT.voiceProvider),
     keyframeWorkflow: normalizeOption(raw.keyframeWorkflow, SHORT_FILM_KEYFRAME_WORKFLOW_OPTIONS, DEFAULT_DRAFT.keyframeWorkflow),
   }
 }
@@ -548,8 +551,8 @@ Camera: [lens/framing/movement]
 (Continue until the short film is covered.)`
 }
 
-function FieldLabel({ children }) {
-  return <label className="text-[10px] uppercase tracking-wide text-sf-text-muted">{children}</label>
+function FieldLabel({ children, className = '' }) {
+  return <label className={`text-[10px] uppercase tracking-wide text-sf-text-muted ${className}`.trim()}>{children}</label>
 }
 
 function Stat({ label, value }) {
@@ -602,6 +605,7 @@ export default function ShortFilmEasyMode({
   setImageResolution,
   setYoloVideoFps,
 }) {
+  const { t } = useI18n()
   const initial = useMemo(() => loadDraft(), [])
   const [draft, setDraft] = useState(initial.draft)
   const [characters, setCharacters] = useState(initial.characters)
@@ -634,8 +638,10 @@ export default function ShortFilmEasyMode({
   )
   const voiceJobByDialogueId = useMemo(() => {
     const map = new Map()
+    const selectedProvider = SHORT_FILM_VOICE_PROVIDER_OPTIONS.find((option) => option.id === draft.voiceProvider)
+      || SHORT_FILM_VOICE_PROVIDER_OPTIONS[0]
     for (const job of generationQueue || []) {
-      if (job?.workflowId !== ELEVENLABS_TTS_WORKFLOW_ID) continue
+      if (job?.workflowId !== selectedProvider.workflowId) continue
       if (job?.shortFilm?.kind !== 'dialogue-voice') continue
       if (job.shortFilm.title && job.shortFilm.title !== draft.title) continue
       const dialogueId = String(job.shortFilm.dialogueId || '')
@@ -646,7 +652,7 @@ export default function ShortFilmEasyMode({
       }
     }
     return map
-  }, [draft.title, generationQueue])
+  }, [draft.title, draft.voiceProvider, generationQueue])
   const keyframeJobByShotId = useMemo(() => {
     const map = new Map()
     for (const job of generationQueue || []) {
@@ -679,12 +685,14 @@ export default function ShortFilmEasyMode({
       if (asset?.type !== 'audio') continue
       if (asset?.shortFilm?.kind !== 'dialogue-voice') continue
       if (asset.shortFilm.title && asset.shortFilm.title !== draft.title) continue
+      const assetProvider = String(asset.shortFilm.voiceProvider || 'elevenlabs')
+      if (assetProvider !== draft.voiceProvider) continue
       const dialogueId = String(asset.shortFilm.dialogueId || '')
       if (!dialogueId) continue
       map.set(dialogueId, asset)
     }
     return map
-  }, [assets, draft.title])
+  }, [assets, draft.title, draft.voiceProvider])
   const videoJobByShotId = useMemo(() => {
     const map = new Map()
     for (const job of generationQueue || []) {
@@ -843,6 +851,7 @@ export default function ShortFilmEasyMode({
       const result = await onQueueVoices({
         title: draft.title,
         voiceWorkflow: draft.voiceWorkflow,
+        voiceProvider: draft.voiceProvider,
         dialogueLines,
         characters,
       })
@@ -999,22 +1008,22 @@ export default function ShortFilmEasyMode({
   const renderStoryStep = () => (
     <div className="space-y-4">
       <div>
-        <h2 className="text-lg font-semibold text-sf-text-primary">Define the short film.</h2>
+        <h2 className="text-lg font-semibold text-sf-text-primary">{t('generate.director.shortFilm.story.title', {}, 'Define the short film.')}</h2>
         <p className="mt-1 text-sm text-sf-text-secondary">
-          This builds the LLM brief. After the script exists, the script becomes the source of truth.
+          {t('generate.director.shortFilm.story.description', {}, 'This builds the LLM brief. After the script exists, the script becomes the source of truth.')}
         </p>
       </div>
 
       <div className="grid gap-3 lg:grid-cols-[0.9fr_1.1fr]">
         <div className="rounded-xl border border-sf-dark-700 bg-sf-dark-900/80 p-4">
-          <FieldLabel>Title</FieldLabel>
+          <FieldLabel>{t('generate.director.shortFilm.fields.title', {}, 'Title')}</FieldLabel>
           <input
             value={draft.title}
             onChange={(event) => updateDraft({ title: event.target.value })}
             className="mt-1 w-full rounded-lg border border-sf-dark-700 bg-sf-dark-950 px-3 py-2 text-sm text-sf-text-primary outline-none focus:border-sf-accent"
           />
           <div className="mt-3">
-            <FieldLabel>Premise</FieldLabel>
+            <FieldLabel>{t('generate.director.shortFilm.fields.premise', {}, 'Premise')}</FieldLabel>
             <textarea
               value={draft.premise}
               onChange={(event) => updateDraft({ premise: event.target.value })}
@@ -1025,7 +1034,7 @@ export default function ShortFilmEasyMode({
         </div>
 
         <div className="rounded-xl border border-sf-dark-700 bg-sf-dark-900/80 p-4">
-          <FieldLabel>Creative direction</FieldLabel>
+          <FieldLabel>{t('generate.director.shortFilm.fields.creativeDirection', {}, 'Creative direction')}</FieldLabel>
           <textarea
             value={draft.creativeDirection}
             onChange={(event) => updateDraft({ creativeDirection: event.target.value })}
@@ -1033,7 +1042,7 @@ export default function ShortFilmEasyMode({
             className="mt-1 w-full resize-none rounded-lg border border-sf-dark-700 bg-sf-dark-950 px-3 py-2 text-sm text-sf-text-primary outline-none focus:border-sf-accent"
           />
           <p className="mt-2 text-xs text-sf-text-muted">
-            Tone, genre, pacing, and style live here so the LLM has direction before it writes the actual script.
+            {t('generate.director.shortFilm.story.directionHelp', {}, 'Tone, genre, pacing, and style live here so the LLM has direction before it writes the actual script.')}
           </p>
         </div>
       </div>
@@ -1041,7 +1050,7 @@ export default function ShortFilmEasyMode({
       <div className="rounded-xl border border-sf-dark-700 bg-sf-dark-900/80 p-4">
         <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
           <div>
-            <FieldLabel>Runtime</FieldLabel>
+            <FieldLabel>{t('generate.director.shortFilm.fields.runtime', {}, 'Runtime')}</FieldLabel>
             <input
               type="number"
               value={draft.runtimeSeconds}
@@ -1052,7 +1061,7 @@ export default function ShortFilmEasyMode({
             />
           </div>
           <div>
-            <FieldLabel>Aspect ratio</FieldLabel>
+            <FieldLabel>{t('generate.director.common.aspectRatio', {}, 'Aspect ratio')}</FieldLabel>
             <div className="mt-1 grid grid-cols-3 gap-1">
               {ASPECT_RATIO_OPTIONS.map((option) => (
                 <button
@@ -1068,7 +1077,7 @@ export default function ShortFilmEasyMode({
             </div>
           </div>
           <div>
-            <FieldLabel>Resolution</FieldLabel>
+            <FieldLabel>{t('generate.director.common.resolution', {}, 'Resolution')}</FieldLabel>
             <div className="mt-1 grid grid-cols-2 gap-1">
               {RESOLUTION_OPTIONS.map((option) => (
                 <button
@@ -1083,7 +1092,7 @@ export default function ShortFilmEasyMode({
             </div>
           </div>
           <div>
-            <FieldLabel>FPS</FieldLabel>
+            <FieldLabel>{t('generate.director.common.fpsShort', {}, 'FPS')}</FieldLabel>
             <div className="mt-1 grid grid-cols-3 gap-1">
               {FPS_OPTIONS.map((option) => (
                 <button
@@ -1099,7 +1108,7 @@ export default function ShortFilmEasyMode({
           </div>
         </div>
         <div className="mt-3 rounded-lg border border-sf-dark-700 bg-sf-dark-950 px-3 py-2 text-xs text-sf-text-secondary">
-          Output will be prepared as <span className="font-semibold text-sf-text-primary">{outputResolutionLabel}</span> at <span className="font-semibold text-sf-text-primary">{draft.videoFps}fps</span>.
+          {t('generate.director.shortFilm.story.outputPrefix', {}, 'Output will be prepared as')} <span className="font-semibold text-sf-text-primary">{outputResolutionLabel}</span> {t('generate.director.shortFilm.story.outputAt', {}, 'at')} <span className="font-semibold text-sf-text-primary">{draft.videoFps}fps</span>.
         </div>
       </div>
     </div>
@@ -1109,7 +1118,7 @@ export default function ShortFilmEasyMode({
     <div className="space-y-4">
       <div className="flex items-center justify-between gap-3">
         <div>
-          <h2 className="text-lg font-semibold text-sf-text-primary">Cast characters.</h2>
+          <h2 className="text-lg font-semibold text-sf-text-primary">{t('generate.director.shortFilm.characters.title', {}, 'Cast characters.')}</h2>
           <p className="mt-1 text-sm text-sf-text-secondary">
             Character slugs keep faces, wardrobe, dialogue, and voice profiles connected.
           </p>
@@ -1187,20 +1196,30 @@ export default function ShortFilmEasyMode({
                   />
                   <div className="mt-3 grid gap-3 md:grid-cols-2 lg:grid-cols-1 xl:grid-cols-2">
                     <div>
-                      <FieldLabel>Voice preset</FieldLabel>
-                      <select
-                        value={character.voicePreset}
-                        onChange={(event) => updateCharacter(character.id, { voicePreset: event.target.value })}
-                        className="mt-1 w-full rounded-lg border border-sf-dark-700 bg-sf-dark-950 px-3 py-2 text-xs text-sf-text-primary outline-none focus:border-sf-accent"
-                      >
-                        {character.voicePreset && !ELEVENLABS_VOICE_OPTIONS.includes(character.voicePreset) && (
-                          <option value={character.voicePreset}>{character.voicePreset}</option>
-                        )}
-                        {ELEVENLABS_VOICE_OPTIONS.map((option) => (
-                          <option key={option} value={option}>{option}</option>
-                        ))}
-                      </select>
-                      <p className="mt-1 text-[10px] text-sf-text-muted">Matches the bundled ElevenLabs voice selector.</p>
+                      <FieldLabel>{draft.voiceProvider === 'irodori' ? 'Voice source' : 'Voice preset'}</FieldLabel>
+                      {draft.voiceProvider === 'irodori' ? (
+                        <div className="mt-1 rounded-lg border border-sf-dark-700 bg-sf-dark-950 px-3 py-2 text-xs text-sf-text-secondary">
+                          Irodori-TTS v3
+                        </div>
+                      ) : (
+                        <select
+                          value={character.voicePreset}
+                          onChange={(event) => updateCharacter(character.id, { voicePreset: event.target.value })}
+                          className="mt-1 w-full rounded-lg border border-sf-dark-700 bg-sf-dark-950 px-3 py-2 text-xs text-sf-text-primary outline-none focus:border-sf-accent"
+                        >
+                          {character.voicePreset && !ELEVENLABS_VOICE_OPTIONS.includes(character.voicePreset) && (
+                            <option value={character.voicePreset}>{character.voicePreset}</option>
+                          )}
+                          {ELEVENLABS_VOICE_OPTIONS.map((option) => (
+                            <option key={option} value={option}>{option}</option>
+                          ))}
+                        </select>
+                      )}
+                      <p className="mt-1 text-[10px] text-sf-text-muted">
+                        {draft.voiceProvider === 'irodori'
+                          ? 'The local v3 base voice is varied by seed; voice notes remain available to guide the shot performance.'
+                          : 'Matches the bundled ElevenLabs voice selector.'}
+                      </p>
                     </div>
                     <div>
                       <FieldLabel>Voice notes</FieldLabel>
@@ -1224,7 +1243,7 @@ export default function ShortFilmEasyMode({
     <div className="space-y-4">
       <div className="flex items-center justify-between gap-3">
         <div>
-          <h2 className="text-lg font-semibold text-sf-text-primary">Build location sheets.</h2>
+          <h2 className="text-lg font-semibold text-sf-text-primary">{t('generate.director.shortFilm.locations.title', {}, 'Build location sheets.')}</h2>
           <p className="mt-1 text-sm text-sf-text-secondary">
             Each location can carry reference angles so keyframes stay in the same world.
           </p>
@@ -1316,7 +1335,7 @@ export default function ShortFilmEasyMode({
   const renderScriptStep = () => (
     <div className="space-y-4">
       <div>
-        <h2 className="text-lg font-semibold text-sf-text-primary">Write or paste the script.</h2>
+        <h2 className="text-lg font-semibold text-sf-text-primary">{t('generate.director.shortFilm.script.title', {}, 'Write or paste the script.')}</h2>
         <p className="mt-1 text-sm text-sf-text-secondary">
           Copy the brief into an LLM, paste the returned screenplay here, then generate a coverage review.
         </p>
@@ -1325,8 +1344,8 @@ export default function ShortFilmEasyMode({
         <div className="rounded-xl border border-sf-dark-700 bg-sf-dark-900/80 p-4">
           <div className="flex items-center justify-between gap-3">
             <div>
-              <h3 className="font-semibold text-sf-text-primary">LLM brief</h3>
-              <p className="mt-1 text-xs text-sf-text-muted">Includes premise, creative direction, cast, locations, and required format.</p>
+              <h3 className="font-semibold text-sf-text-primary">{t('generate.director.shortFilm.script.brief', {}, 'LLM brief')}</h3>
+              <p className="mt-1 text-xs text-sf-text-muted">{t('generate.director.shortFilm.script.briefHelp', {}, 'Includes premise, creative direction, cast, locations, and required format.')}</p>
             </div>
             <button
               type="button"
@@ -1348,8 +1367,8 @@ export default function ShortFilmEasyMode({
         <div className="rounded-xl border border-sf-dark-700 bg-sf-dark-900/80 p-4">
           <div className="flex items-center justify-between gap-3">
             <div>
-              <h3 className="font-semibold text-sf-text-primary">Screenplay / director script</h3>
-              <p className="mt-1 text-xs text-sf-text-muted">This becomes the source of truth for voices, shots, keyframes, and assembly.</p>
+              <h3 className="font-semibold text-sf-text-primary">{t('generate.director.shortFilm.script.screenplay', {}, 'Screenplay / director script')}</h3>
+              <p className="mt-1 text-xs text-sf-text-muted">{t('generate.director.shortFilm.script.screenplayHelp', {}, 'This becomes the source of truth for voices, shots, keyframes, and assembly.')}</p>
             </div>
             <button
               type="button"
@@ -1374,14 +1393,31 @@ export default function ShortFilmEasyMode({
   const renderVoicesStep = () => (
     <div className="space-y-4">
       <div>
-        <h2 className="text-lg font-semibold text-sf-text-primary">Generate character voices.</h2>
+        <h2 className="text-lg font-semibold text-sf-text-primary">{t('generate.director.shortFilm.voices.title', {}, 'Generate character voices.')}</h2>
         <p className="mt-1 text-sm text-sf-text-secondary">
           Dialogue lines are routed through each character voice profile. Text to Speech creates one editable audio clip per line.
         </p>
       </div>
       <div className="grid gap-3 lg:grid-cols-[0.9fr_1.1fr]">
         <div className="rounded-xl border border-sf-dark-700 bg-sf-dark-900/80 p-4">
-          <FieldLabel>Audio workflow</FieldLabel>
+          <FieldLabel>TTS engine</FieldLabel>
+          <div className="mt-2 grid gap-2 sm:grid-cols-2">
+            {SHORT_FILM_VOICE_PROVIDER_OPTIONS.map((option) => (
+              <button
+                key={option.id}
+                type="button"
+                onClick={() => updateDraft({ voiceProvider: option.id })}
+                className={`rounded-lg border p-3 text-left transition-colors ${buttonClass(draft.voiceProvider === option.id)}`}
+              >
+                <div className="flex items-center justify-between gap-2 text-sm font-semibold">
+                  <span>{option.label}</span>
+                  <span className="rounded-full border border-current/30 px-2 py-0.5 text-[10px] font-medium opacity-80">{option.runtimeLabel}</span>
+                </div>
+                <div className="mt-1 text-xs text-sf-text-muted">{option.description}</div>
+              </button>
+            ))}
+          </div>
+          <FieldLabel className="mt-4">Audio workflow</FieldLabel>
           <div className="mt-2 space-y-2">
             {VOICE_WORKFLOW_OPTIONS.map((option) => (
               <button
@@ -1399,7 +1435,7 @@ export default function ShortFilmEasyMode({
             ))}
           </div>
           <div className="mt-3 rounded-lg border border-emerald-500/30 bg-emerald-500/10 px-3 py-2 text-xs text-emerald-100">
-            Text to Speech is wired to the ElevenLabs ComfyUI workflow. The other voice modes are placeholders for later.
+            Text to Speech uses {draft.voiceProvider === 'irodori' ? 'local Irodori-TTS v3' : 'the ElevenLabs ComfyUI partner workflow'}. The other voice modes are placeholders for later.
           </div>
         </div>
 
@@ -1449,7 +1485,9 @@ export default function ShortFilmEasyMode({
                           {voiceJobLabel}
                         </span>
                       )}
-                      <span className="rounded-full border border-sf-dark-600 px-2 py-0.5 text-[10px] text-sf-text-muted">{character?.voicePreset || currentVoiceWorkflow.label}</span>
+                      <span className="rounded-full border border-sf-dark-600 px-2 py-0.5 text-[10px] text-sf-text-muted">
+                        {draft.voiceProvider === 'irodori' ? 'Irodori-TTS v3' : (character?.voicePreset || currentVoiceWorkflow.label)}
+                      </span>
                     </div>
                   </div>
                   <p className="mt-2 text-xs leading-relaxed text-sf-text-secondary">"{line.text}"</p>
@@ -1466,7 +1504,7 @@ export default function ShortFilmEasyMode({
     <div className="space-y-4">
       <div className="flex items-center justify-between gap-3">
         <div>
-          <h2 className="text-lg font-semibold text-sf-text-primary">Review visual coverage.</h2>
+          <h2 className="text-lg font-semibold text-sf-text-primary">{t('generate.director.shortFilm.shotPlan.title', {}, 'Review visual coverage.')}</h2>
           <p className="mt-1 text-sm text-sf-text-secondary">
             This is the script as a production checklist: wides, close-ups, reactions, inserts, and cutaways.
           </p>
@@ -1645,7 +1683,7 @@ export default function ShortFilmEasyMode({
     <div className="space-y-4">
       <div className="flex items-center justify-between gap-3">
         <div>
-          <h2 className="text-lg font-semibold text-sf-text-primary">Create keyframes.</h2>
+          <h2 className="text-lg font-semibold text-sf-text-primary">{t('generate.director.shortFilm.keyframes.title', {}, 'Create keyframes.')}</h2>
           <p className="mt-1 text-sm text-sf-text-secondary">
             Each approved shot gets one starting image using character refs plus location sheet refs.
           </p>
@@ -1741,7 +1779,7 @@ export default function ShortFilmEasyMode({
       <div className="space-y-4">
         <div className="flex items-center justify-between gap-3">
           <div>
-            <h2 className="text-lg font-semibold text-sf-text-primary">Generate shot videos.</h2>
+            <h2 className="text-lg font-semibold text-sf-text-primary">{t('generate.director.shortFilm.videos.title', {}, 'Generate shot videos.')}</h2>
             <p className="mt-1 text-sm text-sf-text-secondary">
               LTX 2.3 uses each approved keyframe as the first frame. Dialogue shots use the matching generated voice clip when it exists.
             </p>
@@ -1953,7 +1991,7 @@ export default function ShortFilmEasyMode({
     <div className="space-y-4">
       <div className="flex items-center justify-between gap-3">
         <div>
-          <h2 className="text-lg font-semibold text-sf-text-primary">Assemble the edit.</h2>
+          <h2 className="text-lg font-semibold text-sf-text-primary">{t('generate.director.shortFilm.assemble.title', {}, 'Assemble the edit.')}</h2>
           <p className="mt-1 text-sm text-sf-text-secondary">
             When implemented, this creates a named timeline with picture, dialogue, ambience, and sound effect tracks.
           </p>
@@ -2020,8 +2058,8 @@ export default function ShortFilmEasyMode({
                   : 'border-sf-dark-700 bg-sf-dark-900 text-sf-text-secondary hover:border-sf-dark-500 hover:text-sf-text-primary'
               }`}
             >
-              <div className="text-[10px] uppercase tracking-wide text-sf-text-muted">Step {entry.number}</div>
-              <div className="mt-1 text-xs font-semibold">{entry.label}</div>
+              <div className="text-[10px] uppercase tracking-wide text-sf-text-muted">{t('generate.director.common.step', { number: entry.number }, `Step ${entry.number}`)}</div>
+              <div className="mt-1 text-xs font-semibold">{t(`generate.director.shortFilm.steps.${entry.id}`, {}, entry.label)}</div>
             </button>
           ))}
         </div>
@@ -2036,7 +2074,7 @@ export default function ShortFilmEasyMode({
               disabled={currentStepIndex <= 0}
               className="rounded-lg border border-sf-dark-700 px-3 py-2 text-xs font-semibold text-sf-text-secondary hover:border-sf-dark-500 hover:text-sf-text-primary disabled:opacity-40"
             >
-              Back
+              {t('generate.director.common.back', {}, 'Back')}
             </button>
             <button
               type="button"
@@ -2044,7 +2082,7 @@ export default function ShortFilmEasyMode({
               disabled={currentStepIndex >= STEPS.length - 1}
               className="rounded-lg bg-sf-accent px-4 py-2 text-xs font-semibold text-white hover:bg-sf-accent/90 disabled:opacity-40"
             >
-              Next
+              {t('generate.director.common.next', {}, 'Next')}
             </button>
           </div>
           {renderCurrentStep()}
@@ -2053,54 +2091,58 @@ export default function ShortFilmEasyMode({
         <aside className="border-t border-sf-dark-700 p-5 lg:border-l lg:border-t-0">
           <div className="space-y-3">
             <div className="rounded-xl border border-sf-dark-700 bg-sf-dark-900/80 p-4">
-              <h3 className="text-sm font-semibold text-sf-text-primary">Current concept</h3>
+              <h3 className="text-sm font-semibold text-sf-text-primary">{t('generate.director.shortFilm.sidebar.current', {}, 'Current concept')}</h3>
               <div className="mt-3 space-y-2 text-xs">
-                <div className="flex justify-between gap-3"><span className="text-sf-text-muted">TITLE</span><span className="text-right text-sf-text-secondary">{draft.title}</span></div>
-                <div className="flex justify-between gap-3"><span className="text-sf-text-muted">CAST</span><span className="text-right text-sf-text-secondary">{characters.length} character{characters.length === 1 ? '' : 's'}</span></div>
-                <div className="flex justify-between gap-3"><span className="text-sf-text-muted">LOCATIONS</span><span className="text-right text-sf-text-secondary">{locations.length} location{locations.length === 1 ? '' : 's'}</span></div>
-                <div className="flex justify-between gap-3"><span className="text-sf-text-muted">VOICES</span><span className="text-right text-sf-text-secondary">{currentVoiceWorkflow.label}</span></div>
-                <div className="flex justify-between gap-3"><span className="text-sf-text-muted">OUTPUT</span><span className="text-right text-sf-text-secondary">{outputResolutionLabel} · {draft.videoFps}fps</span></div>
+                <div className="flex justify-between gap-3"><span className="text-sf-text-muted">{t('generate.director.shortFilm.sidebar.titleLabel', {}, 'TITLE')}</span><span className="text-right text-sf-text-secondary">{draft.title}</span></div>
+                <div className="flex justify-between gap-3"><span className="text-sf-text-muted">{t('generate.director.shortFilm.sidebar.cast', {}, 'CAST')}</span><span className="text-right text-sf-text-secondary">{t('generate.director.shortFilm.sidebar.characterCount', { count: characters.length }, `${characters.length} characters`)}</span></div>
+                <div className="flex justify-between gap-3"><span className="text-sf-text-muted">{t('generate.director.shortFilm.sidebar.locations', {}, 'LOCATIONS')}</span><span className="text-right text-sf-text-secondary">{t('generate.director.shortFilm.sidebar.locationCount', { count: locations.length }, `${locations.length} locations`)}</span></div>
+                <div className="flex justify-between gap-3"><span className="text-sf-text-muted">{t('generate.director.shortFilm.sidebar.voices', {}, 'VOICES')}</span><span className="text-right text-sf-text-secondary">{draft.voiceProvider === 'irodori' ? 'Irodori-TTS' : 'ElevenLabs'} · {t(`generate.director.shortFilm.voiceModes.${currentVoiceWorkflow.id}`, {}, currentVoiceWorkflow.label)}</span></div>
+                <div className="flex justify-between gap-3"><span className="text-sf-text-muted">{t('generate.director.shortFilm.sidebar.output', {}, 'OUTPUT')}</span><span className="text-right text-sf-text-secondary">{outputResolutionLabel} · {draft.videoFps}fps</span></div>
               </div>
             </div>
 
             <div className="rounded-xl border border-sf-dark-700 bg-sf-dark-900/80 p-4">
-              <h3 className="text-sm font-semibold text-sf-text-primary">Working principle</h3>
+              <h3 className="text-sm font-semibold text-sf-text-primary">{t('generate.director.shortFilm.sidebar.principle', {}, 'Working principle')}</h3>
               <p className="mt-2 text-xs leading-relaxed text-sf-text-muted">
-                The script drives story, dialogue, timing, and shot choice. Characters provide faces and voices. Location sheets provide the visual world memory.
+                {t('generate.director.shortFilm.sidebar.principleHelp', {}, 'The script drives story, dialogue, timing, and shot choice. Characters provide faces and voices. Location sheets provide the visual world memory.')}
               </p>
             </div>
 
             <div className="rounded-xl border border-sf-dark-700 bg-sf-dark-900/80 p-4">
-              <h3 className="text-sm font-semibold text-sf-text-primary">Model routing</h3>
+              <h3 className="text-sm font-semibold text-sf-text-primary">{t('generate.director.shortFilm.sidebar.routing', {}, 'Model routing')}</h3>
               <div className="mt-3 space-y-2">
                 <div className="rounded-lg border border-sf-dark-700 bg-sf-dark-950 p-3">
                   <div className="flex items-center gap-2 text-xs font-semibold text-sf-text-primary">
                     <Film className="h-3.5 w-3.5 text-sf-accent" />
                     LTX 2.3
                   </div>
-                  <p className="mt-1 text-[11px] text-sf-text-muted">Default for short generated video shots.</p>
+                  <p className="mt-1 text-[11px] text-sf-text-muted">{t('generate.director.shortFilm.sidebar.ltxHelp', {}, 'Default for short generated video shots.')}</p>
                 </div>
                 <div className="rounded-lg border border-sf-dark-700 bg-sf-dark-950 p-3">
                   <div className="flex items-center gap-2 text-xs font-semibold text-sf-text-primary">
                     <Mic className="h-3.5 w-3.5 text-emerald-400" />
-                    Comfy ElevenLabs
+                    {draft.voiceProvider === 'irodori' ? 'Irodori-TTS · Local' : 'ElevenLabs · Cloud'}
                   </div>
-                  <p className="mt-1 text-[11px] text-sf-text-muted">Text-to-speech dialogue clips through the bundled ElevenLabs ComfyUI workflow.</p>
+                  <p className="mt-1 text-[11px] text-sf-text-muted">
+                    {draft.voiceProvider === 'irodori'
+                      ? 'Local v3 dialogue. Missing nodes and model files are guided through Workflow Setup.'
+                      : t('generate.director.shortFilm.sidebar.voiceHelp', {}, 'Text-to-speech dialogue clips through the bundled ElevenLabs ComfyUI workflow.')}
+                  </p>
                 </div>
                 <div className="rounded-lg border border-sf-dark-700 bg-sf-dark-950 p-3">
                   <div className="flex items-center gap-2 text-xs font-semibold text-sf-text-primary">
                     <MapPin className="h-3.5 w-3.5 text-amber-300" />
-                    Location sheets
+                    {t('generate.director.shortFilm.sidebar.locationSheets', {}, 'Location sheets')}
                   </div>
-                  <p className="mt-1 text-[11px] text-sf-text-muted">Reference images for consistent spaces and angles.</p>
+                  <p className="mt-1 text-[11px] text-sf-text-muted">{t('generate.director.shortFilm.sidebar.locationSheetsHelp', {}, 'Reference images for consistent spaces and angles.')}</p>
                 </div>
               </div>
             </div>
 
             <div className="rounded-xl border border-sf-dark-700 bg-sf-dark-900/80 p-4">
-              <h3 className="text-sm font-semibold text-sf-text-primary">Open implementation notes</h3>
+              <h3 className="text-sm font-semibold text-sf-text-primary">{t('generate.director.shortFilm.sidebar.notes', {}, 'Open implementation notes')}</h3>
               <p className="mt-2 text-xs leading-relaxed text-sf-text-muted">
-                Voices, keyframes, and video renders are wired. Timeline assembly is the next pass.
+                {t('generate.director.shortFilm.sidebar.notesHelp', {}, 'Voices, keyframes, and video renders are wired. Timeline assembly is the next pass.')}
               </p>
             </div>
           </div>

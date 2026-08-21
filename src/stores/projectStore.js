@@ -17,6 +17,7 @@ import {
 } from '../services/fileSystem'
 import { useTimelineStore } from './timelineStore'
 import { useAssetsStore } from './assetsStore'
+import { useGenerationHistoryStore, normalizeGenerationHistory } from './generationHistoryStore'
 import { captureAndSaveProjectThumbnail } from '../utils/projectThumbnail'
 import { markProjectClean } from '../services/projectDirtyTracker'
 import {
@@ -147,6 +148,7 @@ const normalizeOpenedProjectData = (projectData) => {
   const currentTimeline = normalizedProject.timelines.find((timeline) => timeline.id === currentTimelineId) || normalizedProject.timelines[0]
 
   normalizedProject.flowAi = normalizeFlowAiProjectData(normalizedProject.flowAi)
+  normalizedProject.generationHistory = normalizeGenerationHistory(normalizedProject.generationHistory)
 
   return {
     projectData: normalizedProject,
@@ -166,6 +168,7 @@ const hydrateOpenedProjectSession = async (projectHandleOrPath, rawProjectData, 
     projectData.folders,
     projectData.folderCounter
   )
+  useGenerationHistoryStore.getState().loadFromProject(projectData.generationHistory)
 
   // Do not eagerly load every saved video thumbnail sprite on project open.
   // Large projects can contain hundreds of videos; walking all thumbnail
@@ -407,7 +410,7 @@ export const useProjectStore = create(
           // Create project data with timelines array
           const projectData = {
             name,
-            version: '1.1', // Updated version for multi-timeline support
+            version: '1.2', // Generation History + multi-timeline support
             created: new Date().toISOString(),
             modified: new Date().toISOString(),
             settings: {
@@ -419,6 +422,7 @@ export const useProjectStore = create(
             timelines: [defaultTimeline], // Array of timelines
             currentTimelineId: defaultTimeline.id,
             assets: [],
+            generationHistory: normalizeGenerationHistory(null),
             flowAi: createDefaultFlowAiProjectData(),
             generateWorkspace: null,
           }
@@ -447,6 +451,7 @@ export const useProjectStore = create(
             projectData.folders,
             projectData.folderCounter
           )
+          useGenerationHistoryStore.getState().loadFromProject(projectData.generationHistory)
           
           set((state) => ({
             currentProject: projectData,
@@ -632,6 +637,7 @@ export const useProjectStore = create(
           )
           
           const assetsState = useAssetsStore.getState()
+          const generationHistory = useGenerationHistoryStore.getState().getProjectData()
 
           // Capture a thumbnail from the current playhead before writing
           // the project JSON so the pointer lands in the same save. If
@@ -653,6 +659,7 @@ export const useProjectStore = create(
             assets: assetsData,
             folders: assetsState.folders || [],
             folderCounter: assetsState.folderCounter ?? 1,
+            generationHistory,
             thumbnail: thumbnailPointer,
             modified: new Date().toISOString(),
           }

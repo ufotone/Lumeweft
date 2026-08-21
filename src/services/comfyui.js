@@ -71,16 +71,27 @@ function extractComboChoicesFromSpec(inputSpec) {
   const asList = (values) => Array.isArray(values)
     ? values.map((entry) => String(entry || '').trim()).filter(Boolean)
     : []
+  const choicesFromObject = (value) => {
+    if (!value || typeof value !== 'object' || Array.isArray(value)) return []
+    return asList(value.values || value.choices || value.options || value.enum)
+  }
   if (!inputSpec) return []
   if (Array.isArray(inputSpec)) {
-    const [first] = inputSpec
+    const [first, config] = inputSpec
     if (Array.isArray(first)) return asList(first)
-    if (first && typeof first === 'object') {
-      return asList(first.values || first.choices || first.options || first.enum)
+    const firstChoices = choicesFromObject(first)
+    if (firstChoices.length > 0) return firstChoices
+
+    // Newer ComfyUI versions describe dynamic combo inputs as
+    // ["COMBO", { options: [...] }], while older versions put the choice
+    // array directly in the first item. Support both response shapes so
+    // built-in workflow filenames can still be resolved to subfolders.
+    if (String(first || '').toUpperCase() === 'COMBO') {
+      return choicesFromObject(config)
     }
   }
   if (typeof inputSpec === 'object') {
-    return asList(inputSpec.values || inputSpec.choices || inputSpec.options || inputSpec.enum)
+    return choicesFromObject(inputSpec)
   }
   return []
 }
@@ -950,11 +961,60 @@ class ComfyUIService {
   }
 
   /**
+   * Fail before /prompt when a workflow still points at an author-only sample
+   * image (for example example.png or model_placeholder.jpg). LoadImage only
+   * accepts files that exist in ComfyUI's input list. Query that list fresh:
+   * the normal Lumeweft path uploads the user's image immediately before this
+   * check, so the general object-info cache could otherwise be stale.
+   */
+  async validateInputImageReferences(workflow) {
+    if (!workflow || typeof workflow !== 'object') return
+
+    const references = []
+    for (const [nodeId, node] of Object.entries(workflow)) {
+      if (node?.class_type !== 'LoadImage') continue
+      const filename = typeof node?.inputs?.image === 'string' ? node.inputs.image.trim() : ''
+      if (filename) references.push({ nodeId, filename })
+    }
+    if (references.length === 0) return
+
+    try {
+      const response = await this.getObjectInfo('LoadImage')
+      const schema = response?.LoadImage || response
+      const choices = extractComboChoicesFromSpec(getSchemaInputSpec(schema, 'image'))
+      if (choices.length === 0) return
+
+      const normalize = (value) => String(value || '')
+        .trim()
+        .replace(/\\/g, '/')
+        .replace(/\s+\[(?:input|output|temp)\]\s*$/i, '')
+        .toLowerCase()
+      const available = new Set(choices.map(normalize))
+      const missing = references.filter(({ filename }) => !available.has(normalize(filename)))
+      if (missing.length === 0) return
+
+      const names = [...new Set(missing.map(({ filename }) => filename))]
+      throw new Error(
+        `入力画像がComfyUIに見つかりません: ${names.join(', ')}。`
+        + ' 参照画像を選び直してからキューに追加してください。'
+        + ` (Input image not found in ComfyUI: ${names.join(', ')}. Select the reference image again.)`
+      )
+    } catch (error) {
+      // Our actionable missing-input error must reach the queue UI. If the
+      // metadata endpoint itself is unavailable, fail open and let /prompt
+      // provide its normal validation response instead.
+      if (/入力画像がComfyUIに見つかりません/.test(String(error?.message || ''))) throw error
+      try { console.warn('[ComfyUI] Input image preflight skipped:', error?.message) } catch (_) { /* ignore */ }
+    }
+  }
+
+  /**
    * Queue a prompt for execution
    */
   async queuePrompt(workflow) {
     try {
       const resolvedWorkflow = await this.resolveSubfolderModelPaths(workflow)
+      await this.validateInputImageReferences(resolvedWorkflow)
       const apiKey = await this.getComfyOrgApiKey();
       const payload = {
         prompt: resolvedWorkflow,
@@ -1252,6 +1312,25 @@ class ComfyUIService {
       await fetch(`${this.getHttpBase()}/interrupt`, { method: 'POST' });
     } catch (error) {
       console.error('Error interrupting:', error);
+    }
+  }
+
+  /**
+   * Ask ComfyUI to release cached models and device memory before loading a
+   * particularly large workflow. This is best-effort: older ComfyUI builds
+   * may not expose /free, in which case generation continues normally.
+   */
+  async freeMemory({ unloadModels = true, freeMemory = true } = {}) {
+    try {
+      const response = await fetch(`${this.getHttpBase()}/free`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ unload_models: Boolean(unloadModels), free_memory: Boolean(freeMemory) }),
+      })
+      return response.ok
+    } catch (error) {
+      console.warn('[ComfyUI] Memory release request skipped:', error?.message)
+      return false
     }
   }
 
@@ -3023,6 +3102,50 @@ export function modifyGeminiPromptWorkflow(workflow, options = {}) {
   return modified
 }
 
+export function modifyMinimaxH3MediaPromptWorkflow(workflow, options = {}) {
+  const {
+    description = '',
+    duration = 15,
+    uploadedFilename = '',
+    mediaKind = 'image',
+    visionProvider = '',
+    promptorProvider = '',
+    outputLanguage = 'English',
+    imageMode = 'Comprehensive',
+    videoMode = 'Comprehensive',
+  } = options
+
+  const modified = JSON.parse(JSON.stringify(workflow))
+  const normalizedKind = mediaKind === 'video' ? 'video' : 'image'
+  const mediaState = uploadedFilename
+    ? JSON.stringify({
+        media: [[
+          'slot_1',
+          { name: String(uploadedFilename), kind: normalizedKind },
+        ]],
+      })
+    : JSON.stringify({ media: [] })
+
+  for (const node of Object.values(modified)) {
+    if (!node?.inputs) continue
+    if (node.class_type === 'H3_Vision_Analyzer') {
+      node.inputs._media_state = mediaState
+      node.inputs.global_image_mode = imageMode
+      node.inputs.global_video_mode = videoMode
+      node.inputs.output_language = outputLanguage
+      if (visionProvider) node.inputs.provider = visionProvider
+    }
+    if (node.class_type === 'H3_Promptor') {
+      node.inputs.description = description
+      node.inputs.duration = Math.max(4, Math.min(15, Number(duration) || 15))
+      node.inputs.output_language = outputLanguage
+      if (promptorProvider) node.inputs.provider = promptorProvider
+    }
+  }
+
+  return modified
+}
+
 // Backward-compatible alias for legacy callers.
 export const modifyNanoBananaProWorkflow = modifyNanoBanana2Workflow
 
@@ -3559,6 +3682,55 @@ export function modifyElevenLabsTextToSpeechWorkflow(workflow, options = {}) {
 
     if (node.class_type === 'SaveAudioMP3' && 'filename_prefix' in node.inputs) {
       node.inputs.filename_prefix = filenamePrefix || node.inputs.filename_prefix || 'audio/short_film_voice'
+    }
+  }
+
+  return modified
+}
+
+/**
+ * Workflow modifier for the local comfy_IrodoriTTS v3 graph.
+ * Automatic duration estimation is enabled with seconds=0 by default.
+ */
+export function modifyIrodoriTextToSpeechWorkflow(workflow, options = {}) {
+  const {
+    text = '',
+    model = 'irodori-tts-500m-v3.safetensors',
+    seed = 1,
+    seconds = 0,
+    numSteps = 40,
+    modelDevice = 'cuda',
+    modelPrecision = 'bf16',
+    codecDevice = 'cpu',
+    codecPrecision = 'fp32',
+    runtimeCachePolicy = 'offload_after_use',
+    filenamePrefix = 'audio/short_film_irodori',
+  } = options
+
+  const modified = JSON.parse(JSON.stringify(workflow))
+  const safeText = String(text || '').trim()
+
+  for (const node of Object.values(modified)) {
+    if (!node?.inputs) continue
+
+    if (node.class_type === 'jupo.IrodoriTTS.ModelLoader') {
+      if ('model' in node.inputs) node.inputs.model = String(model || node.inputs.model)
+      if ('model_device' in node.inputs) node.inputs.model_device = modelDevice || node.inputs.model_device
+      if ('model_precision' in node.inputs) node.inputs.model_precision = modelPrecision || node.inputs.model_precision
+      if ('codec_device' in node.inputs) node.inputs.codec_device = codecDevice || node.inputs.codec_device
+      if ('codec_precision' in node.inputs) node.inputs.codec_precision = codecPrecision || node.inputs.codec_precision
+      if ('runtime_cache_policy' in node.inputs) node.inputs.runtime_cache_policy = runtimeCachePolicy || node.inputs.runtime_cache_policy
+    }
+
+    if (node.class_type === 'jupo.IrodoriTTS.Sampler') {
+      if ('text' in node.inputs) node.inputs.text = safeText || node.inputs.text
+      if ('seed' in node.inputs) node.inputs.seed = Math.max(0, Math.round(Number(seed) || 0))
+      if ('seconds' in node.inputs) node.inputs.seconds = Math.max(0, Number(seconds) || 0)
+      if ('num_steps' in node.inputs) node.inputs.num_steps = Math.max(1, Math.min(120, Math.round(Number(numSteps) || 40)))
+    }
+
+    if (node.class_type === 'SaveAudioMP3' && 'filename_prefix' in node.inputs) {
+      node.inputs.filename_prefix = filenamePrefix || node.inputs.filename_prefix || 'audio/short_film_irodori'
     }
   }
 

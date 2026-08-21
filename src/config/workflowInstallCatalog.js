@@ -104,6 +104,29 @@ function createManualNodeHint({
 
 export const CURATED_NODE_PACKS = Object.freeze([
   createAutoNodePack({
+    id: 'minimax-h3-promptor',
+    displayName: 'ComfyUI-MiniMax-H3-Promptor',
+    repoUrl: 'https://github.com/1038lab/ComfyUI-MiniMax-H3-Promptor',
+    installDirName: 'ComfyUI-MiniMax-H3-Promptor',
+    docsUrl: 'https://github.com/1038lab/ComfyUI-MiniMax-H3-Promptor',
+    requirementsStrategy: 'requirements-txt',
+    notes: 'Analyzes image and video references and generates structured MiniMax H3 prompts for CANVAS.',
+    classTypes: ['H3_Vision_Analyzer', 'H3_Promptor'],
+  }),
+  createAutoNodePack({
+    id: 'comfy-irodori-tts',
+    displayName: 'comfy-Irodori-TTS',
+    repoUrl: 'https://github.com/jupo-ai/comfy-Irodori-TTS',
+    installDirName: 'comfy-Irodori-TTS',
+    docsUrl: 'https://github.com/jupo-ai/comfy-Irodori-TTS',
+    requirementsStrategy: 'requirements-txt',
+    notes: 'Provides the local Irodori-TTS nodes used by Short Film Creation.',
+    classTypes: [
+      'jupo.IrodoriTTS.ModelLoader',
+      'jupo.IrodoriTTS.Sampler',
+    ],
+  }),
+  createAutoNodePack({
     id: 'kjnodes',
     displayName: 'ComfyUI-KJNodes',
     repoUrl: 'https://github.com/kijai/ComfyUI-KJNodes',
@@ -635,6 +658,17 @@ export const MANUAL_NODE_HINTS = Object.freeze({
 })
 
 export const MODEL_INSTALL_RECIPES = Object.freeze({
+  [modelKey('checkpoints', 'irodori-tts-500m-v3.safetensors')]: createModelRecipe({
+    filename: 'irodori-tts-500m-v3.safetensors',
+    targetSubdir: 'checkpoints',
+    displayName: 'Irodori-TTS 500M v3',
+    downloadUrl: hfResolve('Aratako/Irodori-TTS-500M-v3', 'model.safetensors'),
+    sourceUrl: hfBlob('Aratako/Irodori-TTS-500M-v3', 'model.safetensors'),
+    licenseUrl: 'https://huggingface.co/Aratako/Irodori-TTS-500M-v3',
+    sizeBytes: 2048269748,
+    sha256: '8dbd537f8edebcce7fddc2a093fd8bd649cfb87741800ddf417f52bdfeb55b70',
+    notes: 'Latest local Irodori-TTS v3 checkpoint used by Short Film Creation. Existing copies in checkpoint subfolders are detected by filename.',
+  }),
   [modelKey('vae', 'ace_1.5_vae.safetensors')]: createModelRecipe({
     filename: 'ace_1.5_vae.safetensors',
     targetSubdir: 'vae',
@@ -715,6 +749,16 @@ export const MODEL_INSTALL_RECIPES = Object.freeze({
     licenseUrl: 'https://huggingface.co/Lightricks/LTX-2.3',
     sizeBytes: 7605507256,
     notes: 'Downloaded from the official Lightricks repo and saved under the workflow-expected filename.',
+  }),
+  [modelKey('loras', 'ltx_2.3_22b_distilled_1.1_lora_dynamic_fro09_avg_rank_111_bf16.safetensors')]: createModelRecipe({
+    filename: 'ltx_2.3_22b_distilled_1.1_lora_dynamic_fro09_avg_rank_111_bf16.safetensors',
+    targetSubdir: 'loras',
+    displayName: 'LTX 2.3 distilled dynamic LoRA',
+    downloadUrl: hfResolve('Lightricks/LTX-2.3', 'ltx-2.3-22b-distilled-lora-384-1.1.safetensors'),
+    sourceUrl: hfBlob('Lightricks/LTX-2.3', 'ltx-2.3-22b-distilled-lora-384-1.1.safetensors'),
+    licenseUrl: 'https://huggingface.co/Lightricks/LTX-2.3',
+    sizeBytes: 7605507256,
+    notes: 'Downloaded from the official Lightricks repo and saved under the filename expected by the bundled image-to-video workflow.',
   }),
   [modelKey('latent_upscale_models', 'ltx-2.3-spatial-upscaler-x2-1.1.safetensors')]: createModelRecipe({
     filename: 'ltx-2.3-spatial-upscaler-x2-1.1.safetensors',

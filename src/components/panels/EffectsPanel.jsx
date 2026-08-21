@@ -28,6 +28,21 @@ const EFFECT_PANEL_ICONS = {
 }
 
 const TRANSITION_DEFAULT_DURATION_KEY = 'comfystudio-transition-default-duration-frames'
+const EFFECT_PREVIEW_IMAGE = '/effect-previews/effect-reference.webp'
+
+function EffectPreviewThumbnail({ effectId }) {
+  return (
+    <div className={`effect-preview-thumbnail effect-preview-${effectId}`} aria-hidden="true">
+      <img
+        src={EFFECT_PREVIEW_IMAGE}
+        alt=""
+        loading="lazy"
+        decoding="async"
+        draggable={false}
+      />
+    </div>
+  )
+}
 
 function EffectsPanel() {
   const { t } = useI18n()
@@ -458,9 +473,12 @@ function EffectsPanel() {
                               className="flex items-center gap-2 px-3 py-2 bg-sf-dark-800/70 hover:bg-sf-dark-700 transition-colors cursor-pointer"
                               title={t('effectsPanel.clickEffectHelp')}
                             >
-                              <Icon className="w-4 h-4 text-sf-accent" />
+                              <EffectPreviewThumbnail effectId={def.id} />
                               <div className="flex-1 min-w-0">
-                                <div className="text-[12px] text-sf-text-primary">{getEffectLabel(def)}</div>
+                                <div className="flex items-center gap-1.5 text-[12px] text-sf-text-primary">
+                                  <Icon className="h-3.5 w-3.5 flex-shrink-0 text-sf-accent" />
+                                  <span className="truncate">{getEffectLabel(def)}</span>
+                                </div>
                                 {def.description && (
                                   <div className="text-[10px] text-sf-text-muted truncate">{getEffectDescription(def)}</div>
                                 )}

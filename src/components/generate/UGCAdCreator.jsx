@@ -1,10 +1,11 @@
 import { useEffect, useMemo, useState } from 'react'
-import { CheckCircle2, Clipboard, ExternalLink, Film, Loader2, RefreshCw, X } from 'lucide-react'
+import { CheckCircle2, Clipboard, ExternalLink, Film, Image as ImageIcon, Loader2, RefreshCw, Upload, X } from 'lucide-react'
 import {
   CUSTOM_AD_KEYFRAME_WORKFLOW_ID,
   GPT_IMAGE_2_UGC_KEYFRAME_WORKFLOW_ID,
   SEEDANCE_UGC_VIDEO_WORKFLOW_ID,
 } from '../../config/generateWorkspaceConfig'
+import { useI18n } from '../../i18n/I18nContext'
 
 // One-shot flow: brief -> references -> one Seedance generation of the whole ad.
 // (The legacy per-shot steps — Script Review / Voiceover / Keyframes / Videos —
@@ -1930,6 +1931,8 @@ export default function UGCAdCreator({
   handleQueueUgcVoicePreviews,
   handleQueueUgcOneShot,
   voicePreviews,
+  handleImportUgcReferenceImage,
+  ugcReferenceImageImporting,
   handleOpenYoloAdCustomKeyframeWorkflowInComfyUi,
   handleImportYoloAdCustomKeyframeWorkflow,
   handleClearYoloAdCustomKeyframeWorkflow,
@@ -1940,6 +1943,7 @@ export default function UGCAdCreator({
   handleYoloShotTakesChange,
   handleAssembleAdTimeline,
 }) {
+  const { t } = useI18n()
   const initialDraft = useMemo(() => loadUgcAdDraft(), [])
   const [step, setStep] = useState('setup')
   const [businessName, setBusinessName] = useState(initialDraft.businessName)
@@ -2076,10 +2080,26 @@ export default function UGCAdCreator({
   ])
 
   const imageAssets = useMemo(() => (assets || []).filter((asset) => asset?.type === 'image'), [assets])
+  const productAsset = useMemo(
+    () => imageAssets.find((asset) => asset?.id === productAssetId) || null,
+    [imageAssets, productAssetId]
+  )
+  const talentAsset = useMemo(
+    () => imageAssets.find((asset) => asset?.id === talentAssetId) || null,
+    [imageAssets, talentAssetId]
+  )
   const environmentAsset = useMemo(
     () => imageAssets.find((asset) => asset?.id === environmentAssetId) || null,
     [environmentAssetId, imageAssets]
   )
+  const uploadReferenceImage = async (referenceType) => {
+    if (typeof handleImportUgcReferenceImage !== 'function') return
+    const importedAsset = await handleImportUgcReferenceImage(referenceType)
+    if (!importedAsset?.id) return
+    if (referenceType === 'product') setProductAssetId(importedAsset.id)
+    if (referenceType === 'creator') setTalentAssetId(importedAsset.id)
+    if (referenceType === 'room') setEnvironmentAssetId(importedAsset.id)
+  }
   const videoAssetMap = useMemo(() => {
     const map = new Map()
     for (const asset of assets || []) {
@@ -2817,7 +2837,7 @@ export default function UGCAdCreator({
   const stepIndex = STEPS.findIndex((item) => item.id === step)
 
   const renderStepNav = () => (
-    <nav className="ugc-steps" aria-label="UGC ad steps">
+    <nav className="ugc-steps" aria-label={t('generate.director.ugc.steps.aria', {}, 'UGC ad steps')}>
       {STEPS.map((item, index) => (
         <button
           key={item.id}
@@ -2826,8 +2846,8 @@ export default function UGCAdCreator({
           disabled={(item.id === 'voiceover' || item.id === 'keyframes' || item.id === 'videos') && planShots.length === 0}
           className={`ugc-step-btn ${item.id === step ? 'active' : index < stepIndex ? 'done' : ''} disabled:cursor-not-allowed disabled:opacity-50`}
         >
-          <span className="ugc-step-kicker">Step {index + 1}</span>
-          <span className="ugc-step-title">{item.label}</span>
+          <span className="ugc-step-kicker">{t('generate.director.ugc.steps.number', { number: index + 1 }, `Step ${index + 1}`)}</span>
+          <span className="ugc-step-title">{t(`generate.director.ugc.steps.${item.id}`, {}, item.label)}</span>
         </button>
       ))}
     </nav>
@@ -2860,8 +2880,8 @@ export default function UGCAdCreator({
         className={`ugc-format-card ${isSelected ? 'selected' : ''}`}
       >
         <span className="ugc-format-emoji" aria-hidden="true">{option.emoji}</span>
-        <span className="ugc-format-name">{option.label}</span>
-        <span className="ugc-format-desc">{option.helper}</span>
+        <span className="ugc-format-name">{t(`generate.director.ugc.templates.${option.id}.title`, {}, option.label)}</span>
+        <span className="ugc-format-desc">{t(`generate.director.ugc.templates.${option.id}.description`, {}, option.helper)}</span>
       </button>
     )
   }
@@ -2988,7 +3008,7 @@ export default function UGCAdCreator({
       <aside className="ugc-side">
         <div className="ugc-side-card">
           <div className="ugc-side-heading">
-            <div className="ugc-side-title">Social preview</div>
+            <div className="ugc-side-title">{t('generate.director.ugc.preview.title', {}, 'Social preview')}</div>
             <button
               type="button"
               className={`ugc-preview-toggle ${socialPreviewEditEnabled ? 'active' : ''}`}
@@ -2997,9 +3017,9 @@ export default function UGCAdCreator({
                 setSocialPreviewClipIndex(0)
                 setSocialPreviewEditEnabled((enabled) => !enabled)
               }}
-              title={socialPreviewClips.length === 0 ? 'Generate at least one video first.' : 'Preview the ready clips back-to-back in this phone.'}
+              title={socialPreviewClips.length === 0 ? t('generate.director.ugc.preview.generateFirst', {}, 'Generate at least one video first.') : t('generate.director.ugc.preview.tooltip', {}, 'Preview the ready clips back-to-back in this phone.')}
             >
-              {socialPreviewEditEnabled ? 'Stop' : 'Preview Edit'}
+              {socialPreviewEditEnabled ? t('generate.director.ugc.preview.stop', {}, 'Stop') : t('generate.director.ugc.preview.edit', {}, 'Preview Edit')}
             </button>
           </div>
           <div className={`preview-phone ${(oneShotAssetUrl || activePreviewClip) ? 'has-video' : ''}`}>
@@ -3062,21 +3082,21 @@ export default function UGCAdCreator({
         </div>
 
         <div className="ugc-side-card">
-          <div className="ugc-side-title">The brief so far</div>
+          <div className="ugc-side-title">{t('generate.director.ugc.summary.title', {}, 'The brief so far')}</div>
           <div className="ugc-summary-list">
-            <div className="ugc-summary-item"><span className="ugc-summary-label">Format</span><span>{selectedGoal.label}</span></div>
-            <div className="ugc-summary-item"><span className="ugc-summary-label">Vibe</span><span>{selectedTone.label}</span></div>
-            <div className="ugc-summary-item"><span className="ugc-summary-label">Canvas</span><span>{selectedAspectRatio.label} / {resolutionPreset}</span></div>
-            <div className="ugc-summary-item"><span className="ugc-summary-label">Cut</span><span>{commercialLength}s / {shotCount} shots / {FIXED_UGC_FPS}fps</span></div>
-            <div className="ugc-summary-item"><span className="ugc-summary-label">Keyframes</span><span>{selectedKeyframeWorkflow.label}</span></div>
-            <div className="ugc-summary-item"><span className="ugc-summary-label">Video</span><span>{selectedVideoWorkflow.label}</span></div>
+            <div className="ugc-summary-item"><span className="ugc-summary-label">{t('generate.director.ugc.summary.format', {}, 'Format')}</span><span>{t(`generate.director.ugc.templates.${selectedGoal.id}.title`, {}, selectedGoal.label)}</span></div>
+            <div className="ugc-summary-item"><span className="ugc-summary-label">{t('generate.director.ugc.summary.vibe', {}, 'Vibe')}</span><span>{t(`generate.director.ugc.tones.${selectedTone.id}`, {}, selectedTone.label)}</span></div>
+            <div className="ugc-summary-item"><span className="ugc-summary-label">{t('generate.director.ugc.summary.canvas', {}, 'Canvas')}</span><span>{selectedAspectRatio.label} / {resolutionPreset}</span></div>
+            <div className="ugc-summary-item"><span className="ugc-summary-label">{t('generate.director.ugc.summary.cut', {}, 'Cut')}</span><span>{commercialLength}s / {shotCount} {t('generate.director.ugc.summary.shots', {}, 'shots')} / {FIXED_UGC_FPS}fps</span></div>
+            <div className="ugc-summary-item"><span className="ugc-summary-label">{t('generate.director.ugc.summary.keyframes', {}, 'Keyframes')}</span><span>{selectedKeyframeWorkflow.label}</span></div>
+            <div className="ugc-summary-item"><span className="ugc-summary-label">{t('generate.director.ugc.summary.video', {}, 'Video')}</span><span>{selectedVideoWorkflow.label}</span></div>
           </div>
         </div>
 
         <div className="ugc-side-card">
-          <div className="ugc-side-title">Why this works</div>
+          <div className="ugc-side-title">{t('generate.director.ugc.why.title', {}, 'Why this works')}</div>
           <div className="ugc-card-copy">
-            UGC ads work when they feel native to the feed. The defaults here favor handheld framing, real skin tones, clear product handling, and editable shot-by-shot control.
+            {t('generate.director.ugc.why.description', {}, 'UGC ads work when they feel native to the feed. The defaults here favor handheld framing, real skin tones, clear product handling, and editable shot-by-shot control.')}
           </div>
           <div className="ugc-tag-row">
             <span className="ugc-tag pink">dialogue beats</span>
@@ -3095,7 +3115,7 @@ export default function UGCAdCreator({
         onClick={() => setStep(back)}
         className="rounded-lg border border-[#2e2c26] px-3 py-2 text-xs text-[#c9c6ba] hover:border-[#4a473e] hover:text-[#f1efe8]"
       >
-        Back
+        {t('generate.director.ugc.actions.back', {}, 'Back')}
       </button>
       <button
         type="button"
@@ -3112,12 +3132,12 @@ export default function UGCAdCreator({
       <style>{UGC_HUMAN_THEME_CSS}</style>
       <div className="ugc-topbar">
         <div>
-          <div className="ugc-crumb">Generate / Ads / UGC Creator</div>
-          <h1 className="ugc-top-title">UGC Creator <span>- social ads that still feel human</span></h1>
+          <div className="ugc-crumb">{t('generate.director.ugc.header.breadcrumb', {}, 'Generate / Ads / UGC Creator')}</div>
+          <h1 className="ugc-top-title">UGC Creator <span>{t('generate.director.ugc.header.tagline', {}, '- social ads that still feel human')}</span></h1>
         </div>
         <div className="flex flex-wrap gap-2">
-          <span className="ugc-pill"><span className="ugc-dot" />ComfyUI connected</span>
-          <span className="ugc-pill hot">Beta workflow</span>
+          <span className="ugc-pill"><span className="ugc-dot" />{t('generate.director.ugc.header.connected', {}, 'ComfyUI connected')}</span>
+          <span className="ugc-pill hot">{t('generate.director.ugc.header.beta', {}, 'Beta workflow')}</span>
         </div>
       </div>
       {renderStepNav()}
@@ -3127,23 +3147,23 @@ export default function UGCAdCreator({
       {step === 'setup' && (
         <div>
           <div className="ugc-section-head">
-            <span className="ugc-kicker">The Vibe</span>
-            <h2 className="ugc-section-title">Make it look like a friend posted it.</h2>
+            <span className="ugc-kicker">{t('generate.director.ugc.setup.kicker', {}, 'The Vibe')}</span>
+            <h2 className="ugc-section-title">{t('generate.director.ugc.setup.title', {}, 'Make it look like a friend posted it.')}</h2>
             <p className="ugc-section-copy">
-              Pick the kind of post, write the hook, and tell Velorn what is being sold. The workflow turns that into editable dialogue, keyframes, video clips, and a timeline.
+              {t('generate.director.ugc.setup.description', {}, 'Pick the kind of post, write the hook, and tell Velorn what is being sold. The workflow turns that into editable dialogue, keyframes, video clips, and a timeline.')}
             </p>
           </div>
 
           <div className="ugc-card-block">
-            <div className="ugc-card-title">Pick a starting template</div>
-            <div className="ugc-card-copy">Each one writes a full default script — shots, dialogue, and camera — as a starting point. Pick the closest, then customize the prompt on the Generate step. These are templates, not locked formats; the real ad is yours to edit.</div>
+            <div className="ugc-card-title">{t('generate.director.ugc.setup.templateTitle', {}, 'Pick a starting template')}</div>
+            <div className="ugc-card-copy">{t('generate.director.ugc.setup.templateDescription', {}, 'Each one writes a full default script — shots, dialogue, and camera — as a starting point. Pick the closest, then customize the prompt on the Generate step. These are templates, not locked formats; the real ad is yours to edit.')}</div>
             <div className="ugc-format-grid">
               {UGC_FORMAT_OPTIONS.map(renderFormatButton)}
             </div>
           </div>
 
           <div className="ugc-hook-hero">
-            <label htmlFor="ugc-hook-input">The hook - first 2 seconds</label>
+            <label htmlFor="ugc-hook-input">{t('generate.director.ugc.setup.hook', {}, 'The hook - first 2 seconds')}</label>
             <input
               id="ugc-hook-input"
               value={hook}
@@ -3167,24 +3187,24 @@ export default function UGCAdCreator({
                 onClick={() => setHook(HOOK_SUGGESTIONS[Math.floor(Math.random() * HOOK_SUGGESTIONS.length)])}
                 className="ugc-chip active"
               >
-                surprise me
+                {t('generate.director.ugc.setup.surprise', {}, 'surprise me')}
               </button>
             </div>
           </div>
 
           <div className="mt-3 grid grid-cols-1 gap-3 lg:grid-cols-2">
             <div className="ugc-card-block">
-              <div className="ugc-card-title">What are we selling?</div>
-              <div className="ugc-card-copy">The one thing that's in every shot.</div>
+              <div className="ugc-card-title">{t('generate.director.ugc.setup.productTitle', {}, 'What are we selling?')}</div>
+              <div className="ugc-card-copy">{t('generate.director.ugc.setup.productDescription', {}, "The one thing that's in every shot.")}</div>
               <label className="mt-3 block">
-                <span className="ugc-field-label">Product</span>
-                <input value={productService} onChange={(e) => setProductService(e.target.value)} className="ugc-input w-full rounded-lg border px-3 py-2 text-xs" placeholder="What are you selling? e.g. a can of Red Bull" />
+                <span className="ugc-field-label">{t('generate.director.ugc.setup.product', {}, 'Product')}</span>
+                <input value={productService} onChange={(e) => setProductService(e.target.value)} className="ugc-input w-full rounded-lg border px-3 py-2 text-xs" placeholder={t('generate.director.ugc.setup.productPlaceholder', {}, 'What are you selling? e.g. a can of Red Bull')} />
               </label>
             </div>
 
             <div className="ugc-card-block">
-              <div className="ugc-card-title">Creator energy</div>
-              <div className="ugc-card-copy">How does the person on camera feel?</div>
+              <div className="ugc-card-title">{t('generate.director.ugc.setup.energyTitle', {}, 'Creator energy')}</div>
+              <div className="ugc-card-copy">{t('generate.director.ugc.setup.energyDescription', {}, 'How does the person on camera feel?')}</div>
               <div className="ugc-chip-row">
                 {TONE_OPTIONS.map((option) => (
                   <button
@@ -3193,7 +3213,7 @@ export default function UGCAdCreator({
                     onClick={() => setTone(option.id)}
                     className={`ugc-chip ${tone === option.id ? 'active' : ''}`}
                   >
-                    {option.label}
+                      {t(`generate.director.ugc.tones.${option.id}`, {}, option.label)}
                   </button>
                 ))}
               </div>
@@ -3202,8 +3222,8 @@ export default function UGCAdCreator({
 
           <div className="mt-3 grid grid-cols-1 gap-3">
             <div className="ugc-card-block">
-              <div className="ugc-card-title">Delivery</div>
-              <div className="ugc-field-label mt-1">Canvas</div>
+              <div className="ugc-card-title">{t('generate.director.ugc.setup.delivery', {}, 'Delivery')}</div>
+              <div className="ugc-field-label mt-1">{t('generate.director.ugc.setup.canvas', {}, 'Canvas')}</div>
               <div className="ugc-toggle-row">
                 {ASPECT_RATIO_OPTIONS.map((option) => (
                   <button
@@ -3222,7 +3242,7 @@ export default function UGCAdCreator({
                 ))}
               </div>
               <label className="mt-4 block">
-                <span className="ugc-field-label">How long?</span>
+                <span className="ugc-field-label">{t('generate.director.ugc.setup.duration', {}, 'How long?')}</span>
                 <div className="mt-1 flex items-center gap-2">
                   <input
                     type="number"
@@ -3233,13 +3253,13 @@ export default function UGCAdCreator({
                     onChange={(event) => updateLength(event.target.value)}
                     className="ugc-input w-28 rounded-lg border px-3 py-2 text-xs"
                   />
-                  <span className="text-xs text-[#c9c6ba]">seconds</span>
+                  <span className="text-xs text-[#c9c6ba]">{t('generate.director.ugc.setup.seconds', {}, 'seconds')}</span>
                 </div>
                 <span className="mt-1 block text-[10px] text-[#95927f]">
                   Recommended {RECOMMENDED_UGC_LENGTH_MIN}-{RECOMMENDED_UGC_LENGTH_MAX}s. One-shot generation caps at 15s.
                 </span>
               </label>
-              <div className="ugc-field-label mt-4">Quality</div>
+              <div className="ugc-field-label mt-4">{t('generate.director.ugc.setup.quality', {}, 'Quality')}</div>
               <div className="ugc-toggle-row">
                 {RESOLUTION_OPTIONS.map((option) => (
                   <button
@@ -3257,10 +3277,10 @@ export default function UGCAdCreator({
                   </button>
                 ))}
               </div>
-              <div className="ugc-field-label mt-4">Frame rate</div>
+              <div className="ugc-field-label mt-4">{t('generate.director.ugc.setup.frameRate', {}, 'Frame rate')}</div>
               <div className="ugc-tag-row">
                 <span className="ugc-tag cyan">{FIXED_UGC_FPS} fps</span>
-                <span className="text-[11px] text-[#95927f]">Locked to 25 fps — LTX 2.3's native rate for clean motion and lip-sync.</span>
+                <span className="text-[11px] text-[#95927f]">{t('generate.director.ugc.setup.frameRateHelp', {}, "Locked to 25 fps — LTX 2.3's native rate for clean motion and lip-sync.")}</span>
               </div>
             </div>
           </div>
@@ -3271,9 +3291,9 @@ export default function UGCAdCreator({
           {false && (
           <details className="ugc-card-block mt-3">
             <summary className="cursor-pointer select-none text-sm font-semibold text-[#f1efe8]">
-              Add detail <span className="ml-2 font-mono text-[10px] font-normal uppercase tracking-wider text-[#95927f]">optional - good defaults already set</span>
+              {t('generate.director.ugc.setup.details', {}, 'Add detail')} <span className="ml-2 font-mono text-[10px] font-normal uppercase tracking-wider text-[#95927f]">{t('generate.director.ugc.setup.optionalDefaults', {}, 'optional - good defaults already set')}</span>
             </summary>
-            <p className="ugc-card-copy mt-2">All optional. Leave them and the workflow fills in sensible defaults; add any to steer the result. You can also tweak every line later in Script Review.</p>
+            <p className="ugc-card-copy mt-2">{t('generate.director.ugc.setup.detailsHelp', {}, 'All optional. Leave them and the workflow fills in sensible defaults; add any to steer the result. You can also tweak every line later in Script Review.')}</p>
             <div className="mt-3 grid grid-cols-1 gap-3 lg:grid-cols-2">
               <label className="block">
                 <span className="ugc-field-label">Brand</span>
@@ -3312,9 +3332,9 @@ export default function UGCAdCreator({
           )}
 
           <div className="mt-3 flex flex-wrap items-center justify-between gap-2">
-            <span className="text-[11px] text-[#95927f]">Format, hook, product, and tone are all you need — fine-tune the full script on the Generate step.</span>
+            <span className="text-[11px] text-[#95927f]">{t('generate.director.ugc.setup.minimumHelp', {}, 'Format, hook, product, and tone are all you need — fine-tune the full script on the Generate step.')}</span>
             <button type="button" onClick={() => goTo('references')} className="ugc-primary rounded-lg px-4 py-2 text-xs font-semibold">
-              Next: add references
+              {t('generate.director.ugc.actions.nextReferences', {}, 'Next: add references')}
             </button>
           </div>
         </div>
@@ -3323,52 +3343,97 @@ export default function UGCAdCreator({
       {step === 'references' && (
         <div className="ugc-card-block space-y-4">
           <div>
-            <div className="ugc-kicker">Drop-ins</div>
-            <h2 className="ugc-section-title">Anchor the product, creator, and room.</h2>
-            <p className="ugc-section-copy">These are optional, but UGC gets more believable when the AI has real references for the product, person, and phone-camera environment.</p>
+            <div className="ugc-kicker">{t('generate.director.ugc.references.kicker', {}, 'Drop-ins')}</div>
+            <h2 className="ugc-section-title">{t('generate.director.ugc.references.title', {}, 'Anchor the product, creator, and room.')}</h2>
+            <p className="ugc-section-copy">{t('generate.director.ugc.references.description', {}, 'These are optional, but UGC gets more believable when the AI has real references for the product, person, and phone-camera environment.')}</p>
           </div>
           <div className="grid grid-cols-1 gap-3 md:grid-cols-3">
             <div className="ugc-card-block">
               <div className="text-2xl" aria-hidden="true">🧴</div>
-              <div className="mt-2 text-sm font-semibold text-[#f1efe8]">The Product</div>
-              <p className="mt-1 text-[11px] leading-4 text-[#95927f]">Packaging shots, close-ups, app screens - anything that locks the product identity.</p>
+              <div className="mt-2 text-sm font-semibold text-[#f1efe8]">{t('generate.director.ugc.references.product', {}, 'The Product')}</div>
+              <p className="mt-1 text-[11px] leading-4 text-[#95927f]">{t('generate.director.ugc.references.productHelp', {}, 'Packaging shots, close-ups, app screens - anything that locks the product identity.')}</p>
+              <div className="relative mt-3 aspect-[4/3] overflow-hidden rounded-lg border border-[#353229] bg-[#100f0d]">
+                {productAsset?.url ? (
+                  <img src={productAsset.url} alt={productAsset.name || t('generate.director.ugc.references.product', {}, 'Product')} className="h-full w-full object-cover" />
+                ) : (
+                  <div className="flex h-full flex-col items-center justify-center gap-2 text-[#6f6c60]">
+                    <ImageIcon className="h-7 w-7" />
+                    <span className="text-[10px]">{t('generate.director.ugc.references.noPreview', {}, 'No image selected')}</span>
+                  </div>
+                )}
+                {productAsset && <div className="absolute inset-x-0 bottom-0 truncate bg-black/65 px-2 py-1.5 text-[10px] text-white">{productAsset.name}</div>}
+              </div>
               <select value={productAssetId} onChange={(e) => setProductAssetId(e.target.value)} className="mt-3 w-full rounded-lg border border-sf-dark-600 bg-sf-dark-900 px-3 py-2 text-xs text-sf-text-primary focus:border-sf-accent focus:outline-none">
-                <option value="">No product asset selected</option>
+                <option value="">{t('generate.director.ugc.references.noProduct', {}, 'No product asset selected')}</option>
                 {imageAssets.map((asset) => <option key={`easy-product-${asset.id}`} value={asset.id}>{asset.name}</option>)}
               </select>
+              <button type="button" onClick={() => { void uploadReferenceImage('product') }} disabled={Boolean(ugcReferenceImageImporting)} className="mt-2 inline-flex w-full items-center justify-center gap-2 rounded-lg border border-dashed border-[#4a463b] bg-[#1b1a16] px-3 py-2 text-xs font-semibold text-[#d9d5c8] transition hover:border-[#ff4b2e] hover:text-white disabled:cursor-wait disabled:opacity-50">
+                {ugcReferenceImageImporting === 'product' ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Upload className="h-3.5 w-3.5" />}
+                {productAsset ? t('generate.director.ugc.references.replaceImage', {}, 'Replace image') : t('generate.director.ugc.references.uploadImage', {}, 'Upload image')}
+              </button>
             </div>
             <div className="ugc-card-block">
               <div className="text-2xl" aria-hidden="true">🤳</div>
               <div className="flex items-center justify-between gap-2">
-                <div className="mt-2 text-sm font-semibold text-[#f1efe8]">The Creator</div>
+                <div className="mt-2 text-sm font-semibold text-[#f1efe8]">{t('generate.director.ugc.references.creator', {}, 'The Creator')}</div>
                 <label className="flex items-center gap-1.5 text-[10px] text-sf-text-muted">
                   <input type="checkbox" checked={noVisibleTalent} onChange={(e) => setNoVisibleTalent(e.target.checked)} />
-                  Hands only / no face
+                  {t('generate.director.ugc.references.handsOnly', {}, 'Hands only / no face')}
                 </label>
               </div>
-              <p className="mt-1 text-[11px] leading-4 text-[#95927f]">Creator or avatar image with outfit, expressions, social-camera personality.</p>
+              <p className="mt-1 text-[11px] leading-4 text-[#95927f]">{t('generate.director.ugc.references.creatorHelp', {}, 'Creator or avatar image with outfit, expressions, social-camera personality.')}</p>
+              <div className={`relative mt-3 aspect-[4/3] overflow-hidden rounded-lg border border-[#353229] bg-[#100f0d] ${noVisibleTalent ? 'opacity-40' : ''}`}>
+                {talentAsset?.url && !noVisibleTalent ? (
+                  <img src={talentAsset.url} alt={talentAsset.name || t('generate.director.ugc.references.creator', {}, 'Creator')} className="h-full w-full object-cover" />
+                ) : (
+                  <div className="flex h-full flex-col items-center justify-center gap-2 text-[#6f6c60]">
+                    <ImageIcon className="h-7 w-7" />
+                    <span className="text-[10px]">{noVisibleTalent ? t('generate.director.ugc.references.handsOnly', {}, 'Hands only / no face') : t('generate.director.ugc.references.noPreview', {}, 'No image selected')}</span>
+                  </div>
+                )}
+                {talentAsset && !noVisibleTalent && <div className="absolute inset-x-0 bottom-0 truncate bg-black/65 px-2 py-1.5 text-[10px] text-white">{talentAsset.name}</div>}
+              </div>
               <select disabled={noVisibleTalent} value={talentAssetId} onChange={(e) => setTalentAssetId(e.target.value)} className="mt-3 w-full rounded-lg border border-sf-dark-600 bg-sf-dark-900 px-3 py-2 text-xs text-sf-text-primary focus:border-sf-accent focus:outline-none disabled:opacity-50">
-                <option value="">No creator asset selected</option>
+                <option value="">{t('generate.director.ugc.references.noCreator', {}, 'No creator asset selected')}</option>
                 {imageAssets.map((asset) => <option key={`easy-creator-${asset.id}`} value={asset.id}>{asset.name}</option>)}
               </select>
+              <button type="button" onClick={() => { void uploadReferenceImage('creator') }} disabled={noVisibleTalent || Boolean(ugcReferenceImageImporting)} className="mt-2 inline-flex w-full items-center justify-center gap-2 rounded-lg border border-dashed border-[#4a463b] bg-[#1b1a16] px-3 py-2 text-xs font-semibold text-[#d9d5c8] transition hover:border-[#ff4b2e] hover:text-white disabled:cursor-not-allowed disabled:opacity-50">
+                {ugcReferenceImageImporting === 'creator' ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Upload className="h-3.5 w-3.5" />}
+                {talentAsset ? t('generate.director.ugc.references.replaceImage', {}, 'Replace image') : t('generate.director.ugc.references.uploadImage', {}, 'Upload image')}
+              </button>
             </div>
             <div className="ugc-card-block">
               <div className="text-2xl" aria-hidden="true">🛁</div>
-              <div className="mt-2 text-sm font-semibold text-[#f1efe8]">The Room</div>
-              <p className="mt-1 text-[11px] leading-4 text-[#95927f]">Bathroom, kitchen, desk, gym - the world the phone lives in.</p>
+              <div className="mt-2 text-sm font-semibold text-[#f1efe8]">{t('generate.director.ugc.references.room', {}, 'The Room')}</div>
+              <p className="mt-1 text-[11px] leading-4 text-[#95927f]">{t('generate.director.ugc.references.roomHelp', {}, 'Bathroom, kitchen, desk, gym - the world the phone lives in.')}</p>
+              <div className="relative mt-3 aspect-[4/3] overflow-hidden rounded-lg border border-[#353229] bg-[#100f0d]">
+                {environmentAsset?.url ? (
+                  <img src={environmentAsset.url} alt={environmentAsset.name || t('generate.director.ugc.references.room', {}, 'Room')} className="h-full w-full object-cover" />
+                ) : (
+                  <div className="flex h-full flex-col items-center justify-center gap-2 text-[#6f6c60]">
+                    <ImageIcon className="h-7 w-7" />
+                    <span className="text-[10px]">{t('generate.director.ugc.references.noPreview', {}, 'No image selected')}</span>
+                  </div>
+                )}
+                {environmentAsset && <div className="absolute inset-x-0 bottom-0 truncate bg-black/65 px-2 py-1.5 text-[10px] text-white">{environmentAsset.name}</div>}
+              </div>
               <select value={environmentAssetId} onChange={(e) => setEnvironmentAssetId(e.target.value)} className="mt-3 w-full rounded-lg border border-sf-dark-600 bg-sf-dark-900 px-3 py-2 text-xs text-sf-text-primary focus:border-sf-accent focus:outline-none">
-                <option value="">No room asset selected</option>
+                <option value="">{t('generate.director.ugc.references.noRoom', {}, 'No room asset selected')}</option>
                 {imageAssets.map((asset) => <option key={`easy-environment-${asset.id}`} value={asset.id}>{asset.name}</option>)}
               </select>
+              <button type="button" onClick={() => { void uploadReferenceImage('room') }} disabled={Boolean(ugcReferenceImageImporting)} className="mt-2 inline-flex w-full items-center justify-center gap-2 rounded-lg border border-dashed border-[#4a463b] bg-[#1b1a16] px-3 py-2 text-xs font-semibold text-[#d9d5c8] transition hover:border-[#ff4b2e] hover:text-white disabled:cursor-wait disabled:opacity-50">
+                {ugcReferenceImageImporting === 'room' ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Upload className="h-3.5 w-3.5" />}
+                {environmentAsset ? t('generate.director.ugc.references.replaceImage', {}, 'Replace image') : t('generate.director.ugc.references.uploadImage', {}, 'Upload image')}
+              </button>
             </div>
           </div>
           <div className="rounded-lg border border-[#e3a94f]/30 bg-[#e3a94f]/10 px-3 py-2">
-            <div className="text-[11px] font-bold text-[#e3a94f]">Pro move</div>
+            <div className="text-[11px] font-bold text-[#e3a94f]">{t('generate.director.ugc.references.tipTitle', {}, 'Pro move')}</div>
             <div className="mt-1 text-[11px] leading-5 text-[#c9c6ba]">
-              A creator reference plus a room reference keeps the same person in the same place across shots. That continuity is what makes UGC ads feel real instead of stitched together.
+              {t('generate.director.ugc.references.tip', {}, 'A creator reference plus a room reference keeps the same person in the same place across shots. That continuity is what makes UGC ads feel real instead of stitched together.')}
             </div>
           </div>
-          {renderActions('setup', 'generate', 'Build Prompt')}
+          {renderActions('setup', 'generate', t('generate.director.ugc.actions.buildPrompt', {}, 'Build Prompt'))}
         </div>
       )}
 
@@ -3739,25 +3804,25 @@ export default function UGCAdCreator({
       {step === 'generate' && (
         <div className="rounded-xl border border-sf-dark-700 bg-sf-dark-900/60 p-4 space-y-4">
           <div>
-            <div className="ugc-kicker">One-Shot</div>
-            <h2 className="mt-1 text-lg font-semibold text-sf-text-primary">Generate the whole ad in one pass.</h2>
+            <div className="ugc-kicker">{t('generate.director.ugc.generate.kicker', {}, 'One-Shot')}</div>
+            <h2 className="mt-1 text-lg font-semibold text-sf-text-primary">{t('generate.director.ugc.generate.title', {}, 'Generate the whole ad in one pass.')}</h2>
             <p className="mt-1 text-xs text-sf-text-muted">
-              Seedance 2.0 takes your full prompt + the references and builds the entire ad — all the cuts, performance, and native audio — in a single clip. Pick a length, review the prompt, and generate.
+              {t('generate.director.ugc.generate.description', {}, 'Seedance 2.0 takes your full prompt + the references and builds the entire ad — all the cuts, performance, and native audio — in a single clip. Pick a length, review the prompt, and generate.')}
             </p>
           </div>
 
           <div className="rounded-xl border border-sf-dark-700 bg-sf-dark-800/40 p-3 space-y-3">
             <div className="flex flex-wrap items-center gap-4">
               <div className="text-[10px] text-sf-text-muted">
-                <div className="uppercase tracking-wider">Length</div>
-                <div className="mt-1 text-sf-text-secondary">{oneShotDuration}s · set it in The Vibe</div>
+                <div className="uppercase tracking-wider">{t('generate.director.ugc.generate.length', {}, 'Length')}</div>
+                <div className="mt-1 text-sf-text-secondary">{oneShotDuration}s · {t('generate.director.ugc.generate.setInVibe', {}, 'set it in The Vibe')}</div>
               </div>
               <div className="text-[10px] text-sf-text-muted">
-                <div className="uppercase tracking-wider">References</div>
+                <div className="uppercase tracking-wider">{t('generate.director.ugc.generate.references', {}, 'References')}</div>
                 <div className="mt-1 flex flex-wrap gap-1">
-                  <span className={`rounded-full border px-2 py-0.5 ${productAssetId ? 'border-emerald-500/40 text-emerald-200' : 'border-sf-dark-600 text-sf-text-muted'}`}>Product {productAssetId ? '✓' : '—'}</span>
-                  <span className={`rounded-full border px-2 py-0.5 ${(noVisibleTalent || talentAssetId) ? 'border-emerald-500/40 text-emerald-200' : 'border-sf-dark-600 text-sf-text-muted'}`}>Creator {noVisibleTalent ? '(none)' : talentAssetId ? '✓' : '—'}</span>
-                  <span className={`rounded-full border px-2 py-0.5 ${environmentAssetId ? 'border-emerald-500/40 text-emerald-200' : 'border-sf-dark-600 text-sf-text-muted'}`}>Environment {environmentAssetId ? '✓' : '—'}</span>
+                  <span className={`rounded-full border px-2 py-0.5 ${productAssetId ? 'border-emerald-500/40 text-emerald-200' : 'border-sf-dark-600 text-sf-text-muted'}`}>{t('generate.director.ugc.generate.product', {}, 'Product')} {productAssetId ? '✓' : '—'}</span>
+                  <span className={`rounded-full border px-2 py-0.5 ${(noVisibleTalent || talentAssetId) ? 'border-emerald-500/40 text-emerald-200' : 'border-sf-dark-600 text-sf-text-muted'}`}>{t('generate.director.ugc.generate.creator', {}, 'Creator')} {noVisibleTalent ? t('generate.director.ugc.generate.none', {}, '(none)') : talentAssetId ? '✓' : '—'}</span>
+                  <span className={`rounded-full border px-2 py-0.5 ${environmentAssetId ? 'border-emerald-500/40 text-emerald-200' : 'border-sf-dark-600 text-sf-text-muted'}`}>{t('generate.director.ugc.generate.environment', {}, 'Environment')} {environmentAssetId ? '✓' : '—'}</span>
                 </div>
               </div>
             </div>
@@ -3765,9 +3830,9 @@ export default function UGCAdCreator({
             <div className="rounded-lg border border-sf-dark-700 bg-sf-dark-900/50 px-3 py-2">
               <div className="flex flex-wrap items-center justify-between gap-2">
                 <div className="min-w-0">
-                  <div className="text-[10px] uppercase tracking-wider text-sf-accent">Tailor it with AI (free)</div>
+                  <div className="text-[10px] uppercase tracking-wider text-sf-accent">{t('generate.director.ugc.generate.aiTitle', {}, 'Tailor it with AI (free)')}</div>
                   <p className="mt-0.5 text-[10px] leading-relaxed text-sf-text-muted">
-                    Copy this {selectedGoal.label} template's prompt, paste it into ChatGPT / Claude / Gemini / any LLM (or your own), then paste the result into the box below. It rewrites the script for your exact product — no credits, your choice of model.
+                    {t('generate.director.ugc.generate.aiDescription', { template: t(`generate.director.ugc.templates.${selectedGoal.id}.title`, {}, selectedGoal.label) }, `Copy this ${selectedGoal.label} template's prompt, paste it into ChatGPT / Claude / Gemini / any LLM (or your own), then paste the result into the box below. It rewrites the script for your exact product — no credits, your choice of model.`)}
                   </p>
                 </div>
                 <div className="flex shrink-0 items-center gap-2">
@@ -3777,14 +3842,14 @@ export default function UGCAdCreator({
                     onClick={copyExternalLlmPrompt}
                     className="rounded-lg border border-sf-dark-600 bg-sf-dark-700 px-2.5 py-1.5 text-[11px] font-medium text-sf-text-primary transition-colors hover:bg-sf-dark-600"
                   >
-                    Copy AI script prompt
+                    {t('generate.director.ugc.generate.copyAiPrompt', {}, 'Copy AI script prompt')}
                   </button>
                 </div>
               </div>
             </div>
 
             <label className="block text-xs text-sf-text-secondary">
-              <span className="text-[10px] uppercase tracking-wider text-sf-text-muted">Ad prompt (the whole script)</span>
+              <span className="text-[10px] uppercase tracking-wider text-sf-text-muted">{t('generate.director.ugc.generate.adPrompt', {}, 'Ad prompt (the whole script)')}</span>
               <textarea
                 value={oneShotPrompt || ''}
                 onChange={(event) => { setScriptManuallyEdited(true); setDirectorScript(event.target.value) }}
@@ -3799,42 +3864,42 @@ export default function UGCAdCreator({
                 onClick={() => { setScriptManuallyEdited(false); setScriptShotOverrides({}); const next = buildDirectorScript(currentData); setDirectorScript(next); applyToDirector(next) }}
                 className="rounded-lg border border-sf-dark-600 bg-sf-dark-700 px-3 py-2 text-xs font-medium text-sf-text-primary transition-colors hover:bg-sf-dark-600"
               >
-                Rebuild from brief
+                {t('generate.director.ugc.generate.rebuild', {}, 'Rebuild from brief')}
               </button>
               <button
                 type="button"
                 disabled={isGeneratingOneShot || yoloDependencyCheckInProgress || !String(oneShotPrompt || '').trim()}
                 onClick={() => handleGenerateOneShot('seedance')}
-                title="Cloud Seedance 2.0 — uses your references to lock the product and creator. The quality path."
+                title={t('generate.director.ugc.generate.seedanceTooltip', {}, 'Cloud Seedance 2.0 — uses your references to lock the product and creator. The quality path.')}
                 className="ugc-primary rounded-lg px-3 py-2 text-xs font-semibold disabled:cursor-not-allowed disabled:opacity-50"
               >
-                {isGeneratingOneShot ? 'Queueing…' : `Generate (Seedance 2.0, ${oneShotDuration}s)`}
+                {isGeneratingOneShot ? t('generate.director.ugc.generate.queueing', {}, 'Queueing…') : t('generate.director.ugc.generate.seedanceButton', { seconds: oneShotDuration }, `Generate (Seedance 2.0, ${oneShotDuration}s)`) }
               </button>
               <button
                 type="button"
                 disabled={isGeneratingOneShot || yoloDependencyCheckInProgress || !String(oneShotPrompt || '').trim()}
                 onClick={() => handleGenerateOneShot('ltx')}
-                title="Local LTX 2.3 — composes a first frame from your references, then animates it (one continuous shot). Slower on local GPUs."
+                title={t('generate.director.ugc.generate.ltxTooltip', {}, 'Local LTX 2.3 — composes a first frame from your references, then animates it (one continuous shot). Slower on local GPUs.')}
                 className="rounded-lg bg-emerald-600 px-3 py-2 text-xs font-semibold text-white transition-colors hover:bg-emerald-500 disabled:cursor-not-allowed disabled:opacity-50"
               >
-                {isGeneratingOneShot ? 'Queueing…' : `Generate (LTX 2.3 local, ${oneShotDuration}s)`}
+                {isGeneratingOneShot ? t('generate.director.ugc.generate.queueing', {}, 'Queueing…') : t('generate.director.ugc.generate.ltxButton', { seconds: oneShotDuration }, `Generate (LTX 2.3 local, ${oneShotDuration}s)`) }
               </button>
               <span className="text-[10px] text-sf-text-muted">{oneShotStatus}</span>
             </div>
             <p className="text-[10px] text-sf-text-muted">
-              Seedance (cloud) uses your references to lock the product and creator with true scene cuts. LTX 2.3 (local) auto-composes a first frame from your references, then animates it — one continuous shot, kept on your own GPU. (No references? LTX falls back to prompt-only.)
+              {t('generate.director.ugc.generate.modelHelp', {}, 'Seedance (cloud) uses your references to lock the product and creator with true scene cuts. LTX 2.3 (local) auto-composes a first frame from your references, then animates it — one continuous shot, kept on your own GPU. (No references? LTX falls back to prompt-only.)')}
             </p>
           </div>
 
           {oneShotAssetUrl && (
             <div className="rounded-lg border border-emerald-500/30 bg-emerald-500/5 px-3 py-2 text-[10px] text-sf-text-muted">
-              Your ad is ready — hit play in the <span className="text-emerald-200">Social preview</span> to watch it. Saved to your project assets too; drag it onto the timeline to edit or export. Not happy? Tweak the prompt and generate again.
+              {t('generate.director.ugc.generate.readyPrefix', {}, 'Your ad is ready — hit play in the')} <span className="text-emerald-200">{t('generate.director.ugc.preview.title', {}, 'Social preview')}</span> {t('generate.director.ugc.generate.readySuffix', {}, 'to watch it. Saved to your project assets too; drag it onto the timeline to edit or export. Not happy? Tweak the prompt and generate again.')}
             </div>
           )}
 
           <div className="flex flex-wrap items-center justify-between gap-2">
-            <button type="button" onClick={() => setStep('references')} className="rounded-lg border border-sf-dark-600 px-3 py-2 text-xs text-sf-text-secondary hover:border-sf-dark-500 hover:text-sf-text-primary">Back</button>
-            <button type="button" onClick={() => setStep('setup')} className="rounded-lg border border-sf-dark-600 px-3 py-2 text-xs text-sf-text-secondary hover:border-sf-dark-500 hover:text-sf-text-primary">Start Another Ad</button>
+            <button type="button" onClick={() => setStep('references')} className="rounded-lg border border-sf-dark-600 px-3 py-2 text-xs text-sf-text-secondary hover:border-sf-dark-500 hover:text-sf-text-primary">{t('generate.director.ugc.actions.back', {}, 'Back')}</button>
+            <button type="button" onClick={() => setStep('setup')} className="rounded-lg border border-sf-dark-600 px-3 py-2 text-xs text-sf-text-secondary hover:border-sf-dark-500 hover:text-sf-text-primary">{t('generate.director.ugc.actions.startAnother', {}, 'Start Another Ad')}</button>
           </div>
         </div>
       )}

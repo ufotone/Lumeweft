@@ -6,12 +6,12 @@ import {
 import { normalizeCreditsEstimate } from '../utils/comfyCredits'
 
 export const FLOW_AI_VERSION = 1
-export const FLOW_AI_ASSET_ROOT_FOLDER = 'Flow AI'
+export const FLOW_AI_ASSET_ROOT_FOLDER = 'CANVAS'
 export const FLOW_AI_IMAGE_VARIANT_LIMIT = 10
 const FLOW_AI_AUTO_OUTPUT_FOLDERS = Object.freeze({
-  image: ['Flow AI Images'],
-  video: ['Flow AI Videos'],
-  audio: ['Flow AI Audio'],
+  image: ['CANVAS Images'],
+  video: ['CANVAS Videos'],
+  audio: ['CANVAS Audio'],
 })
 
 export const FLOW_AI_NODE_TYPES = Object.freeze({
@@ -83,6 +83,16 @@ const FLOW_TEXT_WORKFLOWS = Object.freeze([
     runtime: getWorkflowHardwareInfo('google-gemini-flash-lite')?.runtime || 'cloud',
     tierId: getWorkflowHardwareInfo('google-gemini-flash-lite')?.tierId || 'cloud',
     description: 'Rewrite rough ideas into stronger prompts with optional image context.',
+  },
+  {
+    id: 'minimax-h3-media-promptor',
+    label: getWorkflowDisplayLabel('minimax-h3-media-promptor') || 'Media to Prompt (MiniMax H3 Promptor)',
+    needsImage: false,
+    acceptsImage: true,
+    acceptsVideo: true,
+    runtime: getWorkflowHardwareInfo('minimax-h3-media-promptor')?.runtime || 'local',
+    tierId: getWorkflowHardwareInfo('minimax-h3-media-promptor')?.tierId || 'lite',
+    description: 'Analyze an image or full video and write a structured MiniMax H3 prompt.',
   },
 ])
 
@@ -205,7 +215,10 @@ export const FLOW_AI_NODE_LIBRARY = Object.freeze([
     description: 'Pick an image or video asset from the current project.',
     accentClass: 'text-emerald-300',
     supported: true,
-    outputs: [{ id: 'out:image', type: 'image', label: 'Image' }],
+    outputs: [
+      { id: 'out:image', type: 'image', label: 'Image' },
+      { id: 'out:video', type: 'video', label: 'Video' },
+    ],
     inputs: [],
   },
   {
@@ -228,6 +241,7 @@ export const FLOW_AI_NODE_LIBRARY = Object.freeze([
     inputs: [
       { id: 'in:text', type: 'text', label: 'Brief' },
       { id: 'in:image', type: 'image', label: 'Reference' },
+      { id: 'in:video', type: 'video', label: 'Video' },
     ],
     outputs: [{ id: 'out:text', type: 'text', label: 'Prompt' }],
   },
@@ -325,6 +339,11 @@ export const FLOW_AI_TEMPLATES = Object.freeze([
     label: 'Image Edit With References',
     description: 'Drive an edit workflow with an input image and style references.',
   },
+  {
+    id: 'media-to-prompt',
+    label: 'Image / Video -> Prompt',
+    description: 'Analyze a project image or full video and generate a MiniMax H3 prompt.',
+  },
 ])
 
 export function getFlowNodeDefinition(type) {
@@ -369,6 +388,10 @@ function createBaseNodeData(type) {
         workflowId: getDefaultWorkflowId(type),
         inlinePrompt: 'Turn this into a vivid, production-ready image generation prompt.',
         systemPrompt: '',
+        duration: 15,
+        outputLanguage: 'English',
+        imageAnalysisMode: 'Comprehensive',
+        videoAnalysisMode: 'Comprehensive',
         frameTime: 0,
         seed: randomSeed(),
         outputText: '',
@@ -504,7 +527,7 @@ function createBaseNodeData(type) {
 export function createFlowNode(type, options = {}) {
   const definition = getFlowNodeDefinition(type)
   if (!definition) {
-    throw new Error(`Unknown Flow AI node type: ${type}`)
+    throw new Error(`Unknown CANVAS node type: ${type}`)
   }
 
   return {
@@ -691,6 +714,50 @@ function buildStyleEditTemplate() {
   }
 }
 
+function buildMediaToPromptTemplate() {
+  const mediaNode = createFlowNode(FLOW_AI_NODE_TYPES.imageInput, {
+    position: { x: 80, y: 120 },
+    data: { label: 'Image or Video' },
+  })
+  const assistNode = createFlowNode(FLOW_AI_NODE_TYPES.promptAssist, {
+    position: { x: 430, y: 100 },
+    data: {
+      label: 'MiniMax H3 Media Promptor',
+      workflowId: 'minimax-h3-media-promptor',
+      inlinePrompt: '',
+      duration: 15,
+    },
+  })
+  const viewerNode = createFlowNode(FLOW_AI_NODE_TYPES.textViewer, {
+    position: { x: 790, y: 120 },
+    data: { label: 'Generated Prompt' },
+  })
+
+  return {
+    nodes: [mediaNode, assistNode, viewerNode],
+    edges: [
+      createFlowEdge({
+        source: mediaNode.id,
+        sourceHandle: 'out:image',
+        target: assistNode.id,
+        targetHandle: 'in:image',
+      }),
+      createFlowEdge({
+        source: mediaNode.id,
+        sourceHandle: 'out:video',
+        target: assistNode.id,
+        targetHandle: 'in:video',
+      }),
+      createFlowEdge({
+        source: assistNode.id,
+        sourceHandle: 'out:text',
+        target: viewerNode.id,
+        targetHandle: 'in:text',
+      }),
+    ],
+  }
+}
+
 export function createFlowDocument(options = {}) {
   const templateId = String(options.templateId || 'blank').trim()
 
@@ -698,6 +765,7 @@ export function createFlowDocument(options = {}) {
   if (templateId === 'text-to-video') template = buildTextToVideoTemplate()
   if (templateId === 'music-cue') template = buildMusicTemplate()
   if (templateId === 'style-edit') template = buildStyleEditTemplate()
+  if (templateId === 'media-to-prompt') template = buildMediaToPromptTemplate()
 
   return {
     id: options.id || createNodeId('flow'),

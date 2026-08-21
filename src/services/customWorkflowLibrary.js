@@ -250,8 +250,12 @@ export async function saveCapturedGraphToLibrary(captured, titleInput = '') {
 }
 
 /** Load a saved workflow back into the embedded ComfyUI tab. */
-export async function openCustomLibraryWorkflow(id) {
+export async function openCustomLibraryWorkflow(id, { label = '' } = {}) {
   const api = typeof window !== 'undefined' ? window.electronAPI : null
+  // Prompt recipes can restore a workflow before the My Workflows browser has
+  // ever mounted. Populate the in-memory index from disk here instead of
+  // incorrectly treating an uninitialized index as a deleted workflow.
+  await loadCustomWorkflowLibrary()
   const entry = entriesById.get(String(id || '').trim())
   if (!entry) return { success: false, error: 'That workflow is no longer in the library.' }
   if (!api?.readFile) return { success: false, error: 'Only available in the desktop build.' }
@@ -263,7 +267,7 @@ export async function openCustomLibraryWorkflow(id) {
     }
     const record = JSON.parse(read.data)
     if (!record?.uiWorkflow) throw new Error('The saved workflow file is missing its graph.')
-    return await openUiWorkflowInComfyUi(record.uiWorkflow, { label: entry.title })
+    return await openUiWorkflowInComfyUi(record.uiWorkflow, { label: String(label || '').trim() || entry.title })
   } catch (error) {
     return {
       success: false,

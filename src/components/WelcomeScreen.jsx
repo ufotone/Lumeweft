@@ -205,8 +205,7 @@ function WelcomeScreen() {
     ? Math.round((mediaPreparationCompleted / mediaPreparationTotal) * 100)
     : 0
   const showMediaPreparation = Boolean(isLoading && mediaPreparation?.active && mediaPreparationTotal > 0)
-  const welcomeHeroVideoSrc = getWelcomeAssetPath('velorn-project-selection-page.mp4')
-  const welcomeHeroPosterSrc = getWelcomeAssetPath('velorn-home-balanced-plate-4.webp')
+  const welcomeHeroPosterSrc = getWelcomeAssetPath('splash.png')
   const desktopMode = isElectronMode()
   
   // Keep partner-key status fresh so the chip in the header reflects
@@ -646,11 +645,11 @@ function WelcomeScreen() {
                 transformOrigin: 'center top',
               }}
             >
-              <HeroVideoLoop
-                src={welcomeHeroVideoSrc}
-                poster={welcomeHeroPosterSrc}
-                fadeSeconds={2}
+              <img
+                src={welcomeHeroPosterSrc}
+                alt=""
                 className="absolute inset-0 h-full w-full object-cover"
+                draggable="false"
               />
               <div
                 className="pointer-events-none absolute inset-0"
@@ -671,13 +670,13 @@ function WelcomeScreen() {
                   textShadow: '0 0 14px rgba(247, 210, 132, 0.5), 0 0 5px rgba(255, 231, 176, 0.22), 0 1px 8px rgba(0, 0, 0, 0.72)',
                 }}
               >
-                Generate shots. Shape edits. Deliver stories.
+                Weave prompts. Shape edits. Deliver stories.
               </div>
             </div>
           </div>
           {/* Subtle attribution */}
           <div className="absolute bottom-3 right-4 text-[10px] uppercase tracking-wider text-white/40 pointer-events-none">
-            Made with Velorn
+            Made with Lumeweft
           </div>
         </div>
       ) : null}

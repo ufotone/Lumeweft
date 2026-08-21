@@ -317,9 +317,239 @@ html[data-input-modality="pointer"] [role="button"]:focus {
 /* Drag handle for electron window */
 .drag-region {
   -webkit-app-region: drag;
+  user-select: none;
+  -webkit-user-select: none;
+}
+
+/* Keep every Settings category reachable on short or display-scaled screens. */
+.settings-modal-shell {
+  height: calc(100vh - 2rem);
+  height: calc(100dvh - 2rem);
+}
+
+@media (max-height: 760px) {
+  .settings-modal-overlay {
+    padding: 0.5rem;
+  }
+
+  .settings-modal-shell {
+    height: calc(100vh - 1rem);
+    height: calc(100dvh - 1rem);
+  }
+
+  .settings-modal-header,
+  .settings-section-heading {
+    padding-top: 0.625rem;
+    padding-bottom: 0.625rem;
+  }
+
+  .settings-rail-heading {
+    padding-top: 0.625rem;
+    padding-bottom: 0.625rem;
+  }
+
+  .settings-rail-item {
+    padding-top: 0.5rem;
+    padding-bottom: 0.5rem;
+  }
+
+  .settings-footer {
+    padding-top: 0.625rem;
+    padding-bottom: 0.625rem;
+  }
+}
+
+@media (max-width: 900px) {
+  .settings-rail {
+    width: 210px;
+  }
+}
+
+/* One cached 192px image supplies lightweight, static effect previews. */
+.effect-preview-thumbnail {
+  position: relative;
+  width: 3.5rem;
+  height: 3.5rem;
+  flex: 0 0 3.5rem;
+  overflow: hidden;
+  border: 1px solid rgb(var(--sf-dark-600));
+  border-radius: 0.375rem;
+  background: rgb(var(--sf-dark-950));
+  isolation: isolate;
+}
+
+.effect-preview-thumbnail img {
+  width: 100%;
+  height: 100%;
+  display: block;
+  object-fit: cover;
+  transform: scale(1.04);
+}
+
+.effect-preview-thumbnail::before,
+.effect-preview-thumbnail::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+}
+
+.effect-preview-thumbnail::before {
+  z-index: 1;
+  opacity: 0;
+  background: url('/effect-previews/effect-reference.webp') center / cover no-repeat;
+}
+
+.effect-preview-thumbnail::after {
+  z-index: 2;
+}
+
+.effect-preview-glslCameraShake img {
+  filter: contrast(1.15);
+  transform: translate(6px, -4px) rotate(-3deg) scale(1.22);
+}
+
+.effect-preview-glslCameraShake::before {
+  opacity: 0.42;
+  transform: translate(-6px, 4px) rotate(2deg) scale(1.12);
+  mix-blend-mode: screen;
+}
+
+.effect-preview-gaussianBlur img {
+  filter: blur(4.5px);
+  transform: scale(1.2);
+}
+
+.effect-preview-glslDirectionalBlur img {
+  filter: blur(2.8px);
+  transform: translateX(6px) scaleX(1.26) scaleY(1.08);
+}
+
+.effect-preview-glslDirectionalBlur::before {
+  opacity: 0.38;
+  transform: translateX(-7px) scaleX(1.18);
+  mix-blend-mode: screen;
+}
+
+.effect-preview-glslLensBlur img {
+  filter: blur(4px) brightness(1.18) saturate(1.25);
+  transform: scale(1.18);
+}
+
+.effect-preview-glslLensBlur::after {
+  background: radial-gradient(circle, transparent 18%, rgb(255 255 255 / 0.12) 38%, rgb(0 0 0 / 0.72) 100%);
+}
+
+.effect-preview-glslSharpen img {
+  filter: contrast(1.65) saturate(1.35) brightness(1.06);
+}
+
+.effect-preview-glslFisheye img {
+  filter: brightness(0.55) saturate(0.7);
+  transform: scale(0.92);
+}
+
+.effect-preview-glslFisheye::before {
+  opacity: 1;
+  background-size: 190%;
+  border-radius: 50%;
+  clip-path: circle(46% at 50% 50%);
+  filter: contrast(1.25) saturate(1.35);
+}
+
+.effect-preview-glslFisheye::after {
+  background: radial-gradient(circle, transparent 39%, rgb(255 255 255 / 0.18) 43%, rgb(0 0 0 / 0.88) 51%, rgb(0 0 0 / 0.96) 100%);
+}
+
+.effect-preview-glslChromaWarp img,
+.effect-preview-glslDigitalGlitch img,
+.effect-preview-glslVhsLook img {
+  filter: contrast(1.35) saturate(1.7);
+}
+
+.effect-preview-glslChromaWarp::before {
+  opacity: 0.72;
+  transform: translateX(6px) scale(1.05);
+  filter: hue-rotate(125deg) saturate(3);
+  mix-blend-mode: screen;
+}
+
+.effect-preview-glslDigitalGlitch::before {
+  opacity: 0.78;
+  transform: translate(-7px, 2px) scale(1.05);
+  clip-path: polygon(0 12%, 100% 12%, 100% 28%, 0 28%, 0 55%, 100% 55%, 100% 68%, 0 68%);
+  filter: hue-rotate(145deg) saturate(2);
+  mix-blend-mode: screen;
+}
+
+.effect-preview-glslDigitalGlitch::after {
+  background: repeating-linear-gradient(0deg, transparent 0 3px, rgb(255 255 255 / 0.3) 4px, rgb(0 0 0 / 0.35) 5px, transparent 7px);
+}
+
+.effect-preview-glslFilmGrain img {
+  filter: grayscale(0.42) contrast(1.42) saturate(0.55) brightness(0.88);
+}
+
+.effect-preview-glslFilmGrain::after {
+  opacity: 0.95;
+  background-image:
+    repeating-linear-gradient(88deg, transparent 0 12px, rgb(255 255 255 / 0.38) 13px, transparent 14px 23px),
+    url("data:image/svg+xml,%3Csvg viewBox='0 0 48 48' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='1.35' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='.9'/%3E%3C/svg%3E");
+  mix-blend-mode: hard-light;
+}
+
+.effect-preview-glslFilmLook img {
+  filter: sepia(0.68) contrast(1.42) saturate(0.55) brightness(0.86);
+}
+
+.effect-preview-glslFlicker img {
+  filter: brightness(1.72) contrast(1.35) saturate(0.62);
+}
+
+.effect-preview-halation img,
+.effect-preview-glow img {
+  filter: brightness(1.22) saturate(1.55) contrast(1.18);
+}
+
+.effect-preview-halation::before,
+.effect-preview-glow::before {
+  opacity: 0.82;
+  filter: blur(6px) saturate(2.6) brightness(1.65);
+  mix-blend-mode: screen;
+}
+
+.effect-preview-glslVhsLook::before {
+  opacity: 0.62;
+  transform: translateX(-5px) scale(1.05);
+  filter: hue-rotate(145deg) saturate(2.8);
+  mix-blend-mode: screen;
+}
+
+.effect-preview-glslVhsLook::after {
+  background: repeating-linear-gradient(0deg, rgb(0 0 0 / 0.55) 0 1px, transparent 1px 3px);
+}
+
+.effect-preview-letterbox::after {
+  border-top: 13px solid rgb(0 0 0 / 0.96);
+  border-bottom: 13px solid rgb(0 0 0 / 0.96);
+}
+
+.effect-preview-glslVignette::after {
+  background: radial-gradient(circle, transparent 12%, rgb(0 0 0 / 0.3) 38%, rgb(0 0 0 / 0.96) 86%);
 }
 
 .no-drag {
+  -webkit-app-region: no-drag;
+}
+
+/* Electron drag regions are inherited through descendants. Keep only actual
+   controls non-draggable so padding and gaps remain reliable window handles. */
+.drag-region button,
+.drag-region input,
+.drag-region select,
+.drag-region textarea,
+.drag-region a,
+.drag-region [role='button'] {
   -webkit-app-region: no-drag;
 }
 

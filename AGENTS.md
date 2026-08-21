@@ -1,6 +1,8 @@
 # Agent Notes
 
-- The product/app is called Velorn. Do not refer to it as ComfyStudio in user-facing text, MCP metadata, docs, or chat.
+- **Local fork priority:** When the user mentions `Lumeweft`, `Velorn`, or the common misspelling `velron`, first read `docs/LUMEWEFT_LOCAL_DEVELOPMENT.md` and inspect the current dirty worktree before answering or changing code. This local history supersedes stale assumptions from upstream handoff documents where they conflict.
+- This checkout is being developed as **Lumeweft**, a separately named fork of Velorn. Use Lumeweft for new user-facing fork features. Velorn remains the upstream/original project name and may remain in inherited compatibility surfaces until deliberately migrated.
+- Do not refer to the product as ComfyStudio in new user-facing text, MCP metadata, docs, or chat.
 - `comfystudio` may still appear as a legacy package name, protocol/file-extension namespace, bridge identifier, repository URL, or backward-compatible MCP alias. Treat those as internal compatibility identifiers only.
 - Read `docs/AI_PROJECT_CONTEXT.md` before substantial implementation work.
 - Read `docs/AI_CURRENT_HANDOFF.md` for the current branch, migration, and verification state.

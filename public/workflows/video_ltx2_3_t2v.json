@@ -655,11 +655,20 @@
   },
   "267:276": {
     "inputs": {
-      "image": "example.png"
+      "width": [
+        "267:257",
+        0
+      ],
+      "height": [
+        "267:258",
+        0
+      ],
+      "batch_size": 1,
+      "color": 0
     },
-    "class_type": "LoadImage",
+    "class_type": "EmptyImage",
     "_meta": {
-      "title": "Load Image"
+      "title": "T2V Guide Image (Generated)"
     }
   },
   "267:277": {

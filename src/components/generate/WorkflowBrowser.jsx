@@ -16,16 +16,18 @@ import {
 } from '../../services/customWorkflowLibrary'
 import WorkflowCard from './WorkflowCard'
 import TemplateCard from './TemplateCard'
+import CommunityModelBrowser from './CommunityModelBrowser'
 import { useI18n } from '../../i18n/I18nContext'
 
 // Browser tabs are a presentation layer over manifest routes: "featured"
 // shows the curated local+cloud manifests (Create mode and the Set up flow
 // key off those data-level routes, so the data keeps local/cloud).
-const BROWSER_TABS = ['featured', 'custom', 'templates']
+const BROWSER_TABS = ['featured', 'custom', 'templates', 'community']
 const ROUTE_LABELS = {
   featured: 'Featured',
   custom: 'My Workflows',
   templates: 'Templates',
+  community: 'Community',
 }
 
 const CUSTOM_WORKFLOW_FILTERS = Object.freeze([
@@ -110,6 +112,11 @@ export default function WorkflowBrowser({
   selectedTemplateName = '',
 }) {
   const { t } = useI18n()
+  const workflowCategoryLabel = (categoryId) => t(
+    `generate.browser.filters.${categoryId}`,
+    {},
+    GENERATE_WORKFLOW_CATEGORY_LABELS[categoryId] || categoryId,
+  )
   const [query, setQuery] = useState('')
   const [filterId, setFilterId] = useState('all')
   const [templateSort, setTemplateSort] = useState('popular')
@@ -119,6 +126,7 @@ export default function WorkflowBrowser({
   const isTemplatesRoute = !isCreateLauncher && route === GENERATE_WORKFLOW_ROUTES.templates
   const isCustomRoute = !isCreateLauncher && route === GENERATE_WORKFLOW_ROUTES.custom
   const isFeaturedRoute = !isCreateLauncher && route === 'featured'
+  const isCommunityRoute = !isCreateLauncher && route === GENERATE_WORKFLOW_ROUTES.community
   const [featuredSource, setFeaturedSource] = useState('all')
   const templateCatalog = useComfyTemplateCatalog(isTemplatesRoute)
   const customLibrary = useCustomWorkflowLibrary(isCustomRoute)
@@ -298,7 +306,7 @@ export default function WorkflowBrowser({
               </button>
             ))}
           </div>
-          <div className="relative min-w-0 flex-1 md:max-w-md">
+          {!isCommunityRoute && <div className="relative min-w-0 flex-1 md:max-w-md">
             <Search className="pointer-events-none absolute left-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-sf-text-muted" />
             <input
               type="search"
@@ -309,7 +317,7 @@ export default function WorkflowBrowser({
                 : t('generate.browser.searchWorkflows')}
               className="w-full rounded-lg border border-sf-dark-700 bg-sf-dark-800 py-2 pl-9 pr-3 text-xs text-sf-text-primary outline-none transition-colors placeholder:text-sf-text-muted focus:border-sf-accent"
             />
-          </div>
+          </div>}
         </div>
       )}
 
@@ -387,7 +395,7 @@ export default function WorkflowBrowser({
         </div>
       )}
 
-      <div className={`${isCreateLauncher ? 'mt-0' : 'mt-3'} flex items-center justify-between gap-2 text-[11px] text-sf-text-muted`}>
+      {!isCommunityRoute && <div className={`${isCreateLauncher ? 'mt-0' : 'mt-3'} flex items-center justify-between gap-2 text-[11px] text-sf-text-muted`}>
         <span>
           {isCreateLauncher
             ? 'Choose a creator workflow'
@@ -417,9 +425,9 @@ export default function WorkflowBrowser({
           </span>
         )}
         {!isCreateLauncher && !isTemplatesRoute && filterId !== 'all' && (
-          <span>{GENERATE_WORKFLOW_CATEGORY_LABELS[filterId]}</span>
+          <span>{workflowCategoryLabel(filterId)}</span>
         )}
-      </div>
+      </div>}
 
       {isTemplatesRoute && templateCatalog.staleError && (
         <div className="mt-2 rounded-lg border border-yellow-400/25 bg-yellow-400/10 px-3 py-2 text-[11px] text-yellow-200">
@@ -428,6 +436,9 @@ export default function WorkflowBrowser({
       )}
 
       <div className="mt-3 space-y-5">
+        <div className={isCommunityRoute ? '' : 'hidden'} aria-hidden={!isCommunityRoute}>
+          <CommunityModelBrowser onCancelConsent={() => onRouteChange?.('featured')} />
+        </div>
         {isCustomRoute && (
           <section className="space-y-2">
             <h3 className="text-[11px] font-semibold uppercase tracking-[0.14em] text-sf-text-muted">
@@ -586,7 +597,7 @@ export default function WorkflowBrowser({
             )}
           </section>
         )}
-        {isTemplatesRoute ? (
+        {isCommunityRoute ? null : isTemplatesRoute ? (
           templatesLoading ? (
             <div className="flex items-center justify-center gap-2 rounded-xl border border-sf-dark-600 bg-sf-dark-800/60 px-4 py-10 text-xs text-sf-text-muted">
               <Loader2 className="h-4 w-4 animate-spin text-sf-accent" />
@@ -656,7 +667,7 @@ export default function WorkflowBrowser({
         ) : groupedWorkflows.map(([categoryId, items]) => (
           <section key={categoryId} className="space-y-2">
             <h3 className="text-[11px] font-semibold uppercase tracking-[0.14em] text-sf-text-muted">
-              {GENERATE_WORKFLOW_CATEGORY_LABELS[categoryId] || categoryId}
+              {workflowCategoryLabel(categoryId)}
             </h3>
             <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
               {items.map((workflow) => (

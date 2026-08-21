@@ -61,7 +61,7 @@ import {
 const AUTO_IMPORT_KEY = 'comfystudio-auto-import-comfy-outputs'
 const OUTPUT_DIRECTORY_SETTING_KEY = 'outputDirectory'
 const WORKFLOWS_DIRECTORY_SETTING_KEY = 'workflowsDirectory'
-const OUTPUT_DIRECTORY_PLACEHOLDER = 'C:\\Users\\...\\Velorn\\outputs'
+const OUTPUT_DIRECTORY_PLACEHOLDER = 'C:\\Users\\...\\Lumeweft\\outputs'
 const WORKFLOWS_DIRECTORY_PLACEHOLDER = 'C:\\Users\\...\\ComfyUI\\workflow_API'
 const HOTKEY_CATEGORY_KEY = {
   'Timeline selection': 'selection',
@@ -103,7 +103,7 @@ const SETTINGS_SECTIONS = [
     id: 'launcher',
     title: 'ComfyUI Launcher',
     icon: Power,
-    description: 'Let Velorn start, stop, and restart your local ComfyUI process.',
+    description: 'Let Lumeweft start, stop, and restart your local ComfyUI process.',
   },
   {
     id: 'paths',
@@ -121,7 +121,7 @@ const SETTINGS_SECTIONS = [
     id: 'language',
     title: 'Language',
     icon: Globe2,
-    description: 'Choose the language used in the Velorn interface.',
+    description: 'Choose the language used in the Lumeweft interface.',
   },
   {
     id: 'appearance',
@@ -170,7 +170,7 @@ function SettingsRailItem({ section, isActive, onSelect }) {
     <button
       type="button"
       onClick={() => onSelect(section.id)}
-      className={`w-full rounded-xl border px-3 py-3 text-left transition-colors ${
+      className={`settings-rail-item w-full rounded-xl border px-3 py-3 text-left transition-colors ${
         isActive
           ? 'border-sf-accent/40 bg-sf-accent/10 text-sf-text-primary'
           : 'border-transparent text-sf-text-secondary hover:border-sf-dark-700 hover:bg-sf-dark-800/70 hover:text-sf-text-primary'
@@ -1148,7 +1148,7 @@ function GeneralTab({ initialSection = null }) {
           <div className="rounded-lg border border-sf-dark-700 bg-sf-dark-900/60 px-3 py-3">
             <div className="flex items-start justify-between gap-3">
               <div className="min-w-0">
-                <div className="text-sm font-medium text-sf-text-primary">Velorn MCP server</div>
+                <div className="text-sm font-medium text-sf-text-primary">Lumeweft MCP server</div>
                 <p className="mt-1 text-[11px] text-sf-text-muted">
                   {t('settings.agents.serverDescription')}
                 </p>
@@ -1734,14 +1734,14 @@ function GeneralTab({ initialSection = null }) {
   const ActiveSectionIcon = activeSectionMeta.icon
 
   return (
-    <div className="flex h-full min-h-0 flex-col">
-      <div className="flex flex-1 min-h-0 overflow-hidden">
-        <aside className="w-[250px] flex-shrink-0 border-r border-sf-dark-700 bg-sf-dark-950/60">
-          <div className="border-b border-sf-dark-700 px-4 py-4">
+    <div className="settings-layout flex h-full min-h-0 flex-col">
+      <div className="settings-body flex flex-1 min-h-0 overflow-hidden">
+        <aside className="settings-rail flex min-h-0 w-[250px] flex-shrink-0 flex-col border-r border-sf-dark-700 bg-sf-dark-950/60">
+          <div className="settings-rail-heading flex-shrink-0 border-b border-sf-dark-700 px-4 py-4">
             <div className="text-[10px] uppercase tracking-[0.18em] text-sf-text-muted">{t('settings.categories')}</div>
             <p className="mt-1 text-xs text-sf-text-secondary">{t('settings.pickArea')}</p>
           </div>
-          <div className="overflow-y-auto p-2">
+          <div className="settings-rail-list min-h-0 flex-1 overflow-y-auto overscroll-contain p-2">
             <div className="space-y-1">
               {localizedSections.map((section) => (
                 <SettingsRailItem
@@ -1756,7 +1756,7 @@ function GeneralTab({ initialSection = null }) {
         </aside>
 
         <section className="flex flex-1 min-w-0 min-h-0 flex-col">
-          <div className="border-b border-sf-dark-700 px-5 py-4">
+          <div className="settings-section-heading flex-shrink-0 border-b border-sf-dark-700 px-5 py-4">
             <div className="flex items-start gap-3">
               <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-sf-dark-800 text-sf-text-secondary">
                 <ActiveSectionIcon className="h-5 w-5" />
@@ -1783,7 +1783,7 @@ function GeneralTab({ initialSection = null }) {
         onSaved={(value) => setComfyOrgApiKey(value || '')}
       />
 
-      <div className="flex items-center justify-between gap-4 border-t border-sf-dark-700 px-5 py-4">
+      <div className="settings-footer flex flex-shrink-0 items-center justify-between gap-4 border-t border-sf-dark-700 px-5 py-4">
         <p className="text-[11px] text-sf-text-muted">
           {isWorkflowSetupActive
             ? t('settings.saveHelpWorkflow')
@@ -1811,14 +1811,14 @@ export default function SettingsModal({ isOpen, onClose, initialSection = null }
 
   return (
     <div
-      className="fixed inset-0 bg-black/60 flex items-start justify-center z-50 pt-4 pb-4 px-4"
+      className="settings-modal-overlay fixed inset-0 z-50 flex items-start justify-center bg-black/60 px-4 pb-4 pt-4"
       onClick={onClose}
     >
       <div
-        className="bg-sf-dark-900 border border-sf-dark-600 rounded-xl w-full max-w-6xl h-[calc(100vh-2rem)] overflow-hidden shadow-2xl flex flex-col flex-shrink-0"
+        className="settings-modal-shell flex h-[calc(100vh-2rem)] w-full max-w-6xl flex-shrink-0 flex-col overflow-hidden rounded-xl border border-sf-dark-600 bg-sf-dark-900 shadow-2xl"
         onClick={(e) => e.stopPropagation()}
       >
-        <div className="flex items-center justify-between p-4 border-b border-sf-dark-700 flex-shrink-0">
+        <div className="settings-modal-header flex flex-shrink-0 items-center justify-between border-b border-sf-dark-700 p-4">
           <h2 className="text-lg font-medium text-sf-text-primary">{t('settings.title')}</h2>
           <button
             onClick={onClose}

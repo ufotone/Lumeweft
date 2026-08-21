@@ -4,13 +4,13 @@
  * Listens for ComfyUI websocket activity and, for eligible prompts that
  * weren't queued by Velorn's own managed workflow pipeline, pulls the
  * resulting output files into the current project's `Imported from ComfyUI/`
- * folder. Eligibility is provided by the app shell, currently meaning prompts
- * observed while the embedded ComfyUI tab is active.
+ * folder. By default, newly completed unmanaged prompts on the connected
+ * ComfyUI instance are eligible; the startup baseline excludes old outputs.
  *
  * Design (user-confirmed):
  *   - Trigger:    status/executing websocket events for eligible prompts
  *   - Scope:      only `type: "output"` files
- *   - Who:        unmanaged prompts observed through the embedded ComfyUI tab,
+ *   - Who:        newly completed unmanaged prompts on the connected ComfyUI,
  *                 with filename+subfolder+mtime dedupe AND a prompt-ID guard
  *                 that skips anything GenerateWorkspace queued.
  *   - Destination: `Imported from ComfyUI/{Images,Videos,Audio}`
@@ -31,6 +31,7 @@ import { comfyui } from './comfyui'
 import { importAsset } from './fileSystem'
 import useAssetsStore from '../stores/assetsStore'
 import useProjectStore from '../stores/projectStore'
+import useGenerationHistoryStore from '../stores/generationHistoryStore'
 import { isPromptHandledByApp } from './comfyPromptGuard'
 import { classifyBatchOutputs } from './comfyWorkflowGraph'
 import { IMPORTED_COMFY_ASSET_FOLDERS } from '../config/generateWorkspaceConfig'
@@ -61,6 +62,63 @@ function appendLauncherLog(stream, text) {
   try {
     window.electronAPI?.comfyLauncher?.appendLog?.({ stream, text })
   } catch (_) { /* ignore */ }
+}
+
+function summarizeApiWorkflow(apiWorkflow = {}) {
+  const nodes = Object.values(apiWorkflow || {})
+  const textNodes = nodes.filter((node) => node?.class_type === 'CLIPTextEncode' && typeof node?.inputs?.text === 'string')
+  const negativeNode = textNodes.find((node) => /negative/i.test(String(node?._meta?.title || '')))
+  const positiveNode = textNodes.find((node) => node !== negativeNode && node.inputs.text.trim()) || textNodes[0]
+  const sampler = nodes.find((node) => /sampler/i.test(String(node?.class_type || '')) && (node?.inputs?.noise_seed != null || node?.inputs?.seed != null))
+  const modelInputNames = new Set(['ckpt_name', 'unet_name', 'lora_name', 'vae_name', 'clip_name', 'control_net_name', 'controlnet_name'])
+  const modelRefs = []
+  for (const node of nodes) {
+    for (const [inputName, value] of Object.entries(node?.inputs || {})) {
+      if (!modelInputNames.has(inputName) || typeof value !== 'string' || !value.trim()) continue
+      modelRefs.push({ classType: node.class_type, inputName, filename: value.trim() })
+    }
+  }
+  return {
+    prompt: String(positiveNode?.inputs?.text || ''),
+    negativePrompt: String(negativeNode?.inputs?.text || ''),
+    seed: sampler?.inputs?.noise_seed ?? sampler?.inputs?.seed ?? null,
+    modelRefs,
+  }
+}
+
+async function saveAutoImportedGenerationHistory({ promptId, apiWorkflow, importedAssets = [] }) {
+  const outputAssetIds = importedAssets.map((asset) => asset?.id).filter(Boolean)
+  if (!apiWorkflow || outputAssetIds.length === 0) return
+  const summary = summarizeApiWorkflow(apiWorkflow)
+  const history = useGenerationHistoryStore.getState()
+  const record = history.createRecord({
+    title: `ComfyUI generation ${String(promptId || '').slice(0, 8)}`,
+  })
+  const version = history.appendVersion(record.id, {
+    workflowId: 'comfyui-auto-import',
+    workflowLabel: 'ComfyUI',
+    prompt: summary.prompt,
+    seed: summary.seed,
+    settings: { negativePrompt: summary.negativePrompt },
+    modelRefs: summary.modelRefs,
+    outputAssetIds,
+    apiWorkflow,
+  })
+  if (!version) return
+
+  const assetsState = useAssetsStore.getState()
+  outputAssetIds.forEach((assetId) => assetsState.updateAsset(assetId, {
+    generationRecordId: record.id,
+    generationVersionId: version.id,
+  }))
+
+  // History is project data. Save immediately after a completed external
+  // ComfyUI run so closing the app before the next autosave cannot lose it.
+  try {
+    await useProjectStore.getState().saveProject?.()
+  } catch (error) {
+    console.warn('[comfyAutoImport] generation history save failed:', error)
+  }
 }
 
 // Dedupe registry. Key = `${filename}|${subfolder}|${type}`. Trimmed to
@@ -527,68 +585,76 @@ async function runImportPipeline(promptId, preFetchedEntry, projectDir) {
   const videoFiles = fresh.filter((f) => f.kind === 'video' || f.animated)
   const audioFiles = fresh.filter((f) => f.kind === 'audio')
   const imageFiles = fresh.filter((f) => f.kind === 'image' && !f.animated)
+  const importedAssets = []
 
   // Videos: one asset per file.
   for (const f of videoFiles) {
     try {
-      await importSingleFile({ file: f, kind: 'video', apiWorkflow, promptId, projectDir })
+      const asset = await importSingleFile({ file: f, kind: 'video', apiWorkflow, promptId, projectDir })
+      if (asset) importedAssets.push(asset)
     } catch (err) {
       console.warn('[comfyAutoImport] failed to import video:', err)
     }
   }
   for (const f of audioFiles) {
     try {
-      await importSingleFile({ file: f, kind: 'audio', apiWorkflow, promptId, projectDir })
+      const asset = await importSingleFile({ file: f, kind: 'audio', apiWorkflow, promptId, projectDir })
+      if (asset) importedAssets.push(asset)
     } catch (err) {
       console.warn('[comfyAutoImport] failed to import audio:', err)
     }
   }
 
-  if (imageFiles.length === 0) return
+  if (imageFiles.length > 0) {
+    // Group image files by node for classification.
+    const filesByNode = new Map()
+    for (const f of imageFiles) {
+      if (!filesByNode.has(f.nodeId)) filesByNode.set(f.nodeId, [])
+      filesByNode.get(f.nodeId).push(f)
+    }
 
-  // Group image files by node for classification.
-  const filesByNode = new Map()
-  for (const f of imageFiles) {
-    if (!filesByNode.has(f.nodeId)) filesByNode.set(f.nodeId, [])
-    filesByNode.get(f.nodeId).push(f)
-  }
+    const classification = classifyBatchOutputs(apiWorkflow, filesByNode, {
+      minFramesForSequence: SEQUENCE_MIN_FRAMES,
+      requireAnimationHint: true,
+    })
 
-  const classification = classifyBatchOutputs(apiWorkflow, filesByNode, {
-    minFramesForSequence: SEQUENCE_MIN_FRAMES,
-    requireAnimationHint: true,
-  })
-
-  if (classification.kind === 'sequence') {
+    if (classification.kind === 'sequence') {
     // Stitch to video. On stitch failure, fall back to per-image import so
     // the user still sees the frames and can act manually.
-    try {
-      await importStitchedSequence({
-        classification,
-        apiWorkflow,
-        promptId,
-        projectDir,
-      })
-    } catch (err) {
-      console.warn('[comfyAutoImport] sequence stitching failed, falling back to per-image import:', err)
-      appendLauncherLog('event', `! Auto-import: stitching failed for prompt ${String(promptId).slice(0, 8)} (${err?.message || err}); imported as individual images.`)
-      for (const f of classification.files) {
+      try {
+        const asset = await importStitchedSequence({
+          classification,
+          apiWorkflow,
+          promptId,
+          projectDir,
+        })
+        if (asset) importedAssets.push(asset)
+      } catch (err) {
+        console.warn('[comfyAutoImport] sequence stitching failed, falling back to per-image import:', err)
+        appendLauncherLog('event', `! Auto-import: stitching failed for prompt ${String(promptId).slice(0, 8)} (${err?.message || err}); imported as individual images.`)
+        for (const f of classification.files) {
+          try {
+            const asset = await importSingleFile({ file: f, kind: 'image', apiWorkflow, promptId, projectDir })
+            if (asset) importedAssets.push(asset)
+          } catch (err2) {
+            console.warn('[comfyAutoImport] per-image fallback failed:', err2)
+          }
+        }
+      }
+    } else {
+      // Plain batch or single — one asset per image.
+      for (const f of imageFiles) {
         try {
-          await importSingleFile({ file: f, kind: 'image', apiWorkflow, promptId, projectDir })
-        } catch (err2) {
-          console.warn('[comfyAutoImport] per-image fallback failed:', err2)
+          const asset = await importSingleFile({ file: f, kind: 'image', apiWorkflow, promptId, projectDir })
+          if (asset) importedAssets.push(asset)
+        } catch (err) {
+          console.warn('[comfyAutoImport] failed to import image:', err)
         }
       }
     }
-  } else {
-    // Plain batch or single — one asset per image.
-    for (const f of imageFiles) {
-      try {
-        await importSingleFile({ file: f, kind: 'image', apiWorkflow, promptId, projectDir })
-      } catch (err) {
-        console.warn('[comfyAutoImport] failed to import image:', err)
-      }
-    }
   }
+
+  await saveAutoImportedGenerationHistory({ promptId, apiWorkflow, importedAssets })
 }
 
 async function importSingleFile({ file, kind, apiWorkflow, promptId, projectDir }) {
@@ -620,7 +686,7 @@ async function importSingleFile({ file, kind, apiWorkflow, promptId, projectDir 
   const { addAsset } = useAssetsStore.getState()
   const sourceFields = getAutoImportSourceFields(file, promptId)
   if (!isElectron() || !projectDir) {
-    addAsset({
+    return addAsset({
       name: file.filename,
       type: kind === 'images' ? 'image' : kind,
       url,
@@ -636,7 +702,7 @@ async function importSingleFile({ file, kind, apiWorkflow, promptId, projectDir 
     blobFile = await fetchAsFile(url, file.filename, mimeHint)
   } catch (err) {
     // Last-ditch: register the /view URL directly so the user sees something.
-    addAsset({
+    return addAsset({
       name: file.filename,
       type: kind === 'images' ? 'image' : kind,
       url,
@@ -822,8 +888,8 @@ async function importStitchedSequence({ classification, apiWorkflow, promptId, p
 //   - `status`   whenever the queue changes (queue_updated)
 //
 // We use broadcast `executing` / `execution_start` events to claim prompt IDs
-// while the app shell says the embedded ComfyUI tab is active, then use status
-// and active-tab history scans as completion triggers. The history fallback is
+// while scoped importing is enabled, then use status and periodic history
+// scans as completion triggers. The history fallback is
 // intentionally baseline-gated so old ComfyUI history is not imported just
 // because the user opens the tab.
 

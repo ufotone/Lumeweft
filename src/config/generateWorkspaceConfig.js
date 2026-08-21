@@ -2,6 +2,7 @@ import { TOPAZ_VIDEO_UPSCALE_WORKFLOW_ID } from './topazVideoUpscaleConfig'
 import { MUSIC_VIDEO_SHOT_WORKFLOW_ID, VOCAL_EXTRACT_WORKFLOW_ID } from './musicVideoShotConfig'
 import {
   ELEVENLABS_TTS_WORKFLOW_ID,
+  IRODORI_TTS_WORKFLOW_ID,
   SHORT_FILM_DIALOGUE_VIDEO_WORKFLOW_ID,
 } from './shortFilmConfig'
 
@@ -358,6 +359,7 @@ const WORKFLOW_DISPLAY_LABELS = Object.freeze({
   [CUSTOM_MUSIC_VIDEO_WORKFLOW_ID]: 'Custom Video Workflow',
   [VOCAL_EXTRACT_WORKFLOW_ID]: 'Vocal Extract (Mel-Band)',
   [ELEVENLABS_TTS_WORKFLOW_ID]: 'ElevenLabs Text to Speech',
+  [IRODORI_TTS_WORKFLOW_ID]: 'Irodori-TTS v3',
   'caption-qwen-asr': 'Caption Transcription (Qwen ASR)',
   'grok-text-to-image': 'Grok Imagine',
   'gpt-image-2-t2i': 'GPT Image 2',
@@ -368,6 +370,7 @@ const WORKFLOW_DISPLAY_LABELS = Object.freeze({
   'flux2-text-to-image': 'Flux 2 Text to Image',
   'longcat-image-edit': 'LongCat Image Edit',
   'google-gemini-flash-lite': 'Prompt Helper (Gemini 3.1 Flash Lite)',
+  'minimax-h3-media-promptor': 'Media to Prompt (MiniMax H3 Promptor)',
   'sonilo-v2m': 'Sonilo Video to Music',
   'seedream-5-lite-image-edit': 'Seedream 5.0 Lite',
   'image-edit-model-product': 'Qwen Image Edit 2509 (Model + Product)',
@@ -375,6 +378,7 @@ const WORKFLOW_DISPLAY_LABELS = Object.freeze({
 })
 
 export const OPEN_COMFY_TAB_EVENT = 'comfystudio-open-comfyui-tab'
+export const COMFY_IFRAME_LOADED_EVENT = 'comfystudio-comfyui-iframe-loaded'
 
 export const HARDWARE_TIERS = Object.freeze({
   lite: {
@@ -594,6 +598,12 @@ const WORKFLOW_HARDWARE = Object.freeze({
     tierId: 'cloud',
     runtime: 'cloud',
   },
+  [IRODORI_TTS_WORKFLOW_ID]: {
+    tierId: 'lite',
+    runtime: 'local',
+    minimumVramGb: 6,
+    recommendedVramGb: 8,
+  },
   'seedream-5-lite-image-edit': {
     tierId: 'cloud',
     runtime: 'cloud',
@@ -601,6 +611,10 @@ const WORKFLOW_HARDWARE = Object.freeze({
   'google-gemini-flash-lite': {
     tierId: 'cloud',
     runtime: 'cloud',
+  },
+  'minimax-h3-media-promptor': {
+    tierId: 'lite',
+    runtime: 'local',
   },
   'sonilo-v2m': {
     tierId: 'cloud',

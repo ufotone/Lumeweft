@@ -1,0 +1,55 @@
+{
+  "1": {
+    "inputs": {
+      "model": "irodori-tts-500m-v3.safetensors",
+      "model_device": "cuda",
+      "model_precision": "bf16",
+      "codec_device": "cpu",
+      "codec_precision": "fp32",
+      "enable_watermark": false,
+      "compile_model": false,
+      "compile_dynamic": false,
+      "runtime_cache_policy": "offload_after_use"
+    },
+    "class_type": "jupo.IrodoriTTS.ModelLoader",
+    "_meta": {
+      "title": "IrodoriTTS Model Loader"
+    }
+  },
+  "2": {
+    "inputs": {
+      "model_config": [
+        "1",
+        0
+      ],
+      "text": "こんにちは。これはIrodori-TTSの音声テストです。",
+      "seed": 1,
+      "seconds": 0,
+      "num_steps": 40,
+      "batch_size": 1,
+      "decode_mode": "sequential",
+      "context_kv_cache": true,
+      "max_text_len": 0,
+      "trim_tail": true
+    },
+    "class_type": "jupo.IrodoriTTS.Sampler",
+    "_meta": {
+      "title": "IrodoriTTS Sampler"
+    }
+  },
+  "3": {
+    "inputs": {
+      "filename_prefix": "audio/short_film_irodori",
+      "quality": "V0",
+      "audioUI": "",
+      "audio": [
+        "2",
+        0
+      ]
+    },
+    "class_type": "SaveAudioMP3",
+    "_meta": {
+      "title": "Save Audio (MP3)"
+    }
+  }
+}

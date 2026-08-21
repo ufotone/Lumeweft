@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import { CheckCircle2, Clipboard, ExternalLink, Film, Loader2, RefreshCw, X } from 'lucide-react'
 import { CUSTOM_AD_KEYFRAME_WORKFLOW_ID } from '../../config/generateWorkspaceConfig'
+import { useI18n } from '../../i18n/I18nContext'
 
 const STEPS = [
   { id: 'setup', label: 'Setup' },
@@ -599,6 +600,7 @@ export default function BusinessAdCreator({
   handleYoloShotTakesChange,
   handleAssembleAdTimeline,
 }) {
+  const { t } = useI18n()
   const initialDraft = useMemo(() => loadAdEasyModeDraft(), [])
   const [step, setStep] = useState('setup')
   const [businessName, setBusinessName] = useState(initialDraft.businessName)
@@ -1134,7 +1136,7 @@ export default function BusinessAdCreator({
 
   const renderStepNav = () => (
     <div className="rounded-xl border border-sf-dark-700 bg-sf-dark-900/70 p-3">
-      <div className="text-[10px] uppercase tracking-[0.14em] text-sf-text-muted">Ad Creation Easy Mode</div>
+      <div className="text-[10px] uppercase tracking-[0.14em] text-sf-text-muted">{t('generate.director.business.navTitle', {}, 'Ad Creation Easy Mode')}</div>
       <div className="mt-3 grid grid-cols-2 gap-1 md:grid-cols-5">
         {STEPS.map((item, index) => (
           <button
@@ -1150,8 +1152,8 @@ export default function BusinessAdCreator({
                   : 'border-sf-dark-700 bg-sf-dark-950/40 text-sf-text-muted hover:border-sf-dark-500 hover:text-sf-text-secondary'
             }`}
           >
-            <div className="text-[9px] uppercase tracking-wider opacity-70">Step {index + 1}</div>
-            <div className="font-medium">{item.label}</div>
+            <div className="text-[9px] uppercase tracking-wider opacity-70">{t('generate.director.common.step', { number: index + 1 }, `Step ${index + 1}`)}</div>
+            <div className="font-medium">{t(`generate.director.business.steps.${item.id}`, {}, item.label)}</div>
           </button>
         ))}
       </div>
@@ -1309,69 +1311,69 @@ export default function BusinessAdCreator({
       {step === 'setup' && (
         <div className="rounded-xl border border-sf-dark-700 bg-sf-dark-900/60 p-4 space-y-4">
           <div>
-            <div className="text-[10px] uppercase tracking-[0.14em] text-sf-accent">Velorn asks</div>
-            <h2 className="mt-1 text-lg font-semibold text-sf-text-primary">Set up the business ad.</h2>
-            <p className="mt-1 text-xs text-sf-text-muted">Start with the offer, audience, proof, and call to action. This version is aimed at local businesses, online shops, and small teams.</p>
+            <div className="text-[10px] uppercase tracking-[0.14em] text-sf-accent">{t('generate.director.business.assistant', {}, 'Lumeweft asks')}</div>
+            <h2 className="mt-1 text-lg font-semibold text-sf-text-primary">{t('generate.director.business.setup.title', {}, 'Set up the business ad.')}</h2>
+            <p className="mt-1 text-xs text-sf-text-muted">{t('generate.director.business.setup.description', {}, 'Start with the offer, audience, proof, and call to action. This version is aimed at local businesses, online shops, and small teams.')}</p>
           </div>
           <div className="grid grid-cols-1 gap-3 lg:grid-cols-[1.2fr_0.8fr]">
             <div className="rounded-xl border border-sf-dark-700 bg-sf-dark-800/40 p-3">
-              <div className="text-[10px] uppercase tracking-wider text-sf-text-muted">Business brief</div>
+              <div className="text-[10px] uppercase tracking-wider text-sf-text-muted">{t('generate.director.business.setup.brief', {}, 'Business brief')}</div>
               <div className="mt-3 grid grid-cols-1 gap-3 md:grid-cols-2">
                 <label className="text-xs text-sf-text-secondary">
-                  <span className="text-[10px] uppercase tracking-wider text-sf-text-muted">Business name</span>
+                  <span className="text-[10px] uppercase tracking-wider text-sf-text-muted">{t('generate.director.business.fields.businessName', {}, 'Business name')}</span>
                   <input value={businessName} onChange={(e) => setBusinessName(e.target.value)} className="mt-1 w-full rounded-lg border border-sf-dark-600 bg-sf-dark-800 px-3 py-2 text-xs text-sf-text-primary focus:border-sf-accent focus:outline-none" />
                 </label>
                 <label className="text-xs text-sf-text-secondary">
-                  <span className="text-[10px] uppercase tracking-wider text-sf-text-muted">Product or service</span>
+                  <span className="text-[10px] uppercase tracking-wider text-sf-text-muted">{t('generate.director.business.fields.productService', {}, 'Product or service')}</span>
                   <input value={productService} onChange={(e) => setProductService(e.target.value)} className="mt-1 w-full rounded-lg border border-sf-dark-600 bg-sf-dark-800 px-3 py-2 text-xs text-sf-text-primary focus:border-sf-accent focus:outline-none" />
                 </label>
                 <label className="text-xs text-sf-text-secondary md:col-span-2">
-                  <span className="text-[10px] uppercase tracking-wider text-sf-text-muted">Audience</span>
+                  <span className="text-[10px] uppercase tracking-wider text-sf-text-muted">{t('generate.director.business.fields.audience', {}, 'Audience')}</span>
                   <input value={audience} onChange={(e) => setAudience(e.target.value)} className="mt-1 w-full rounded-lg border border-sf-dark-600 bg-sf-dark-800 px-3 py-2 text-xs text-sf-text-primary focus:border-sf-accent focus:outline-none" />
                 </label>
                 <label className="text-xs text-sf-text-secondary md:col-span-2">
-                  <span className="text-[10px] uppercase tracking-wider text-sf-text-muted">Offer</span>
+                  <span className="text-[10px] uppercase tracking-wider text-sf-text-muted">{t('generate.director.business.fields.offer', {}, 'Offer')}</span>
                   <textarea value={offer} onChange={(e) => setOffer(e.target.value)} rows={2} className="mt-1 w-full resize-y rounded-lg border border-sf-dark-600 bg-sf-dark-800 px-3 py-2 text-xs text-sf-text-primary focus:border-sf-accent focus:outline-none" />
                 </label>
                 <label className="text-xs text-sf-text-secondary md:col-span-2">
-                  <span className="text-[10px] uppercase tracking-wider text-sf-text-muted">Proof / trust cue</span>
+                  <span className="text-[10px] uppercase tracking-wider text-sf-text-muted">{t('generate.director.business.fields.proof', {}, 'Proof / trust cue')}</span>
                   <textarea value={proof} onChange={(e) => setProof(e.target.value)} rows={2} className="mt-1 w-full resize-y rounded-lg border border-sf-dark-600 bg-sf-dark-800 px-3 py-2 text-xs text-sf-text-primary focus:border-sf-accent focus:outline-none" />
                 </label>
                 <label className="text-xs text-sf-text-secondary">
-                  <span className="text-[10px] uppercase tracking-wider text-sf-text-muted">Call to action</span>
+                  <span className="text-[10px] uppercase tracking-wider text-sf-text-muted">{t('generate.director.business.fields.cta', {}, 'Call to action')}</span>
                   <input value={cta} onChange={(e) => setCta(e.target.value)} className="mt-1 w-full rounded-lg border border-sf-dark-600 bg-sf-dark-800 px-3 py-2 text-xs text-sf-text-primary focus:border-sf-accent focus:outline-none" />
                 </label>
                 <label className="text-xs text-sf-text-secondary">
-                  <span className="text-[10px] uppercase tracking-wider text-sf-text-muted">Website / contact</span>
+                  <span className="text-[10px] uppercase tracking-wider text-sf-text-muted">{t('generate.director.business.fields.contact', {}, 'Website / contact')}</span>
                   <input value={destination} onChange={(e) => setDestination(e.target.value)} className="mt-1 w-full rounded-lg border border-sf-dark-600 bg-sf-dark-800 px-3 py-2 text-xs text-sf-text-primary focus:border-sf-accent focus:outline-none" />
                 </label>
               </div>
             </div>
             <div className="rounded-xl border border-sf-dark-700 bg-sf-dark-800/40 p-3">
-              <div className="text-[10px] uppercase tracking-wider text-sf-text-muted">Creative direction</div>
+              <div className="text-[10px] uppercase tracking-wider text-sf-text-muted">{t('generate.director.business.setup.creativeDirection', {}, 'Creative direction')}</div>
               <div className="mt-3 grid gap-3">
                 <div>
-                  <div className="text-[10px] uppercase tracking-wider text-sf-text-muted">Ad goal</div>
+                  <div className="text-[10px] uppercase tracking-wider text-sf-text-muted">{t('generate.director.business.fields.goal', {}, 'Ad goal')}</div>
                   <div className="mt-2 grid grid-cols-2 gap-2">
-                    {BUSINESS_GOAL_OPTIONS.map((option) => renderChoiceButton(goal === option.id, option.label, () => setGoal(option.id), option.helper))}
+                    {BUSINESS_GOAL_OPTIONS.map((option) => renderChoiceButton(goal === option.id, t(`generate.director.business.goals.${option.id}.label`, {}, option.label), () => setGoal(option.id), t(`generate.director.business.goals.${option.id}.help`, {}, option.helper)))}
                   </div>
                 </div>
                 <div>
-                  <div className="text-[10px] uppercase tracking-wider text-sf-text-muted">Tone</div>
+                  <div className="text-[10px] uppercase tracking-wider text-sf-text-muted">{t('generate.director.business.fields.tone', {}, 'Tone')}</div>
                   <div className="mt-2 grid grid-cols-2 gap-2">
-                    {TONE_OPTIONS.map((option) => renderChoiceButton(tone === option.id, option.label, () => setTone(option.id)))}
+                    {TONE_OPTIONS.map((option) => renderChoiceButton(tone === option.id, t(`generate.director.business.tones.${option.id}`, {}, option.label), () => setTone(option.id)))}
                   </div>
                 </div>
                 <label className="text-xs text-sf-text-secondary">
-                  <span className="text-[10px] uppercase tracking-wider text-sf-text-muted">Location / service area</span>
+                  <span className="text-[10px] uppercase tracking-wider text-sf-text-muted">{t('generate.director.business.fields.location', {}, 'Location / service area')}</span>
                   <input value={location} onChange={(e) => setLocation(e.target.value)} className="mt-1 w-full rounded-lg border border-sf-dark-600 bg-sf-dark-800 px-3 py-2 text-xs text-sf-text-primary focus:border-sf-accent focus:outline-none" />
                 </label>
                 <label className="text-xs text-sf-text-secondary">
-                  <span className="text-[10px] uppercase tracking-wider text-sf-text-muted">Visual style / rules</span>
+                  <span className="text-[10px] uppercase tracking-wider text-sf-text-muted">{t('generate.director.business.fields.visualStyle', {}, 'Visual style / rules')}</span>
                   <input value={visualRules} onChange={(e) => setVisualRules(e.target.value)} className="mt-1 w-full rounded-lg border border-sf-dark-600 bg-sf-dark-800 px-3 py-2 text-xs text-sf-text-primary focus:border-sf-accent focus:outline-none" />
                 </label>
                 <label className="text-xs text-sf-text-secondary">
-                  <span className="text-[10px] uppercase tracking-wider text-sf-text-muted">Optional talent or voice direction</span>
+                  <span className="text-[10px] uppercase tracking-wider text-sf-text-muted">{t('generate.director.business.fields.talent', {}, 'Optional talent or voice direction')}</span>
                   <textarea value={talentDirection} onChange={(e) => setTalentDirection(e.target.value)} rows={3} placeholder="Example: friendly skincare expert, calm female voiceover, no visible spokesperson" className="mt-1 w-full resize-y rounded-lg border border-sf-dark-600 bg-sf-dark-800 px-3 py-2 text-xs text-sf-text-primary focus:border-sf-accent focus:outline-none" />
                 </label>
               </div>
@@ -1379,7 +1381,7 @@ export default function BusinessAdCreator({
           </div>
           <div className="grid grid-cols-1 gap-3 md:grid-cols-3">
             <div className="rounded-xl border border-sf-dark-700 bg-sf-dark-800/40 p-3">
-              <div className="text-[10px] uppercase tracking-wider text-sf-text-muted">Aspect ratio</div>
+              <div className="text-[10px] uppercase tracking-wider text-sf-text-muted">{t('generate.director.common.aspectRatio', {}, 'Aspect ratio')}</div>
               <div className="mt-2 grid grid-cols-3 gap-2">
                 {ASPECT_RATIO_OPTIONS.map((option) => renderChoiceButton(
                   platform === option.id,
@@ -1390,13 +1392,13 @@ export default function BusinessAdCreator({
                     setResolution(nextResolution)
                     setImageResolution(nextResolution)
                   },
-                  option.helper,
+                  t(`generate.director.business.aspectHelp.${option.id}`, {}, option.helper),
                   `aspect-${option.id}`
                 ))}
               </div>
             </div>
             <div className="rounded-xl border border-sf-dark-700 bg-sf-dark-800/40 p-3">
-              <div className="text-[10px] uppercase tracking-wider text-sf-text-muted">Output resolution</div>
+              <div className="text-[10px] uppercase tracking-wider text-sf-text-muted">{t('generate.director.common.outputResolution', {}, 'Output resolution')}</div>
               <div className="mt-2 grid grid-cols-2 gap-2">
                 {RESOLUTION_OPTIONS.map((option) => renderChoiceButton(
                   resolutionPreset === option.id,
@@ -1407,16 +1409,16 @@ export default function BusinessAdCreator({
                     setResolution(nextResolution)
                     setImageResolution(nextResolution)
                   },
-                  option.id === '720p' ? 'Faster and lighter.' : 'Sharper output, more work for local video.',
+                  option.id === '720p' ? t('generate.director.business.output.fast', {}, 'Faster and lighter.') : t('generate.director.business.output.sharp', {}, 'Sharper output, more work for local video.'),
                   `resolution-${option.id}`
                 ))}
               </div>
               <div className="mt-2 text-[10px] text-sf-text-muted">
-                Current frame size: <span className="text-sf-text-secondary">{outputResolutionLabel}</span>
+                {t('generate.director.business.output.currentFrame', {}, 'Current frame size:')} <span className="text-sf-text-secondary">{outputResolutionLabel}</span>
               </div>
             </div>
             <div className="rounded-xl border border-sf-dark-700 bg-sf-dark-800/40 p-3">
-              <div className="text-[10px] uppercase tracking-wider text-sf-text-muted">Frames per second</div>
+              <div className="text-[10px] uppercase tracking-wider text-sf-text-muted">{t('generate.director.common.fps', {}, 'Frames per second')}</div>
               <div className="mt-2 grid grid-cols-3 gap-2">
                 {FPS_OPTIONS.map((fpsOption) => renderChoiceButton(
                   videoFps === fpsOption,
@@ -1425,7 +1427,7 @@ export default function BusinessAdCreator({
                     setVideoFps(fpsOption)
                     setYoloVideoFps(fpsOption)
                   },
-                  fpsOption === 24 ? 'Cinematic default.' : fpsOption === 25 ? 'PAL-friendly delivery.' : 'Smoother motion.',
+                  fpsOption === 24 ? t('generate.director.business.output.fps24', {}, 'Cinematic default.') : fpsOption === 25 ? t('generate.director.business.output.fps25', {}, 'PAL-friendly delivery.') : t('generate.director.business.output.fps30', {}, 'Smoother motion.'),
                   `fps-${fpsOption}`
                 ))}
               </div>
@@ -1433,17 +1435,17 @@ export default function BusinessAdCreator({
           </div>
           <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
             <label className="text-xs text-sf-text-secondary">
-              <span className="text-[10px] uppercase tracking-wider text-sf-text-muted">Ad length</span>
+              <span className="text-[10px] uppercase tracking-wider text-sf-text-muted">{t('generate.director.business.fields.length', {}, 'Ad length')}</span>
               <select value={commercialLength} onChange={(e) => updateLength(e.target.value)} className="mt-1 w-full rounded-lg border border-sf-dark-600 bg-sf-dark-800 px-3 py-2 text-xs text-sf-text-primary focus:border-sf-accent focus:outline-none">
-                {COMMERCIAL_LENGTH_OPTIONS.map((seconds) => <option key={seconds} value={seconds}>{seconds} seconds</option>)}
+                {COMMERCIAL_LENGTH_OPTIONS.map((seconds) => <option key={seconds} value={seconds}>{t('generate.director.business.output.seconds', { seconds }, `${seconds} seconds`)}</option>)}
               </select>
             </label>
             <div className="rounded-lg border border-sf-dark-700 bg-sf-dark-800/40 px-3 py-2 text-xs text-sf-text-secondary">
-              Current output: <span className="text-sf-text-primary">{outputResolutionLabel} / {videoFps} fps</span>
+              {t('generate.director.business.output.current', {}, 'Current output:')} <span className="text-sf-text-primary">{outputResolutionLabel} / {videoFps} fps</span>
             </div>
           </div>
           <div className="flex justify-end">
-            <button type="button" onClick={() => goTo('references')} className="rounded-lg bg-sf-accent px-3 py-2 text-xs text-white hover:bg-sf-accent-hover">Next: References</button>
+            <button type="button" onClick={() => goTo('references')} className="rounded-lg bg-sf-accent px-3 py-2 text-xs text-white hover:bg-sf-accent-hover">{t('generate.director.business.actions.nextReferences', {}, 'Next: References')}</button>
           </div>
         </div>
       )}
@@ -1451,38 +1453,38 @@ export default function BusinessAdCreator({
       {step === 'references' && (
         <div className="rounded-xl border border-sf-dark-700 bg-sf-dark-900/60 p-4 space-y-4">
           <div>
-            <div className="text-[10px] uppercase tracking-[0.14em] text-sf-accent">Velorn asks</div>
-            <h2 className="mt-1 text-lg font-semibold text-sf-text-primary">Do you have product, people, or location references?</h2>
-            <p className="mt-1 text-xs text-sf-text-muted">Optional, but best results come from real product photos, staff/customer references, storefront shots, or brand environments.</p>
+            <div className="text-[10px] uppercase tracking-[0.14em] text-sf-accent">{t('generate.director.business.assistant', {}, 'Lumeweft asks')}</div>
+            <h2 className="mt-1 text-lg font-semibold text-sf-text-primary">{t('generate.director.business.references.title', {}, 'Do you have product, people, or location references?')}</h2>
+            <p className="mt-1 text-xs text-sf-text-muted">{t('generate.director.business.references.description', {}, 'Optional, but best results come from real product photos, staff/customer references, storefront shots, or brand environments.')}</p>
           </div>
           <div className="grid grid-cols-1 gap-3 md:grid-cols-3">
             <div className="rounded-xl border border-sf-dark-700 bg-sf-dark-800/40 p-3">
-              <div className="text-sm font-semibold text-sf-text-primary">Product or service reference</div>
-              <p className="mt-1 text-[11px] text-sf-text-muted">Use product photos, menu items, finished work, before/after examples, or service proof shots.</p>
+              <div className="text-sm font-semibold text-sf-text-primary">{t('generate.director.business.references.product', {}, 'Product or service reference')}</div>
+              <p className="mt-1 text-[11px] text-sf-text-muted">{t('generate.director.business.references.productHelp', {}, 'Use product photos, menu items, finished work, before/after examples, or service proof shots.')}</p>
               <select value={productAssetId} onChange={(e) => setProductAssetId(e.target.value)} className="mt-3 w-full rounded-lg border border-sf-dark-600 bg-sf-dark-900 px-3 py-2 text-xs text-sf-text-primary focus:border-sf-accent focus:outline-none">
-                <option value="">No product/service asset selected</option>
+                <option value="">{t('generate.director.business.references.noProduct', {}, 'No product/service asset selected')}</option>
                 {imageAssets.map((asset) => <option key={`easy-product-${asset.id}`} value={asset.id}>{asset.name}</option>)}
               </select>
             </div>
             <div className="rounded-xl border border-sf-dark-700 bg-sf-dark-800/40 p-3">
               <div className="flex items-center justify-between gap-2">
-                <div className="text-sm font-semibold text-sf-text-primary">Talent reference</div>
+                <div className="text-sm font-semibold text-sf-text-primary">{t('generate.director.business.references.talent', {}, 'Talent reference')}</div>
                 <label className="flex items-center gap-1.5 text-[10px] text-sf-text-muted">
                   <input type="checkbox" checked={noVisibleTalent} onChange={(e) => setNoVisibleTalent(e.target.checked)} />
                   No visible talent
                 </label>
               </div>
-              <p className="mt-1 text-[11px] text-sf-text-muted">Recommended: character sheet with front, side, 3/4 view, expressions, and wardrobe.</p>
+              <p className="mt-1 text-[11px] text-sf-text-muted">{t('generate.director.business.references.talentHelp', {}, 'Recommended: character sheet with front, side, 3/4 view, expressions, and wardrobe.')}</p>
               <select disabled={noVisibleTalent} value={talentAssetId} onChange={(e) => setTalentAssetId(e.target.value)} className="mt-3 w-full rounded-lg border border-sf-dark-600 bg-sf-dark-900 px-3 py-2 text-xs text-sf-text-primary focus:border-sf-accent focus:outline-none disabled:opacity-50">
-                <option value="">No talent asset selected</option>
+                <option value="">{t('generate.director.business.references.noTalent', {}, 'No talent asset selected')}</option>
                 {imageAssets.map((asset) => <option key={`easy-talent-${asset.id}`} value={asset.id}>{asset.name}</option>)}
               </select>
             </div>
             <div className="rounded-xl border border-sf-dark-700 bg-sf-dark-800/40 p-3">
-              <div className="text-sm font-semibold text-sf-text-primary">Environment reference</div>
-              <p className="mt-1 text-[11px] text-sf-text-muted">Optional location, room, surface, lighting, or set design reference for the ad world.</p>
+              <div className="text-sm font-semibold text-sf-text-primary">{t('generate.director.business.references.environment', {}, 'Environment reference')}</div>
+              <p className="mt-1 text-[11px] text-sf-text-muted">{t('generate.director.business.references.environmentHelp', {}, 'Optional location, room, surface, lighting, or set design reference for the ad world.')}</p>
               <select value={environmentAssetId} onChange={(e) => setEnvironmentAssetId(e.target.value)} className="mt-3 w-full rounded-lg border border-sf-dark-600 bg-sf-dark-900 px-3 py-2 text-xs text-sf-text-primary focus:border-sf-accent focus:outline-none">
-                <option value="">No environment asset selected</option>
+                <option value="">{t('generate.director.business.references.noEnvironment', {}, 'No environment asset selected')}</option>
                 {imageAssets.map((asset) => <option key={`easy-environment-${asset.id}`} value={asset.id}>{asset.name}</option>)}
               </select>
             </div>
@@ -1494,9 +1496,9 @@ export default function BusinessAdCreator({
       {step === 'script' && (
         <div className="rounded-xl border border-sf-dark-700 bg-sf-dark-900/60 p-4 space-y-4">
           <div>
-            <div className="text-[10px] uppercase tracking-[0.14em] text-sf-accent">Script plan</div>
-            <h2 className="mt-1 text-lg font-semibold text-sf-text-primary">Proposed script and storyboard plan.</h2>
-            <p className="mt-1 text-xs text-sf-text-muted">This script is structured Director text. You can edit it manually before building the plan.</p>
+            <div className="text-[10px] uppercase tracking-[0.14em] text-sf-accent">{t('generate.director.business.script.kicker', {}, 'Script plan')}</div>
+            <h2 className="mt-1 text-lg font-semibold text-sf-text-primary">{t('generate.director.business.script.title', {}, 'Proposed script and storyboard plan.')}</h2>
+            <p className="mt-1 text-xs text-sf-text-muted">{t('generate.director.business.script.description', {}, 'This script is structured Director text. You can edit it manually before building the plan.')}</p>
           </div>
           <div className="grid grid-cols-1 gap-3 md:grid-cols-3">
             <div className="rounded-lg border border-sf-dark-700 bg-sf-dark-800/40 px-3 py-2">
@@ -1558,9 +1560,9 @@ export default function BusinessAdCreator({
             Double-check the Director Script before continuing. The next step uses this script to create keyframe jobs, so make sure the shot order, prompts, timing, and references look right.
           </div>
           <div className="flex flex-wrap items-center justify-between gap-2">
-            <button type="button" onClick={() => setStep('references')} className="rounded-lg border border-sf-dark-600 px-3 py-2 text-xs text-sf-text-secondary hover:border-sf-dark-500 hover:text-sf-text-primary">Back</button>
+            <button type="button" onClick={() => setStep('references')} className="rounded-lg border border-sf-dark-600 px-3 py-2 text-xs text-sf-text-secondary hover:border-sf-dark-500 hover:text-sf-text-primary">{t('generate.director.common.back', {}, 'Back')}</button>
             <div className="flex flex-wrap justify-end gap-2">
-              <button type="button" onClick={() => { const next = generatedScript; setDirectorScript(next); applyToDirector(next) }} className="rounded-lg border border-sf-dark-600 px-3 py-2 text-xs text-sf-text-secondary hover:border-sf-dark-500 hover:text-sf-text-primary">Regenerate script from brief</button>
+              <button type="button" onClick={() => { const next = generatedScript; setDirectorScript(next); applyToDirector(next) }} className="rounded-lg border border-sf-dark-600 px-3 py-2 text-xs text-sf-text-secondary hover:border-sf-dark-500 hover:text-sf-text-primary">{t('generate.director.business.actions.regenerateScript', {}, 'Regenerate script from brief')}</button>
               <button type="button" onClick={handleBuildPlan} disabled={isQueuingKeyframes || isQueuingVideos} className="rounded-lg bg-sf-accent px-3 py-2 text-xs text-white hover:bg-sf-accent-hover disabled:cursor-not-allowed disabled:opacity-50">
                 Build Plan and Continue
               </button>
@@ -1572,7 +1574,7 @@ export default function BusinessAdCreator({
       {step === 'keyframes' && (
         <div className="rounded-xl border border-sf-dark-700 bg-sf-dark-900/60 p-4 space-y-4">
           <div>
-            <div className="text-[10px] uppercase tracking-[0.14em] text-sf-accent">Storyboard review</div>
+            <div className="text-[10px] uppercase tracking-[0.14em] text-sf-accent">{t('generate.director.business.keyframes.kicker', {}, 'Storyboard review')}</div>
             <h2 className="mt-1 text-lg font-semibold text-sf-text-primary">
               {keyframeGeneratingCount > 0
                 ? `Generating keyframes (${yoloStoryboardReadyCount}/${planShots.length} ready).`
@@ -1706,13 +1708,13 @@ export default function BusinessAdCreator({
       {step === 'videos' && (
         <div className="rounded-xl border border-sf-dark-700 bg-sf-dark-900/60 p-4 space-y-4">
           <div>
-            <div className="text-[10px] uppercase tracking-[0.14em] text-sf-accent">Video review</div>
+            <div className="text-[10px] uppercase tracking-[0.14em] text-sf-accent">{t('generate.director.business.videos.kicker', {}, 'Video review')}</div>
             <h2 className="mt-1 text-lg font-semibold text-sf-text-primary">
               {videoGeneratingCount > 0
                 ? 'Generating shot videos.'
                 : 'Review the shot videos.'}
             </h2>
-            <p className="mt-1 text-xs text-sf-text-muted">Completed videos will appear here one by one. You can select a shot video, edit only its motion prompt, then regenerate just that clip.</p>
+            <p className="mt-1 text-xs text-sf-text-muted">{t('generate.director.business.videos.description', {}, 'Completed videos will appear here one by one. You can select a shot video, edit only its motion prompt, then regenerate just that clip.')}</p>
           </div>
           <div className="rounded-lg border border-sf-dark-700 bg-sf-dark-800/40 px-3 py-2 text-xs text-sf-text-secondary">
             {planShots.length} shots / {commercialLength}s / {selectedKeyframeWorkflow.label} keyframes / {selectedVideoWorkflow.label} video
@@ -1832,8 +1834,8 @@ export default function BusinessAdCreator({
             </div>
           )}
           <div className="flex flex-wrap items-center justify-between gap-2">
-            <button type="button" onClick={() => setStep('keyframes')} className="rounded-lg border border-sf-dark-600 px-3 py-2 text-xs text-sf-text-secondary hover:border-sf-dark-500 hover:text-sf-text-primary">Back</button>
-            <button type="button" onClick={() => setStep('setup')} className="rounded-lg border border-sf-dark-600 px-3 py-2 text-xs text-sf-text-secondary hover:border-sf-dark-500 hover:text-sf-text-primary">Start Another Ad</button>
+            <button type="button" onClick={() => setStep('keyframes')} className="rounded-lg border border-sf-dark-600 px-3 py-2 text-xs text-sf-text-secondary hover:border-sf-dark-500 hover:text-sf-text-primary">{t('generate.director.common.back', {}, 'Back')}</button>
+            <button type="button" onClick={() => setStep('setup')} className="rounded-lg border border-sf-dark-600 px-3 py-2 text-xs text-sf-text-secondary hover:border-sf-dark-500 hover:text-sf-text-primary">{t('generate.director.business.actions.startAnother', {}, 'Start Another Ad')}</button>
           </div>
         </div>
       )}

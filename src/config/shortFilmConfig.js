@@ -1,6 +1,25 @@
 export const ELEVENLABS_TTS_WORKFLOW_ID = 'elevenlabs-tts'
+export const IRODORI_TTS_WORKFLOW_ID = 'irodori-tts'
+export const IRODORI_TTS_MODEL_FILENAME = 'irodori-tts-500m-v3.safetensors'
 export const SHORT_FILM_VIDEO_WORKFLOW_ID = 'ltx23-i2v'
 export const SHORT_FILM_DIALOGUE_VIDEO_WORKFLOW_ID = 'short-film-dialogue-ltx23-ia2v'
+
+export const SHORT_FILM_VOICE_PROVIDER_OPTIONS = Object.freeze([
+  {
+    id: 'elevenlabs',
+    label: 'ElevenLabs',
+    runtimeLabel: 'Cloud',
+    workflowId: ELEVENLABS_TTS_WORKFLOW_ID,
+    description: 'Uses the bundled ComfyUI partner workflow and named ElevenLabs voice presets.',
+  },
+  {
+    id: 'irodori',
+    label: 'Irodori-TTS',
+    runtimeLabel: 'Local',
+    workflowId: IRODORI_TTS_WORKFLOW_ID,
+    description: 'Runs the latest local Irodori-TTS v3 model in ComfyUI with automatic dialogue duration.',
+  },
+])
 
 export const SHORT_FILM_KEYFRAME_WORKFLOW_OPTIONS = Object.freeze([
   {

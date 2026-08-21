@@ -37,6 +37,10 @@ export const ASSETS_PROJECT_KEYS = [
   'folderCounter',
 ]
 
+export const GENERATION_HISTORY_PROJECT_KEYS = [
+  'records',
+]
+
 // Project-level fields that land in the saved JSON. currentProject covers
 // renames and settings edits; saveProject itself replaces currentProject,
 // which transiently marks dirty — saveProject calls markProjectClean() after
@@ -75,10 +79,13 @@ export function watchStoreForProjectChanges(store, keys) {
 }
 
 // App calls this once with the real store hooks. Returns a stop function.
-export function attachProjectDirtyWatchers({ timelineStore, assetsStore, projectStore }) {
+export function attachProjectDirtyWatchers({ timelineStore, assetsStore, generationHistoryStore, projectStore }) {
   const unsubscribers = [
     watchStoreForProjectChanges(timelineStore, TIMELINE_PROJECT_KEYS),
     watchStoreForProjectChanges(assetsStore, ASSETS_PROJECT_KEYS),
+    ...(generationHistoryStore
+      ? [watchStoreForProjectChanges(generationHistoryStore, GENERATION_HISTORY_PROJECT_KEYS)]
+      : []),
     watchStoreForProjectChanges(projectStore, PROJECT_STORE_KEYS),
   ]
   return () => {

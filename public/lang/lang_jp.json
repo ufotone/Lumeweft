@@ -292,7 +292,7 @@
     "editor": "編集",
     "generate": "生成",
     "agent": "エージェント",
-    "flow-ai": "Flow AI",
+    "flow-ai": "CANVAS",
     "mog": "MoGraph",
     "stock": "ストック",
     "export": "書き出し"
@@ -489,7 +489,7 @@
       "advanced": "詳細設定",
       "timeout": "起動待機時間（秒）",
       "timeoutHelpBefore": "起動後、指定した秒数以内にComfyUIの",
-      "timeoutHelpAfter": "が応答しない場合、Velornは待機を終了してプロセスを停止します。",
+      "timeoutHelpAfter": "が応答しない場合も、Lumeweftはプロセスを停止せず低頻度で待機を続けます。",
       "extraArgs": "追加引数",
       "extraArgsHelp": "ランチャースクリプトの末尾へ追加します。引用符で囲まれた文字列はひとまとまりとして扱われます。",
       "logs": "ログ",
@@ -833,27 +833,489 @@
     }
   },
   "generate": {
-    "mode": { "generate": "生成", "director": "ディレクター" },
+    "mode": { "generate": "生成", "director": "ディレクター", "prompter": "生成レシピ", "history": "履歴" },
+    "prompter": {
+      "saveTitle": "生成レシピを保存",
+      "saveDescription": "うまくいったプロンプトを貼り付けるか、現在のComfyUIフローを取得し、用途をマークして保存します。",
+      "capture": "現在のComfyUIフローからレシピを取得",
+      "capturing": "ComfyUIから取得中…",
+      "namePlaceholder": "名前（未入力なら先頭行を使用）",
+      "positivePlaceholder": "ポジティブプロンプトをここへ貼り付け…",
+      "negativePlaceholder": "ネガティブプロンプト（任意・空欄可）",
+      "chooseThumbnail": "サムネイルを選択",
+      "captureThumbnail": "ComfyUIの最新結果から取得",
+      "thumbnailCapturing": "サムネイル取得中…",
+      "removeThumbnail": "サムネイルを削除",
+      "image": "静止画",
+      "video": "動画",
+      "pasteClipboard": "クリップボードから貼付",
+      "save": "保存",
+      "savedTitle": "保存済み生成レシピ",
+      "all": "すべて",
+      "search": "検索",
+      "empty": "保存済み生成レシピはありません。",
+      "positive": "ポジティブ",
+      "negative": "ネガティブ",
+      "recipe": "生成レシピ",
+      "recipeSaved": "ワークフロー設定を保存済み",
+      "loadPositive": "LOAD Positive",
+      "loadNegative": "LOAD Negative",
+      "useInQueue": "キューで使う",
+      "restore": "ComfyUIで復元",
+      "restoring": "復元中…",
+      "collapse": "折りたたむ",
+      "expand": "展開する",
+      "export": "レシピをファイルへ保存",
+      "delete": "削除",
+      "messages": {
+        "clipboardLoaded": "クリップボードから読み込みました。",
+        "clipboardEmpty": "クリップボードは空です。",
+        "clipboardReadFailed": "クリップボードを読み込めませんでした。テキスト欄へ直接貼り付けてください。",
+        "promptRequired": "保存するポジティブプロンプトを入力してください。",
+        "saved": "生成レシピを保存しました。",
+        "copied": "「{{title}}」の{{kind}}プロンプトをクリップボードへコピーしました。",
+        "clipboardWriteFailed": "クリップボードへコピーできませんでした。",
+        "capturing": "現在のComfyUIフローを読み取っています…",
+        "captureParsed": "フローを読み取りました。内容を確認して「保存」を押してください。",
+        "captureFailed": "ComfyUIフローを読み取れませんでした。",
+        "thumbnailSet": "サムネイルを50×50で登録しました。",
+        "thumbnailCapturing": "ComfyUI Job Historyの最新生成結果を取得しています…",
+        "thumbnailCaptured": "最新の生成結果からサムネイルを登録しました。",
+        "thumbnailFailed": "サムネイルを作成できませんでした。",
+        "parseFailed": "ワークフロー設定を解析できませんでした。",
+        "restoring": "ComfyUIへワークフローを復元しています…",
+        "restored": "「{{title}}」をComfyUIで開きました。",
+        "restoreFailed": "ワークフローを復元できませんでした。",
+        "exported": "「{{title}}」をLumeweft生成レシピとして保存しました。",
+        "exportFailed": "生成レシピをファイルへ保存できませんでした。"
+      }
+    },
+    "history": {
+      "tabs": { "history": "生成履歴", "recipes": "生成レシピ" },
+      "title": "生成履歴",
+      "description": "同じ生成の結果をVersionとして比較し、プロンプトの再利用や実行時ワークフローの復元ができます。",
+      "versionCount": "{{count}}バージョン",
+      "active": "採用中",
+      "copy": "プロンプトをコピー",
+      "openComfy": "ComfyUIで開く",
+      "repair": "診断・修復",
+      "repairing": "診断中…",
+      "opening": "展開中…",
+      "setActive": "このVersionを採用",
+      "collapse": "折りたたむ",
+      "expand": "展開する",
+      "export": "保存",
+      "exportRecord": "生成履歴一式をファイルへ保存",
+      "delete": "削除",
+      "deleteVersion": "このVersionを履歴から削除",
+      "deleteRecord": "この生成履歴をすべて削除",
+      "confirmDeleteVersion": "Version {{number}}を履歴から削除しますか？生成された素材ファイルは削除されません。",
+      "confirmDeleteRecord": "「{{title}}」の生成履歴をすべて削除しますか？生成された素材ファイルは削除されません。",
+      "empty": "Lumeweftで生成が完了すると、ここに履歴が表示されます。",
+      "messages": {
+        "copied": "プロンプトをクリップボードへコピーしました。",
+        "copyFailed": "プロンプトをコピーできませんでした。",
+        "opening": "保存された生成フローをComfyUIで開いています…",
+        "opened": "生成フローをComfyUIで開きました。",
+        "openFailed": "生成フローを開けませんでした。",
+        "repairing": "ローカルのComfyUIモデル一覧とワークフローを比較しています…",
+        "repaired": "{{count}}件を修復し、「{{title}}」としてComfyUIで開きました。",
+        "repairNotNeeded": "修復が必要なモデル参照はありませんでした。",
+        "repairAmbiguous": "{{count}}件は安全な置換候補を一意に決められなかったため変更していません。",
+        "repairFailed": "ワークフローを修復できませんでした。",
+        "versionDeleted": "Versionを生成履歴から削除しました。素材は残っています。",
+        "recordDeleted": "生成履歴を削除しました。素材は残っています。",
+        "deleteFailed": "生成履歴の削除結果を保存できませんでした。",
+        "exported": "生成履歴一式をLumeweft履歴ファイルとして保存しました。",
+        "versionExported": "VersionをLumeweft履歴Versionとして保存しました。",
+        "exportFailed": "生成履歴をファイルへ保存できませんでした。"
+      }
+    },
     "browser": {
-      "tabs": { "featured": "おすすめ", "custom": "マイワークフロー", "templates": "テンプレート" },
+      "tabs": { "featured": "おすすめ", "custom": "マイワークフロー", "templates": "テンプレート", "community": "コミュニティ" },
       "searchTemplates": "ComfyUIテンプレート、モデル、タグを検索...",
       "searchWorkflows": "ワークフロー、プロバイダー、タグを検索...",
-      "filters": { "all": "すべて", "image": "画像", "video": "映像", "image-to-video": "画像から映像", "text-to-video": "テキストから映像", "text-to-image": "テキストから画像", "image-edit": "画像編集", "video-tools": "映像ツール", "audio": "音声", "utility": "ユーティリティ" },
+      "filters": { "all": "すべて", "image": "画像", "video": "映像", "image-to-video": "画像から映像（I2V）", "text-to-video": "テキストから映像（T2V）", "text-to-image": "テキストから画像（T2I）", "image-edit": "画像から画像（I2I）", "video-tools": "映像ツール", "audio": "音声", "utility": "ユーティリティ" },
       "sources": { "all": "すべて", "local": "ローカル", "cloud": "クラウド" },
       "sort": { "popular": "使用数順", "newest": "新着順" },
       "showingWorkflows": "{{tab}}ワークフローを{{count}}件表示"
+    },
+    "community": {
+      "sources": {
+        "title": "コミュニティソース",
+        "description": "モデル情報とファイルの取得元となるコミュニティを選択します。",
+        "morePlanned": "今後さらに追加予定",
+        "active": "利用可能",
+        "comingSoon": "近日対応",
+        "providers": {
+          "civitai": "Civitai.com／Civitai Redのモデル、チェックポイント、LoRA",
+          "huggingFace": "オープンなモデルリポジトリとファイル",
+          "tensorArt": "モデル、LoRA、ワークフロー",
+          "liblibai": "中国のモデル／LoRAコミュニティ",
+          "shakkerAi": "国際的なクリエイティブモデルプラットフォーム"
+        }
+      },
+      "consent": {
+        "title": "コミュニティモデル",
+        "disclaimer": "Lumeweftは、コミュニティモデル、ワークフロー、メタデータ、ライセンス、商用利用権、生成結果、継続的な提供を確認・保証しません。ダウンロード、インストール、生成、公開、販売はすべて利用者自身の責任で行ってください。",
+        "prohibited": "違法なコンテンツ、未成年者または未成年者に見える人物を含む性的コンテンツ、実在人物の同意のない性的表現には使用しないでください。",
+        "adult": "居住地域の法律上、成人であることを確認します。",
+        "risk": "コミュニティモデルとその生成結果を、すべて自己責任で使用します。",
+        "rules": "適用される法律、第三者の権利、各提供元の利用規約を守ります。",
+        "agree": "同意してコミュニティへ入る",
+        "notNow": "今は開かない"
+      },
+      "search": {
+        "title": "Civitaiを検索",
+        "description": "Civitai.comとCivitai Redのモデル、画像、動画リンクに対応しています。",
+        "placeholder": "Civitaiのモデル／画像／動画URLを貼り付け",
+        "inspect": "リンクを確認",
+        "unverified": "モデル情報は作者／提供元によるもので、Lumeweftは内容を確認していません。",
+        "disableAccess": "アクセスを無効化",
+        "recent": "最近使用したCivitai URL"
+      },
+      "media": {
+        "title": "Civitaiコミュニティ投稿 #{{id}}",
+        "image": "画像投稿",
+        "video": "動画投稿",
+        "sourcePage": "投稿ページ",
+        "publishedWorkflow": "投稿には完全なComfyUIワークフローが公開されています。そのままComfyUIで開けます。",
+        "reconstructedWorkflow": "完全なフローは公開されていません。Promptと使用リソースから、互換するLumeweft標準ワークフローを再構成します。",
+        "unsupportedWorkflow": "この投稿の情報から対応する標準ワークフローを特定できませんでした。Promptと使用リソースは確認できます。",
+        "prompt": "公開Prompt",
+        "resources": "使用リソース",
+        "inspectResource": "このモデルを確認",
+        "backToPost": "使用リソース一覧へ戻る",
+        "reviewAllResources": "使用リソースを一括確認",
+        "standardDependency": "Lumeweft標準依存ファイル",
+        "batchTitle": "使用リソースの確認と一括ダウンロード",
+        "batchDescription": "投稿で使用されたモデルと、再構成に必要な公式High／Low-noiseモデル、Text Encoder、VAEを一覧化しました。投稿にWAN本体がある場合はそちらをHigh側で優先します。",
+        "loadingResources": "モデルと配布ファイルを確認中…",
+        "noInstallableResources": "ダウンロード可能なファイルが見つかりませんでした。",
+        "batchTotal": "選択：{{count}}ファイル · 合計 {{size}}",
+        "downloadSelected": "選択したリソースを一括ダウンロード",
+        "batchInstalled": "使用リソースを{{count}}ファイル確認／インストールしました。",
+        "openPublished": "公開ワークフローを開く",
+        "openReconstructed": "再構成フローを開く",
+        "openedPublished": "投稿で公開されたワークフローをComfyUIで開きました。",
+        "openedReconstructed": "Promptを反映したWAN 2.2 I2V再構成フローをComfyUIで開きました。",
+        "localImageRequired": "元の開始画像は公開データに含まれないため、ComfyUIのLoad Imageでローカル画像を選択してください。"
+      },
+      "apiKey": {
+        "title": "Civitai APIキー",
+        "description": "作者がログインユーザーのみにダウンロードを許可している場合に必要です。",
+        "openAccount": "キーを作成／確認",
+        "placeholder": "Civitai APIキーを貼り付け",
+        "save": "キーを保存",
+        "saved": "保存済み"
+      },
+      "model": {
+        "defaultType": "モデル",
+        "by": "作者：{{creator}}",
+        "sourcePage": "配布元ページ",
+        "version": "バージョン",
+        "unknownBase": "ベースモデル不明",
+        "triggerWords": "トリガーワード："
+      },
+      "examples": {
+        "title": "Civitaiの作例",
+        "imageHelp": "左クリック：元画像を開く · 右クリック：このパラメータで生成",
+        "openSource": "配布元の画像を開く",
+        "alt": "Civitai作例 {{index}}",
+        "generateWithParameters": "この画像のパラメータで生成",
+        "installFirst": "先にモデルをインストールしてください。",
+        "controls": "左クリック：元画像を開く · 右クリック：公開された生成パラメータをComfyUIへ反映",
+        "applied": "作例のPrompt／Seed／Steps／CFG／Sampler／Scheduler／Denoise／{{width}}×{{height}}をComfyUIへ反映しました。"
+      },
+      "files": {
+        "unsupported": "未対応",
+        "primary": "主要ファイル · 推奨",
+        "alternative": "代替ファイル · 通常はいずれか1つ",
+        "licenseWarning": "ライセンスや商用利用の情報が不完全、またはベースモデルの規約と矛盾している場合があります。Lumeweftは判断・保証を行いません。",
+        "duplicateWarning": "同名ファイルが異なるComfyUIフォルダー向けに選択されています。通常は必須の付属ファイルではなく、異なる配布形式です。使用するワークフローに合う形式だけを選択してください。"
+      },
+      "scan": { "result": "Civitai {{label}}：{{value}}", "virus": "ウイルススキャン", "pickle": "Pickleスキャン" },
+      "destination": {
+        "title": "ComfyUIの保存先",
+        "notConfigured": "未設定",
+        "chooseFolder": "フォルダーを選択",
+        "selectFolder": "ComfyUIフォルダーを選択"
+      },
+      "download": {
+        "preparing": "ダウンロードを準備中...",
+        "cancelling": "ダウンロードをキャンセル中…",
+        "selectedOne": "選択：{{count}}ファイル",
+        "selectedMany": "選択：{{count}}ファイル",
+        "freeSpace": "空き容量 {{size}}",
+        "cancel": "ダウンロードをキャンセル",
+        "checking": "インストール済みファイルを確認中…",
+        "review": "ダウンロード内容を確認",
+        "insufficientSpace": "1 GBの安全余裕を含めると空き容量が不足しています。",
+        "installedOne": "{{count}}ファイルをインストールしました。",
+        "installedMany": "{{count}}ファイルをインストールしました。",
+        "showInFolder": "フォルダーで表示"
+      },
+      "krea": {
+        "compatibleWorkflow": "Krea 2互換ワークフロー",
+        "openedModel": "このDiffusion Modelを設定したフラットなKrea 2ワークフローをComfyUIで開きました。",
+        "generateWithModel": "このモデルで生成",
+        "description": "Comfy公式構成に沿った互換ワークフローを開き、このファイルをDiffusion Modelとして設定します。Text EncoderとVAEが不足している場合はComfyUI側で表示されます。"
+      },
+      "lora": {
+        "compatibleWorkflow": "LoRA対応チェックポイントワークフロー",
+        "openedModel": "このLoRAと選択したベースチェックポイントを設定したワークフローをComfyUIで開きました。",
+        "baseCheckpoint": "互換ベースチェックポイント",
+        "baseDiffusionModel": "互換ANIMA拡散モデル",
+        "baseHelp": "{{base}}と互換性のあるローカルのチェックポイントを選択してください。",
+        "animaBaseHelp": "ANIMAは拡散モデル、Qwenテキストエンコーダー、VAEを個別に読み込みます。LoRAと互換性のある拡散モデルを選択してください。",
+        "selectBase": "先に互換ベースチェックポイントを選択してください。",
+        "loadingCheckpoints": "ComfyUIからインストール済みチェックポイントを取得しています…",
+        "loadingAnimaComponents": "ComfyUIからANIMA拡散モデル、Qwenテキストエンコーダー、VAEを確認しています…",
+        "noCheckpoints": "ComfyUIからチェックポイントが報告されませんでした。互換ベースチェックポイントをインストール後、ComfyUIを再起動または更新してください。",
+        "noCheckpointOption": "互換チェックポイントがありません",
+        "noDiffusionModelOption": "互換ANIMA拡散モデルがありません",
+        "missingAnimaComponents": "ANIMA生成には互換拡散モデル、qwen_3_06b_base.safetensors、qwen_image_vae.safetensorsが必要です。ComfyUIを再起動または更新してください。",
+        "notVisibleToComfy": "ファイルはディスク上にありますが、ComfyUIのLoRA一覧にはまだ反映されていません。ComfyUIを更新または再起動してから再試行してください。",
+        "checkpointLookupFailed": "ComfyUIからインストール済みチェックポイントを取得できませんでした。",
+        "description": "LoRA単体では生成できません。選択したローカルチェックポイントへLoRAを適用し、編集可能なComfyUIワークフローを開きます。"
+      },
+      "confirm": {
+        "title": "コミュニティモデルをダウンロードしますか？",
+        "description": "ファイルはCivitaiから直接取得し、ローカルのComfyUIモデルフォルダーへ保存されます。Lumeweftは安全性、ライセンス、互換性、用途への適合性を保証しません。",
+        "total": "合計：{{size}}",
+        "insufficientSpace": "安全に続行するための空き容量が不足しています。",
+        "download": "自己責任でダウンロード"
+      },
+      "errors": {
+        "saveConsent": "同意設定を保存できませんでした。",
+        "chooseFolder": "ダウンロード前にComfyUIフォルダーを選択してください。",
+        "selectFile": "対応ファイルを1つ以上選択してください。",
+        "downloadsFailed": "一部またはすべてのダウンロードに失敗しました。",
+        "downloadFailed": "ダウンロードに失敗しました。",
+        "cancelDownload": "ダウンロードをキャンセルできませんでした。",
+        "openWorkflow": "ComfyUIでワークフローを開けませんでした。",
+        "prepareModel": "このモデルを生成用に準備できませんでした。",
+        "exampleNoPrompt": "この作例にはプロンプトが公開されていません。",
+        "openExampleWorkflow": "作例のワークフローをComfyUIで開けませんでした。",
+        "prepareExample": "Civitai作例を準備できませんでした。",
+        "invalidReference": "Civitai／Civitai Redのモデル、画像、動画URL、または数値のモデルIDを入力してください。",
+        "openMediaWorkflow": "コミュニティ投稿のワークフローをComfyUIで開けませんでした。",
+        "loadResources": "使用リソースを取得できませんでした。",
+        "loadModel": "モデルを読み込めませんでした。",
+        "invalidComfyFolder": "有効なComfyUIインストールフォルダーではありません。"
+      }
     },
     "assets": {
       "inputSource": "入力ソース", "search": "素材を検索...", "assets": "素材", "searchingAll": "すべてのフォルダーを検索中", "assignTo": "選択した素材の割り当て先", "nothingSelected": "未選択", "noMatches": "一致する素材がありません", "noneHere": "ここには{{type}}素材がありません", "tryDifferent": "別の検索語またはフォルダー名をお試しください", "importHelp": "別のフォルダーを開くか、素材タブでメディアを読み込んでください", "selectInput": "入力素材を選択するか、タイムラインのフレームを使用してください（プレビューを右クリック → AIで拡張）"
     },
     "queue": {
-      "title": "キュー", "expand": "キューパネルを展開", "collapse": "パネルを折りたたむ", "clear": "キューを消去", "video": "映像をキューに追加", "image": "画像をキューに追加", "audio": "音声をキューに追加", "keyframes": "{{mode}}キーフレームをキューに追加"
+      "title": "キュー", "expand": "キューパネルを展開", "collapse": "パネルを折りたたむ", "clear": "キューを消去", "video": "映像をキューに追加", "image": "画像をキューに追加", "audio": "音声をキューに追加", "keyframes": "{{mode}}キーフレームをキューに追加", "referenceImage": "参照画像", "pickLocalImage": "ローカル画像を選択", "selectReferenceImage": "参照画像を選択", "replace": "変更", "prompt": "プロンプト", "promptPlaceholder": "動き、シーン、カメラワークを入力...", "restoreOriginal": "元の文", "translateEnglish": "英語", "translateChinese": "簡体字", "translating": "翻訳中...", "translateHelp": "アプリの設定言語から端末内翻訳（同じ言語への翻訳は無効）"
     },
+    "messages": { "title": "生成メッセージ", "selectReference": "先に参照画像{{timeline}}を選択してください", "orTimelineFrame": "、またはタイムラインのフレーム", "openProjectForImage": "参照画像を読み込む前に、プロジェクトを作成または開いてください。", "imageRegisterFailed": "読み込んだ画像を素材として登録できませんでした。", "imageImportFailed": "参照画像を読み込めませんでした。", "translationFailed": "プロンプトを翻訳できませんでした。" },
     "dependencies": {
-      "title": "ワークフローの依存関係", "recheck": "再チェック", "recheckHelp": "必要なノードとモデルを再チェック", "offline": "ComfyUIはオフラインです。依存関係を確認するにはComfyUIを起動してください。", "checking": "インストール済みのノードとモデルを確認中...", "missing": "必要な依存関係が不足しています。インストールされるまでキューへ追加できません。", "missingNodes": "不足しているノード：", "missingModels": "不足しているモデル：", "cloudKey": "このワークフローはComfy.org APIで動作します。利用するにはキーを追加してください。", "setUpKey": "キーを設定", "copyReport": "レポートをコピー", "loadComfy": "ComfyUIで読み込む", "workflowSetup": "ワークフロー設定", "openRegistry": "ノードレジストリを開く", "notRunning": "ComfyUIが実行されていません。生成するには起動してください。"
+      "title": "ワークフローの依存関係", "recheck": "再チェック", "recheckHelp": "必要なノードとモデルを再チェック", "offline": "ComfyUIはオフラインです。依存関係を確認するにはComfyUIを起動してください。", "checking": "インストール済みのノードとモデルを確認中...", "missing": "必要な依存関係が不足しています。インストールされるまでキューへ追加できません。", "missingNodes": "不足しているノード：", "missingModels": "不足しているモデル：", "cloudKey": "このワークフローはComfy.org APIで動作します。利用するにはキーを追加してください。", "setUpKey": "キーを設定", "autoInstall": "不足している依存関係をインストール", "chooseFolder": "ComfyUIフォルダーを選択", "installing": "依存関係をインストール中...", "restartComfy": "ComfyUIを再起動して完了", "copyReport": "レポートをコピー", "loadComfy": "ComfyUIで読み込む", "workflowSetup": "ワークフロー設定", "openRegistry": "ノードレジストリを開く", "notRunning": "ComfyUIが実行されていません。生成するには起動してください。"
     },
     "info": {
       "title": "ワークフロー情報", "category": "カテゴリー", "workflow": "ワークフロー", "hardware": "ハードウェア区分", "unknown": "不明", "runtime": "実行環境", "cloudEstimate": "クラウド予想使用量／回", "needsInput": "入力の必要性", "yesImage": "あり（画像）", "no": "なし", "output": "出力", "resolution": "解像度", "seed": "シード"
+    },
+    "director": {
+      "common": {
+        "offline": "ComfyUIはオフラインです。",
+        "offlineHelp": "開始を押すか生成ジョブをキューに追加すると、LumeweftがComfyUIを起動します。",
+        "startComfy": "ComfyUIを起動",
+        "backToWorkflows": "ワークフロー作成へ戻る", "step": "ステップ {{number}}", "back": "戻る", "next": "次へ", "aspectRatio": "画面比率", "resolution": "解像度", "outputResolution": "出力解像度", "fps": "フレームレート", "fpsShort": "FPS"
+      },
+      "business": {
+        "navTitle": "ビジネス広告作成", "assistant": "Lumeweftからの質問",
+        "steps": { "setup": "設定", "references": "参照素材", "script": "台本", "keyframes": "キーフレーム", "videos": "動画＋タイムライン" },
+        "setup": { "title": "ビジネス広告を設定します。", "description": "オファー、対象顧客、信頼材料、行動喚起から始めます。地域ビジネス、オンラインショップ、小規模チーム向けの作成フローです。", "brief": "ビジネス概要", "creativeDirection": "クリエイティブ方針" },
+        "fields": { "businessName": "ビジネス名", "productService": "商品またはサービス", "audience": "対象顧客", "offer": "オファー", "proof": "実績・信頼材料", "cta": "行動喚起", "contact": "Webサイト・連絡先", "goal": "広告の目的", "tone": "雰囲気", "location": "地域・サービス提供エリア", "visualStyle": "映像スタイル・ルール", "talent": "出演者・音声の指示（任意）", "length": "広告の長さ" },
+        "goals": { "local_service": { "label": "地域サービス", "help": "電話、予約、来店につなげます。" }, "ecommerce_product": { "label": "EC商品", "help": "商品または商品シリーズをオンライン販売します。" }, "restaurant_special": { "label": "飲食・イベント", "help": "限定メニュー、ポップアップ、イベントなどを告知します。" }, "sale_offer": { "label": "セール・特典", "help": "割引、セット、期間限定キャンペーンを訴求します。" }, "testimonial": { "label": "利用者の声", "help": "実際の顧客による推薦のような広告にします。" }, "brand_awareness": { "label": "ブランド認知", "help": "ビジネスを紹介し、記憶に残る内容にします。" } },
+        "tones": { "friendly-local": "親しみやすい地域密着型", "social-fast": "テンポの速いSNS風", "clean-professional": "清潔でプロフェッショナル", "premium-calm": "上質で落ち着いた雰囲気" },
+        "aspectHelp": { "vertical_9x16": "縦長：720×1280 または 1080×1920。", "landscape_16x9": "横長：1280×720 または 1920×1080。", "square_1x1": "正方形：720×720 または 1080×1080。" },
+        "output": { "fast": "高速で軽量です。", "sharp": "より鮮明ですが、ローカル動画生成の負荷が増えます。", "currentFrame": "現在のフレームサイズ：", "fps24": "映画向けの標準設定。", "fps25": "PAL向けの設定。", "fps30": "より滑らかな動き。", "seconds": "{{seconds}}秒", "current": "現在の出力：" },
+        "references": { "title": "商品、人物、場所の参照素材はありますか？", "description": "任意ですが、実際の商品写真、スタッフや顧客、店舗、ブランド環境の画像を使うと結果が安定します。", "product": "商品・サービスの参照素材", "productHelp": "商品写真、メニュー、完成例、使用前後、サービス実績などを使用します。", "noProduct": "商品・サービス素材を選択していません", "talent": "出演者の参照素材", "talentHelp": "正面、側面、斜め、表情、衣装を含むキャラクターシートを推奨します。", "noTalent": "出演者素材を選択していません", "environment": "環境の参照素材", "environmentHelp": "広告世界の場所、部屋、床面、照明、セットデザインなどを指定できます。", "noEnvironment": "環境素材を選択していません" },
+        "script": { "kicker": "台本プラン", "title": "台本と絵コンテ案を確認します。", "description": "Director用に構造化された台本です。プランを作る前に手動で編集できます。" },
+        "keyframes": { "kicker": "絵コンテ確認" }, "videos": { "kicker": "動画確認", "description": "完成した動画がショットごとに表示されます。ショットを選択し、動きのプロンプトだけを編集して、そのクリップのみ再生成できます。" },
+        "actions": { "nextReferences": "次へ：参照素材", "regenerateScript": "概要から台本を再作成", "startAnother": "別の広告を作成" }
+      },
+      "music": {
+        "steps": { "song": "楽曲", "people": "出演者", "script": "ディレクター台本", "keyframes": "キーフレーム", "videos": "動画" },
+        "fields": { "outputSettings": "出力設定", "audioMode": "音声モード", "songAudio": "楽曲音声", "chooseAudio": "既存音声を選択", "genre": "楽曲スタイル・ジャンル", "castReferences": "出演者の参照素材", "coveragePlan": "カバレッジプラン" },
+        "song": { "title": "楽曲ソースを選択します。", "description": "先に素材パネルへ楽曲またはボーカルステムを読み込み、ここで選択します。必要に応じて高度な音声モードも利用できます。", "outputHelp": "この設定はキーフレームと動画の両方に適用されます。", "selectAudio": "プロジェクト内の音声を選択", "noAudio": "プロジェクトに音声素材がありません。先に素材から楽曲を読み込んでください。", "hideAdvanced": "詳細設定を閉じる", "advancedAudio": "音声の詳細設定", "selectFromAssets": "素材パネルから音声を選択", "addAudioHelp": "素材パネルへ音声を追加し、下の一覧から選択してください。", "genreHelp": "コピーするディレクター台本の概要に含まれ、歌詞だけから映像スタイルを推測することを防ぎます。" },
+        "audioKinds": { "mixed_track": { "label": "完成済み楽曲（フルミックス）", "help": "通常の完成済み楽曲として扱います。リップシンクやBロールの割り当てはディレクター台本に従います。" }, "vocal_stem": { "label": "ボーカルステム（分離済み）", "help": "ボーカルだけの音声です。前処理は不要です。" }, "instrumental": { "label": "インストゥルメンタル（ボーカルなし）", "help": "音楽のみです。すべてのショットでリップシンクを無効にします。" } },
+        "timing": { "notice": "歌詞のタイミング準備には時間がかかる場合があります。", "noticeHelp": "実際の楽曲タイミングを台本へ反映するため、この処理が完了してからLLM用概要をコピーしてください。", "title": "歌詞タイミング", "preparing": "準備中", "prepare": "タイミングを準備", "engine": "タイミング解析方式", "language": "ASR言語", "source": "歌詞ソース", "alignHelp": "下に歌詞を貼り付けます。Lumeweftが選択した音声からタイミングを解析し、歌詞をSRTにします。", "transcribeHelp": "Lumeweftが選択した音声を解析し、時間付きSRTを作成します。", "transcribe": "楽曲を文字起こし", "align": "自分の歌詞を同期", "srtOutput": "SRT出力", "srtPlaceholder": "文字起こしまたは同期後に、時間付き歌詞がここへ表示されます。", "engines": { "auto": { "label": "自動", "help": "最初にローカルWhisperを使用し、失敗時はComfyUIを使用します。" }, "local": { "label": "ローカルWhisper", "help": "ComfyUIを使わずローカルで実行します。" }, "comfyui": { "label": "ComfyUI", "help": "Qwen3-ASRワークフローを使用します。" } } },
+        "people": { "title": "カメラに登場する人物を設定します。", "description": "アーティスト、バンドメンバー、出演者の参照画像を追加すると、台本のArtist指定に従ってショットへ割り当てられます。" },
+        "script": { "title": "ディレクター台本を作成します。", "description": "タイミング、出演者、形式ルールを含むLLM用概要をコピーし、生成された台本をここへ貼り付けます。" },
+        "keyframes": { "title": "台本からキーフレームを作成します。", "description": "解析された各ショットに開始画像を1枚作成します。別のショットプリセットではなく、台本が生成内容を制御します。" },
+        "videos": { "title": "台本から動画を生成します。", "description": "各ショットは対応するキーフレームと楽曲タイミングを使って個別に生成・再生成できます。" }
+      },
+      "shortFilm": {
+        "steps": { "story": "物語", "characters": "登場人物", "locations": "場所", "script": "台本", "voices": "音声", "shotPlan": "ショットプラン", "keyframes": "キーフレーム", "videos": "動画", "assemble": "編集" },
+        "fields": { "title": "タイトル", "premise": "あらすじ", "creativeDirection": "クリエイティブ方針", "runtime": "上映時間" },
+        "story": { "title": "短編映画を設定します。", "description": "LLM用の概要を作成します。台本の作成後は、その台本が各工程の基準になります。", "directionHelp": "台本を書く前に、トーン、ジャンル、テンポ、スタイルをLLMへ伝えます。", "outputPrefix": "出力は", "outputAt": "、フレームレート" },
+        "voiceModes": { "text_to_speech": "テキスト読み上げ", "text_to_dialogue": "複数人物の会話生成", "speech_to_speech": "音声変換" },
+        "characters": { "title": "登場人物を設定します。" }, "locations": { "title": "ロケーションシートを作成します。" },
+        "script": { "title": "台本を作成または貼り付けます。", "brief": "LLM用概要", "briefHelp": "あらすじ、演出方針、登場人物、場所、必要な形式を含みます。", "screenplay": "脚本・ディレクター台本", "screenplayHelp": "音声、ショット、キーフレーム、編集の基準になります。" },
+        "voices": { "title": "登場人物の音声を生成します。" }, "shotPlan": { "title": "映像のカバレッジを確認します。" }, "keyframes": { "title": "キーフレームを作成します。" }, "videos": { "title": "ショット動画を生成します。" }, "assemble": { "title": "編集を組み立てます。" },
+        "sidebar": { "current": "現在の構想", "principle": "制作の仕組み", "principleHelp": "台本が物語、セリフ、タイミング、ショット選択を制御します。登場人物は顔と声、ロケーションシートは映像世界の一貫性を提供します。", "routing": "モデルの割り当て", "titleLabel": "タイトル", "cast": "登場人物", "locations": "場所", "voices": "音声", "output": "出力", "characterCount": "{{count}}人", "locationCount": "{{count}}か所", "ltxHelp": "短い動画ショット生成の標準モデルです。", "voiceHelp": "選択したElevenLabsまたはIrodori-TTSワークフローで、セリフを編集可能な音声クリップに変換します。", "locationSheets": "ロケーションシート", "locationSheetsHelp": "空間とアングルの一貫性を保つ参照画像です。", "notes": "実装状況", "notesHelp": "音声、キーフレーム、動画レンダリングは利用できます。タイムラインへの組み立ては次の実装段階です。" }
+      },
+      "ugc": {
+        "steps": {
+          "aria": "UGC広告の作成手順",
+          "number": "ステップ {{number}}",
+          "setup": "雰囲気",
+          "references": "参照素材",
+          "generate": "生成"
+        },
+        "header": {
+          "breadcrumb": "生成 / 広告 / UGC Creator",
+          "tagline": "- 人らしさが伝わるSNS広告",
+          "connected": "ComfyUI 接続済み",
+          "beta": "ベータ版ワークフロー"
+        },
+        "templates": {
+          "casual_review": {
+            "title": "カジュアルレビュー",
+            "description": "友人に見せるような自然なカメラ目線のレビュー。"
+          },
+          "unboxing_asmr": {
+            "title": "開封 ASMR",
+            "description": "手元だけで開封し、タップ音や包装を剥がす音、最初の質感を見せます。"
+          },
+          "demo_review": {
+            "title": "実演レビュー",
+            "description": "本当に使えるかをカメラの前で試し、素直に反応します。"
+          },
+          "try_on_grwm": {
+            "title": "試着 / GRWM",
+            "description": "一緒に支度するように、着用・スタイリング・評価を見せます。"
+          },
+          "mini_testimonial": {
+            "title": "短い体験談",
+            "description": "日常的に使う実感を、落ち着いて広告らしくなく伝えます。"
+          },
+          "reaction_hook": {
+            "title": "リアクション重視",
+            "description": "驚きから始め、好奇心を引きつけます。"
+          },
+          "problem_solution": {
+            "title": "問題と解決",
+            "description": "身近な悩みを示し、商品で解決して正直な感想を伝えます。"
+          }
+        },
+        "tones": {
+          "casual-friend": "親しい友人風",
+          "skeptical-impressed": "疑いから納得へ",
+          "excited-social": "明るいSNS風",
+          "cozy-asmr": "落ち着いたASMR",
+          "premium-creator": "上質なクリエイター風",
+          "funny-chaotic": "楽しくコミカル"
+        },
+        "setup": {
+          "kicker": "雰囲気",
+          "title": "友人が投稿したような自然な仕上がりに。",
+          "description": "投稿形式と冒頭のフック、紹介する商品を指定します。Lumeweftが編集可能なセリフ、キーフレーム、動画クリップ、タイムラインへ展開します。",
+          "templateTitle": "開始テンプレートを選択",
+          "templateDescription": "各テンプレートは、ショット、セリフ、カメラを含む台本の初期案を作成します。最も近いものを選び、生成ステップでプロンプトを調整してください。形式は固定されず、自由に編集できます。",
+          "hook": "冒頭のフック（最初の2秒）",
+          "surprise": "おまかせ",
+          "productTitle": "何を紹介しますか？",
+          "productDescription": "すべてのショットで中心となるものです。",
+          "product": "商品・サービス",
+          "productPlaceholder": "紹介するものを入力（例：エナジードリンク）",
+          "energyTitle": "クリエイターの雰囲気",
+          "energyDescription": "カメラに映る人物の印象を選びます。",
+          "delivery": "出力設定",
+          "canvas": "画面比率",
+          "duration": "長さ",
+          "seconds": "秒",
+          "quality": "品質",
+          "frameRate": "フレームレート",
+          "frameRateHelp": "滑らかな動きとリップシンクのため、LTX 2.3のネイティブ値である25fpsに固定されます。",
+          "details": "詳細を追加",
+          "optionalDefaults": "任意・初期設定のままでも生成可能",
+          "detailsHelp": "すべて任意です。空欄の場合は適切な初期値が使われます。追加すると結果を細かく調整でき、各行は後から台本確認でも変更できます。",
+          "minimumHelp": "形式、フック、商品、雰囲気を指定すれば生成できます。完全な台本は生成ステップで調整できます。"
+        },
+        "references": {
+          "kicker": "参照素材",
+          "title": "商品、クリエイター、場所を固定します。",
+          "description": "任意ですが、商品、人物、スマートフォン撮影環境の実際の参照画像があると、より自然なUGCに仕上がります。",
+          "product": "商品",
+          "productHelp": "パッケージ、接写、アプリ画面など、商品の同一性を保つ画像。",
+          "noProduct": "商品素材を選択していません",
+          "creator": "クリエイター",
+          "handsOnly": "手元のみ / 顔なし",
+          "creatorHelp": "服装、表情、SNSらしい個性が分かる人物またはアバター画像。",
+          "noCreator": "人物素材を選択していません",
+          "room": "撮影場所",
+          "roomHelp": "浴室、キッチン、机、ジムなど、スマートフォンで撮影する空間。",
+          "noRoom": "場所の素材を選択していません",
+          "reference": "参照素材",
+          "noPreview": "画像が選択されていません",
+          "uploadImage": "画像をアップロード",
+          "replaceImage": "画像を差し替え",
+          "selectImage": "{{type}}の画像を選択",
+          "openProjectRequired": "参照画像をアップロードするには、先にプロジェクトを作成または開いてください。",
+          "pickerFailed": "画像選択画面を開けませんでした。",
+          "imagesOnly": "参照素材には画像ファイルのみ使用できます。",
+          "tipTitle": "ヒント",
+          "tip": "人物と撮影場所の参照画像を併用すると、複数ショットでも同じ人物と場所を維持できます。この一貫性が自然なUGCらしさにつながります。"
+        },
+        "preview": {
+          "title": "SNSプレビュー",
+          "generateFirst": "先に動画を1つ以上生成してください。",
+          "tooltip": "完成したクリップをスマートフォン画面で連続プレビューします。",
+          "stop": "停止",
+          "edit": "編集をプレビュー"
+        },
+        "summary": {
+          "title": "現在の設定",
+          "format": "形式",
+          "vibe": "雰囲気",
+          "canvas": "画面",
+          "cut": "構成",
+          "shots": "ショット",
+          "keyframes": "キーフレーム",
+          "video": "動画"
+        },
+        "why": {
+          "title": "この設定が効果的な理由",
+          "description": "UGC広告はフィード内で自然に見えるほど効果的です。手持ち撮影の構図、自然な肌の色、分かりやすい商品操作、ショット単位の編集を重視した初期設定です。"
+        },
+        "actions": {
+          "back": "戻る",
+          "nextReferences": "次へ：参照素材を追加",
+          "buildPrompt": "プロンプトを作成",
+          "startAnother": "別の広告を作成"
+        },
+        "generate": {
+          "kicker": "一括生成",
+          "title": "広告全体を一度に生成します。",
+          "description": "Seedance 2.0は完全なプロンプトと参照素材を使い、カット、演技、音声を含む広告全体を1本のクリップとして生成します。長さとプロンプトを確認して生成してください。",
+          "length": "長さ",
+          "setInVibe": "雰囲気ステップで設定",
+          "references": "参照素材",
+          "product": "商品",
+          "creator": "クリエイター",
+          "environment": "撮影場所",
+          "none": "（なし）",
+          "aiTitle": "AIで内容を調整（無料）",
+          "aiDescription": "{{template}}テンプレートのプロンプトをコピーし、ChatGPT / Claude / Geminiなど任意のLLMに貼り付けて、その結果を下の欄へ貼り戻します。クレジットを消費せず、商品に合わせて台本を書き換えられます。",
+          "copyAiPrompt": "AI台本用プロンプトをコピー",
+          "adPrompt": "広告プロンプト（台本全体）",
+          "rebuild": "設定から再作成",
+          "queueing": "キューに追加中…",
+          "seedanceTooltip": "クラウドのSeedance 2.0で、参照素材を使って商品と人物の一貫性を保ちます。高品質向けです。",
+          "seedanceButton": "生成（Seedance 2.0、{{seconds}}秒）",
+          "ltxTooltip": "ローカルのLTX 2.3で、参照素材から最初のフレームを合成して連続した1ショットをアニメーション化します。ローカルGPUでは時間がかかります。",
+          "ltxButton": "生成（ローカル LTX 2.3、{{seconds}}秒）",
+          "modelHelp": "Seedance（クラウド）は参照素材を使い、実際のシーン切り替えを含めて商品と人物の一貫性を保ちます。LTX 2.3（ローカル）は参照素材から最初のフレームを自動合成し、自分のGPUで連続した1ショットを生成します。参照素材がない場合はプロンプトのみで生成します。",
+          "readyPrefix": "広告の生成が完了しました。",
+          "readySuffix": "で再生できます。プロジェクト素材にも保存されています。タイムラインへドラッグして編集または書き出しが可能です。必要に応じてプロンプトを調整し、再生成してください。"
+        }
+      }
     }
   },
   "stock": {

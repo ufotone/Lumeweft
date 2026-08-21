@@ -1,5 +1,6 @@
 import comfyui, {
   modifyGeminiPromptWorkflow,
+  modifyMinimaxH3MediaPromptWorkflow,
   modifyGrokTextToImageWorkflow,
   modifyGrokVideoI2VWorkflow,
   modifyKlingO3I2VWorkflow,
@@ -57,6 +58,7 @@ const SINGLE_VIDEO_WORKFLOW_IDS = new Set([
 
 const TEXT_OUTPUT_WORKFLOW_IDS = new Set([
   'google-gemini-flash-lite',
+  'minimax-h3-media-promptor',
 ])
 
 const IMAGE_EXTENSIONS = new Set(['png', 'jpg', 'jpeg', 'webp', 'gif'])
@@ -80,6 +82,7 @@ const WORKFLOW_MODIFIERS = Object.freeze({
   'seedream-5-lite-image-edit': modifySeedream5LiteImageEditWorkflow,
   'music-gen': modifyMusicWorkflow,
   'google-gemini-flash-lite': modifyGeminiPromptWorkflow,
+  'minimax-h3-media-promptor': modifyMinimaxH3MediaPromptWorkflow,
   [TOPAZ_VIDEO_UPSCALE_WORKFLOW_ID]: modifyTopazVideoUpscaleWorkflow,
 })
 
@@ -419,7 +422,7 @@ function topologicalExecutionOrder(document, targetNodeId = null) {
   }
 
   if (ordered.length !== relevant.size) {
-    throw new Error('Flow AI detected a cycle between generation nodes. Remove the loop before running the flow.')
+    throw new Error('CANVAS detected a cycle between generation nodes. Remove the loop before running the canvas.')
   }
 
   return ordered.map((nodeId) => nodesById.get(nodeId)).filter(Boolean)
@@ -470,7 +473,7 @@ function assertNoBundledExecutableInput(document, node, targetHandle, desiredTyp
   const sourceLabel = String(bundled.sourceNode?.data?.label || bundled.sourceNode?.type || 'Upstream node').trim()
   const assetLabel = desiredType === 'image' ? 'image' : desiredType || 'asset'
   throw new Error(
-    `Flow AI can't feed a bundled ${assetLabel} output from "${sourceLabel}" into another generation node yet. Save the bundle to Assets or set Variants to 1 until Pick Variant exists.`
+    `CANVAS can't feed a bundled ${assetLabel} output from "${sourceLabel}" into another generation node yet. Save the bundle to Assets or set Variants to 1 until Pick Variant exists.`
   )
 }
 
@@ -640,18 +643,40 @@ async function extractFrameAsFile(videoUrl, frameTime = 0, filename = 'frame.png
   })
 }
 
-async function assetToUploadFile(asset, frameTime = 0) {
+async function assetToUploadFile(asset, frameTime = 0, options = {}) {
   if (!asset?.url) {
     throw new Error('Asset has no playable URL')
   }
-  if (asset.type === 'video') {
+  if (asset.type === 'video' && !options.preserveVideo) {
     return await extractFrameAsFile(asset.url, frameTime, `${sanitizeNameToken(asset.name || 'frame', 'frame')}.png`)
   }
 
   const response = await fetch(asset.url)
   const blob = await response.blob()
-  const extension = asset.type === 'image' ? '.png' : '.bin'
-  return new File([blob], `${sanitizeNameToken(asset.name || 'asset', 'asset')}${extension}`, { type: blob.type || 'application/octet-stream' })
+  const sourceName = String(asset.name || '').trim()
+  const sourceExtension = sourceName.match(/\.[a-z0-9]{2,8}$/i)?.[0] || ''
+  const extension = asset.type === 'image' ? (sourceExtension || '.png') : asset.type === 'video' ? (sourceExtension || '.mp4') : '.bin'
+  const baseName = sourceExtension ? sourceName.slice(0, -sourceExtension.length) : sourceName
+  return new File([blob], `${sanitizeNameToken(baseName || 'asset', 'asset')}${extension}`, { type: blob.type || 'application/octet-stream' })
+}
+
+async function resolveMinimaxH3Provider(classType) {
+  const response = await comfyui.getObjectInfo(classType)
+  const info = response?.[classType] || response
+  const providerSpec = info?.input?.optional?.provider || info?.input?.required?.provider
+  const choices = Array.isArray(providerSpec?.[0]) ? providerSpec[0] : []
+  const defaultChoice = String(providerSpec?.[1]?.default || '').trim()
+  if (defaultChoice && !/no provider configured|error loading providers/i.test(defaultChoice)) {
+    return defaultChoice
+  }
+  const configured = choices.find((choice) => {
+    const value = String(choice || '').trim()
+    return value && !/no provider configured|error loading providers/i.test(value)
+  })
+  if (!configured) {
+    throw new Error('MiniMax H3 Promptor has no LLM provider configured. Open ComfyUI Settings, configure a vision-capable provider for H3 Promptor, then run this node again.')
+  }
+  return String(configured)
 }
 
 async function loadWorkflowDefinition(workflowId) {
@@ -846,7 +871,7 @@ async function pollForResult(promptId, workflowId, expectedOutputPrefix = '', on
         }
         consecutivePollErrors += 1
         if (consecutivePollErrors >= maxConsecutivePollErrors) {
-          throw new Error('Lost connection to ComfyUI while waiting for a Flow AI result.')
+          throw new Error('Lost connection to ComfyUI while waiting for a CANVAS result.')
         }
       }
     }
@@ -1032,7 +1057,7 @@ async function importRunResult({
 async function configureWorkflow(workflowId, workflowJson, context) {
   const modifier = WORKFLOW_MODIFIERS[workflowId]
   if (!modifier) {
-    throw new Error(`Flow AI does not know how to configure workflow "${workflowId}" yet.`)
+    throw new Error(`CANVAS does not know how to configure workflow "${workflowId}" yet.`)
   }
 
   switch (workflowId) {
@@ -1166,6 +1191,18 @@ async function configureWorkflow(workflowId, workflowJson, context) {
         systemPrompt: context.systemPrompt,
         inputImage: context.uploadedFilename,
       })
+    case 'minimax-h3-media-promptor':
+      return modifier(workflowJson, {
+        description: context.promptText,
+        duration: context.duration,
+        uploadedFilename: context.uploadedFilename,
+        mediaKind: context.uploadedMediaKind,
+        visionProvider: context.visionProvider,
+        promptorProvider: context.promptorProvider,
+        outputLanguage: context.outputLanguage,
+        imageMode: context.imageAnalysisMode,
+        videoMode: context.videoAnalysisMode,
+      })
     case TOPAZ_VIDEO_UPSCALE_WORKFLOW_ID:
       return modifier(workflowJson, {
         inputVideo: context.uploadedFilename,
@@ -1175,7 +1212,7 @@ async function configureWorkflow(workflowId, workflowJson, context) {
         filenamePrefix: context.outputPrefix || 'video/flow_ai_topaz_upscale',
       })
     default:
-      throw new Error(`Unhandled Flow AI workflow "${workflowId}"`)
+      throw new Error(`Unhandled CANVAS workflow "${workflowId}"`)
   }
 }
 
@@ -1188,14 +1225,21 @@ async function buildExecutionContext(document, node) {
 
   assertNoBundledExecutableInput(document, node, 'in:image', 'image')
   assertNoBundledExecutableInput(document, node, 'in:style', 'image')
+  assertNoBundledExecutableInput(document, node, 'in:video', 'video')
 
   const promptText = resolvePromptText(document, node)
   const primaryAsset = resolveConnectedAsset(document, node, 'in:image', 'image')
+  const videoAsset = resolveConnectedAsset(document, node, 'in:video', 'video')
   const styleAssets = resolveConnectedAssets(document, node, 'in:style', 'image')
+  const isMinimaxH3Promptor = workflowId === 'minimax-h3-media-promptor'
+  const mediaAsset = isMinimaxH3Promptor ? (videoAsset || primaryAsset) : primaryAsset
 
   const needsImage = Boolean(workflowOption.needsImage)
   if (needsImage && !primaryAsset) {
     throw new Error('This workflow needs an upstream image input or image generation result.')
+  }
+  if (isMinimaxH3Promptor && !mediaAsset) {
+    throw new Error('MiniMax H3 Media Promptor needs an upstream image or video asset.')
   }
 
   const width = Number(node?.data?.width) || 1280
@@ -1212,11 +1256,20 @@ async function buildExecutionContext(document, node) {
     : 1
 
   let uploadedFilename = null
-  if (primaryAsset) {
-    const fileToUpload = await assetToUploadFile(primaryAsset, Number(node?.data?.frameTime) || 0)
+  if (mediaAsset) {
+    const fileToUpload = await assetToUploadFile(mediaAsset, Number(node?.data?.frameTime) || 0, {
+      preserveVideo: isMinimaxH3Promptor && mediaAsset.type === 'video',
+    })
     const uploadResult = await comfyui.uploadFile(fileToUpload)
     uploadedFilename = uploadResult?.name || fileToUpload.name
   }
+
+  const h3Providers = isMinimaxH3Promptor
+    ? await Promise.all([
+        resolveMinimaxH3Provider('H3_Vision_Analyzer'),
+        resolveMinimaxH3Provider('H3_Promptor'),
+      ])
+    : ['', '']
 
   const referenceFilenames = []
   if (styleAssets.length > 0) {
@@ -1246,6 +1299,12 @@ async function buildExecutionContext(document, node) {
     variantCount,
     imageVariantBehavior,
     uploadedFilename,
+    uploadedMediaKind: mediaAsset?.type === 'video' ? 'video' : 'image',
+    visionProvider: h3Providers[0],
+    promptorProvider: h3Providers[1],
+    outputLanguage: String(node?.data?.outputLanguage || 'English'),
+    imageAnalysisMode: String(node?.data?.imageAnalysisMode || 'Comprehensive'),
+    videoAnalysisMode: String(node?.data?.videoAnalysisMode || 'Comprehensive'),
     referenceFilenames,
     outputPrefix,
   }
@@ -1268,7 +1327,7 @@ async function runExecutablePromptAttempt(document, node, context, options = {})
 
   const promptId = await comfyui.queuePrompt(modifiedWorkflow)
   if (!promptId) {
-    throw new Error('Failed to queue Flow AI prompt.')
+    throw new Error('Failed to queue CANVAS prompt.')
   }
   markPromptHandledByApp(promptId)
 
@@ -1292,7 +1351,7 @@ async function runExecutablePromptAttempt(document, node, context, options = {})
   })
 
   if (!result) {
-    throw new Error('Generation finished but Flow AI could not detect the output.')
+    throw new Error('Generation finished but CANVAS could not detect the output.')
   }
 
   if (result.type === 'text') {
@@ -1318,7 +1377,7 @@ async function runExecutablePromptAttempt(document, node, context, options = {})
   })
 
   if (importedAssets.length === 0) {
-    throw new Error('Flow AI did not import any output assets from this run.')
+    throw new Error('CANVAS did not import any output assets from this run.')
   }
 
   return {
@@ -1332,7 +1391,7 @@ async function runExecutablePromptAttempt(document, node, context, options = {})
 async function runExecutableNode(document, node, options = {}) {
   const projectState = useProjectStore.getState()
   if (!projectState.currentProjectHandle) {
-    throw new Error('Open a project before running Flow AI.')
+    throw new Error('Open a project before running CANVAS.')
   }
 
   const workflowId = String(node?.data?.workflowId || '').trim()
@@ -1516,7 +1575,7 @@ export async function runFlowGraph(document, options = {}) {
         onNodePatch: patchWorkingNode,
       })
     } catch (error) {
-      const message = error instanceof Error ? error.message : String(error || 'Flow AI run failed.')
+      const message = error instanceof Error ? error.message : String(error || 'CANVAS run failed.')
       patchWorkingNode(node.id, {
         status: 'error',
         error: message,

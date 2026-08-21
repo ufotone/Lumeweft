@@ -292,7 +292,7 @@
     "editor": "Editor",
     "generate": "Generate",
     "agent": "Agent",
-    "flow-ai": "Flow AI",
+    "flow-ai": "CANVAS",
     "mog": "MoGraph",
     "stock": "Stock",
     "export": "Export"
@@ -489,7 +489,7 @@
       "advanced": "Advanced",
       "timeout": "Startup timeout (seconds)",
       "timeoutHelpBefore": "If ComfyUI has not responded on",
-      "timeoutHelpAfter": "within this many seconds after launch, Velorn will give up and stop the process.",
+      "timeoutHelpAfter": "within this many seconds after launch, Lumeweft will keep the process alive and continue checking at a lower frequency.",
       "extraArgs": "Extra arguments",
       "extraArgsHelp": "Appended to the launcher script. Quoted strings are kept together.",
       "logs": "Logs",
@@ -833,27 +833,489 @@
     }
   },
   "generate": {
-    "mode": { "generate": "Generate", "director": "Director" },
+    "mode": { "generate": "Generate", "director": "Director", "prompter": "Recipes", "history": "History" },
+    "prompter": {
+      "saveTitle": "Save a generation recipe",
+      "saveDescription": "Paste a successful prompt or capture the current ComfyUI workflow, then mark how it is used.",
+      "capture": "Capture recipe from current ComfyUI workflow",
+      "capturing": "Capturing from ComfyUI…",
+      "namePlaceholder": "Name (the first line is used if left blank)",
+      "positivePlaceholder": "Paste the positive prompt here…",
+      "negativePlaceholder": "Negative prompt (optional; may be empty)",
+      "chooseThumbnail": "Choose thumbnail",
+      "captureThumbnail": "Use latest ComfyUI result",
+      "thumbnailCapturing": "Getting thumbnail…",
+      "removeThumbnail": "Remove thumbnail",
+      "image": "Image",
+      "video": "Video",
+      "pasteClipboard": "Paste from clipboard",
+      "save": "Save",
+      "savedTitle": "Saved generation recipes",
+      "all": "All",
+      "search": "Search",
+      "empty": "No generation recipes have been saved yet.",
+      "positive": "Positive",
+      "negative": "Negative",
+      "recipe": "Generation recipe",
+      "recipeSaved": "Workflow settings saved",
+      "loadPositive": "LOAD Positive",
+      "loadNegative": "LOAD Negative",
+      "useInQueue": "Use in queue",
+      "restore": "Restore in ComfyUI",
+      "restoring": "Restoring…",
+      "collapse": "Collapse",
+      "expand": "Expand",
+      "export": "Save recipe to file",
+      "delete": "Delete",
+      "messages": {
+        "clipboardLoaded": "Loaded from the clipboard.",
+        "clipboardEmpty": "The clipboard is empty.",
+        "clipboardReadFailed": "Could not read the clipboard. Paste directly into the text field.",
+        "promptRequired": "Enter a positive prompt to save.",
+        "saved": "Generation recipe saved.",
+        "copied": "Copied the {{kind}} prompt from “{{title}}” to the clipboard.",
+        "clipboardWriteFailed": "Could not copy to the clipboard.",
+        "capturing": "Reading the current ComfyUI workflow…",
+        "captureParsed": "Workflow captured. Review it, then click Save.",
+        "captureFailed": "Could not capture the ComfyUI workflow.",
+        "thumbnailSet": "Saved the thumbnail at 50×50.",
+        "thumbnailCapturing": "Reading the latest generated result from ComfyUI Job History…",
+        "thumbnailCaptured": "Created a thumbnail from the latest generated result.",
+        "thumbnailFailed": "Could not create the thumbnail.",
+        "parseFailed": "Could not analyze the workflow settings.",
+        "restoring": "Restoring the workflow in ComfyUI…",
+        "restored": "Opened “{{title}}” in ComfyUI.",
+        "restoreFailed": "Could not restore the workflow.",
+        "exported": "Saved “{{title}}” as a Lumeweft generation recipe.",
+        "exportFailed": "Could not save the generation recipe to a file."
+      }
+    },
+    "history": {
+      "tabs": { "history": "Generation history", "recipes": "Recipes" },
+      "title": "Generation history",
+      "description": "Review outputs as versions of the same generation, reuse their prompts, or reopen the executed workflow.",
+      "versionCount": "{{count}} versions",
+      "active": "Active",
+      "copy": "Copy prompt",
+      "openComfy": "Open in ComfyUI",
+      "repair": "Diagnose & repair",
+      "repairing": "Diagnosing…",
+      "opening": "Opening…",
+      "setActive": "Set active",
+      "collapse": "Collapse",
+      "expand": "Expand",
+      "export": "Save",
+      "exportRecord": "Save this complete generation record to a file",
+      "delete": "Delete",
+      "deleteVersion": "Delete this version from history",
+      "deleteRecord": "Delete this entire generation record",
+      "confirmDeleteVersion": "Delete version {{number}} from history? Generated asset files will not be deleted.",
+      "confirmDeleteRecord": "Delete all generation history for “{{title}}”? Generated asset files will not be deleted.",
+      "empty": "Completed Lumeweft generations will appear here.",
+      "messages": {
+        "copied": "Prompt copied to the clipboard.",
+        "copyFailed": "Could not copy the prompt.",
+        "opening": "Opening the saved generation workflow in ComfyUI…",
+        "opened": "Opened the generation workflow in ComfyUI.",
+        "openFailed": "Could not open the generation workflow.",
+        "repairing": "Comparing the workflow with the models available in local ComfyUI…",
+        "repaired": "Repaired {{count}} reference(s) and opened the workflow as “{{title}}”.",
+        "repairNotNeeded": "No model references needed repair.",
+        "repairAmbiguous": "{{count}} issue(s) were left unchanged because no unique safe replacement was found.",
+        "repairFailed": "Could not repair the workflow.",
+        "versionDeleted": "Deleted the version from generation history. Its assets were kept.",
+        "recordDeleted": "Deleted the generation record. Its assets were kept.",
+        "deleteFailed": "Could not save the generation history deletion.",
+        "exported": "Saved the complete generation record as a Lumeweft history file.",
+        "versionExported": "Saved the version as a Lumeweft history version.",
+        "exportFailed": "Could not save generation history to a file."
+      }
+    },
     "browser": {
-      "tabs": { "featured": "Featured", "custom": "My Workflows", "templates": "Templates" },
+      "tabs": { "featured": "Featured", "custom": "My Workflows", "templates": "Templates", "community": "Community" },
       "searchTemplates": "Search ComfyUI templates, models, tags...",
       "searchWorkflows": "Search workflows, providers, tags...",
-      "filters": { "all": "All", "image": "Image", "video": "Video", "image-to-video": "Image to Video", "text-to-video": "Text to Video", "text-to-image": "Text to Image", "image-edit": "Image Edit", "video-tools": "Video Tools", "audio": "Audio", "utility": "Utility" },
+      "filters": { "all": "All", "image": "Image", "video": "Video", "image-to-video": "Image to Video (I2V)", "text-to-video": "Text to Video (T2V)", "text-to-image": "Text to Image (T2I)", "image-edit": "Image to Image (I2I)", "video-tools": "Video Tools", "audio": "Audio", "utility": "Utility" },
       "sources": { "all": "All", "local": "Local", "cloud": "Cloud" },
       "sort": { "popular": "Most used", "newest": "Newest" },
       "showingWorkflows": "Showing {{count}} {{tab}} workflows"
+    },
+    "community": {
+      "sources": {
+        "title": "Community sources",
+        "description": "Choose a community source for model information and files.",
+        "morePlanned": "More sources are planned",
+        "active": "Active",
+        "comingSoon": "Coming soon",
+        "providers": {
+          "civitai": "Civitai.com and Civitai Red models, checkpoints, and LoRA",
+          "huggingFace": "Open model repositories and files",
+          "tensorArt": "Models, LoRA, and workflows",
+          "liblibai": "Chinese model and LoRA community",
+          "shakkerAi": "International creative model platform"
+        }
+      },
+      "consent": {
+        "title": "Community model sources",
+        "disclaimer": "Lumeweft does not verify or guarantee community models, workflows, metadata, licenses, commercial-use rights, generated outputs, or continued availability. Downloading, installing, generating, publishing, and selling are solely your responsibility.",
+        "prohibited": "Do not use this feature for illegal content, sexual content involving minors or minor-appearing persons, or non-consensual sexual depictions of real people.",
+        "adult": "I confirm that I am an adult in my jurisdiction.",
+        "risk": "I will use community models and their outputs entirely at my own risk.",
+        "rules": "I will follow applicable law, third-party rights, and each source’s terms.",
+        "agree": "Agree and enter Community",
+        "notNow": "Not now"
+      },
+      "search": {
+        "title": "Search Civitai",
+        "description": "Civitai.com and Civitai Red model, image, and video links are supported.",
+        "placeholder": "Paste a Civitai model, image, or video URL",
+        "inspect": "Inspect link",
+        "unverified": "Model information is author/source-provided and is not verified by Lumeweft.",
+        "disableAccess": "Disable access",
+        "recent": "Recent Civitai URLs"
+      },
+      "media": {
+        "title": "Civitai community post #{{id}}",
+        "image": "Image post",
+        "video": "Video post",
+        "sourcePage": "Post page",
+        "publishedWorkflow": "This post publishes a complete ComfyUI workflow. It can be opened directly in ComfyUI.",
+        "reconstructedWorkflow": "No complete workflow was published. Lumeweft will reconstruct a compatible standard workflow from the prompt and resource metadata.",
+        "unsupportedWorkflow": "Lumeweft could not identify a supported standard workflow from this post. You can still inspect its prompt and resources.",
+        "prompt": "Published prompt",
+        "resources": "Resources used",
+        "inspectResource": "Inspect this model",
+        "backToPost": "Back to resources used",
+        "reviewAllResources": "Review all resources",
+        "standardDependency": "Lumeweft standard dependency",
+        "batchTitle": "Review and download resources used",
+        "batchDescription": "Lumeweft listed the referenced models plus the official High/Low-noise models, Text Encoder, and VAE required by reconstruction. A published WAN base model takes priority on the High side.",
+        "loadingResources": "Loading models and distribution files…",
+        "noInstallableResources": "No downloadable files were found.",
+        "batchTotal": "Selected: {{count}} files · {{size}} total",
+        "downloadSelected": "Download selected resources",
+        "batchInstalled": "Checked/installed {{count}} resource files.",
+        "openPublished": "Open published workflow",
+        "openReconstructed": "Open reconstructed workflow",
+        "openedPublished": "Opened the workflow published with this post in ComfyUI.",
+        "openedReconstructed": "Opened a reconstructed WAN 2.2 I2V workflow with the published prompt in ComfyUI.",
+        "localImageRequired": "The original start image is not included in the published data. Select a local image in ComfyUI's Load Image node."
+      },
+      "apiKey": {
+        "title": "Civitai API key",
+        "description": "Required when a creator limits downloads to logged-in users.",
+        "openAccount": "Create / view key",
+        "placeholder": "Paste your Civitai API key",
+        "save": "Save key",
+        "saved": "Saved"
+      },
+      "model": {
+        "defaultType": "Model",
+        "by": "by {{creator}}",
+        "sourcePage": "Source page",
+        "version": "Version",
+        "unknownBase": "Unknown base",
+        "triggerWords": "Trigger words:"
+      },
+      "examples": {
+        "title": "Examples from Civitai",
+        "imageHelp": "Click: open original · Right-click: generate with these parameters",
+        "openSource": "Open the source image",
+        "alt": "Civitai example {{index}}",
+        "generateWithParameters": "Generate with this image’s parameters",
+        "installFirst": "Install the model first.",
+        "controls": "Left-click: open original · Right-click: apply published generation parameters to ComfyUI",
+        "applied": "Applied the example Prompt / Seed / Steps / CFG / Sampler / Scheduler / Denoise / {{width}}×{{height}} to ComfyUI."
+      },
+      "files": {
+        "unsupported": "unsupported",
+        "primary": "Primary · recommended",
+        "alternative": "Alternative · usually choose one",
+        "licenseWarning": "License and commercial-use information may be incomplete or conflict with a base model’s terms. Lumeweft makes no determination or guarantee.",
+        "duplicateWarning": "Files with the same name are selected for different ComfyUI folders. These are usually alternative distributions, not required companion files. Normally select only the format used by your workflow."
+      },
+      "scan": { "result": "Civitai {{label}}: {{value}}", "virus": "virus scan", "pickle": "pickle scan" },
+      "destination": {
+        "title": "ComfyUI destination",
+        "notConfigured": "Not configured",
+        "chooseFolder": "Choose folder",
+        "selectFolder": "Select your ComfyUI folder"
+      },
+      "download": {
+        "preparing": "Preparing downloads...",
+        "cancelling": "Cancelling download…",
+        "selectedOne": "Selected: {{count}} file",
+        "selectedMany": "Selected: {{count}} files",
+        "freeSpace": "{{size}} free",
+        "cancel": "Cancel download",
+        "checking": "Checking installed files…",
+        "review": "Review download",
+        "insufficientSpace": "Not enough free space with the required 1 GB safety margin.",
+        "installedOne": "Installed {{count}} file.",
+        "installedMany": "Installed {{count}} files.",
+        "showInFolder": "Show in folder"
+      },
+      "krea": {
+        "compatibleWorkflow": "Krea 2 compatible workflow",
+        "openedModel": "Opened a flat Krea 2 workflow in ComfyUI with this diffusion model selected.",
+        "generateWithModel": "Generate with this model",
+        "description": "Opens a compatible workflow based on the official Comfy configuration and selects this file as the Diffusion Model. ComfyUI will report any missing Text Encoder or VAE."
+      },
+      "lora": {
+        "compatibleWorkflow": "LoRA-compatible checkpoint workflow",
+        "openedModel": "Opened a workflow in ComfyUI with this LoRA and the selected base checkpoint.",
+        "baseCheckpoint": "Compatible base checkpoint",
+        "baseDiffusionModel": "Compatible Anima diffusion model",
+        "baseHelp": "Choose a locally installed checkpoint compatible with {{base}}.",
+        "animaBaseHelp": "Anima loads its diffusion model, Qwen text encoder, and VAE separately. Choose a compatible diffusion model for this LoRA.",
+        "selectBase": "Select a compatible base checkpoint first.",
+        "loadingCheckpoints": "Reading installed checkpoints from ComfyUI…",
+        "loadingAnimaComponents": "Checking Anima diffusion models, Qwen text encoder, and VAE in ComfyUI…",
+        "noCheckpoints": "No checkpoints were reported by ComfyUI. Install a compatible base checkpoint, then restart or refresh ComfyUI.",
+        "noCheckpointOption": "No compatible checkpoint found",
+        "noDiffusionModelOption": "No compatible Anima diffusion model found",
+        "missingAnimaComponents": "Anima generation requires a compatible diffusion model, qwen_3_06b_base.safetensors, and qwen_image_vae.safetensors. Restart or refresh ComfyUI.",
+        "notVisibleToComfy": "The file exists on disk but is not visible in ComfyUI’s LoRA list yet. Refresh or restart ComfyUI, then try again.",
+        "checkpointLookupFailed": "Could not read installed checkpoints from ComfyUI.",
+        "description": "A LoRA cannot generate by itself. Lumeweft applies it to the selected local checkpoint and opens an editable ComfyUI workflow."
+      },
+      "confirm": {
+        "title": "Download community model files?",
+        "description": "These files come directly from Civitai and will be written into your local ComfyUI models folders. Lumeweft does not guarantee their safety, license, compatibility, or fitness for any use.",
+        "total": "Total: {{size}}",
+        "insufficientSpace": "There is not enough free disk space to continue safely.",
+        "download": "Download at my own risk"
+      },
+      "errors": {
+        "saveConsent": "Could not save consent.",
+        "chooseFolder": "Choose your ComfyUI folder before downloading.",
+        "selectFile": "Select at least one supported file.",
+        "downloadsFailed": "One or more downloads failed.",
+        "downloadFailed": "Download failed.",
+        "cancelDownload": "Could not cancel the download.",
+        "openWorkflow": "Could not open the workflow in ComfyUI.",
+        "prepareModel": "Could not prepare this model for generation.",
+        "exampleNoPrompt": "This example does not publish a prompt.",
+        "openExampleWorkflow": "Could not open the example workflow in ComfyUI.",
+        "prepareExample": "Could not prepare this Civitai example.",
+        "invalidReference": "Paste a Civitai/Civitai Red model, image, or video URL, or enter a numeric model ID.",
+        "openMediaWorkflow": "Could not open the community post workflow in ComfyUI.",
+        "loadResources": "Could not load the resources used.",
+        "loadModel": "Could not load that model.",
+        "invalidComfyFolder": "That folder is not a valid ComfyUI installation."
+      }
     },
     "assets": {
       "inputSource": "Input Source", "search": "Search assets...", "assets": "Assets", "searchingAll": "Searching all folders", "assignTo": "Assign selected asset to", "nothingSelected": "Nothing selected", "noMatches": "No matching assets", "noneHere": "No {{type}} assets here", "tryDifferent": "Try a different search or folder name", "importHelp": "Open another folder or import media in the Assets tab", "selectInput": "Select an input asset or use a timeline frame (right-click preview → Extend with AI)"
     },
     "queue": {
-      "title": "Queue", "expand": "Expand queue panel", "collapse": "Collapse panel", "clear": "Clear Queue", "video": "Queue Video", "image": "Queue Image", "audio": "Queue Audio", "keyframes": "Queue {{mode}} Keyframes"
+      "title": "Queue", "expand": "Expand queue panel", "collapse": "Collapse panel", "clear": "Clear Queue", "video": "Queue Video", "image": "Queue Image", "audio": "Queue Audio", "keyframes": "Queue {{mode}} Keyframes", "referenceImage": "Reference image", "pickLocalImage": "Choose a local image", "selectReferenceImage": "Select reference image", "replace": "Replace", "prompt": "Prompt", "promptPlaceholder": "Describe the motion, scene, and camera direction...", "restoreOriginal": "Original", "translateEnglish": "English", "translateChinese": "简体中文", "translating": "Translating...", "translateHelp": "Translate from the app language on this device; same-language translation is disabled"
     },
+    "messages": { "title": "Generation message", "selectReference": "Please select a reference image{{timeline}} first", "orTimelineFrame": " or use a timeline frame", "openProjectForImage": "Open or create a project before importing a reference image.", "imageRegisterFailed": "Could not register the imported image.", "imageImportFailed": "Could not import the reference image.", "translationFailed": "Could not translate the prompt." },
     "dependencies": {
-      "title": "Workflow Dependencies", "recheck": "Re-check", "recheckHelp": "Re-check required nodes/models", "offline": "ComfyUI is offline. Start ComfyUI to run dependency checks.", "checking": "Checking installed nodes and models...", "missing": "Missing required dependencies. Queueing is blocked until these are installed.", "missingNodes": "Missing nodes:", "missingModels": "Missing models:", "cloudKey": "This workflow runs on Comfy.org's API. Add your key to unlock it.", "setUpKey": "Set up key", "copyReport": "Copy report", "loadComfy": "Load in ComfyUI", "workflowSetup": "Workflow Setup", "openRegistry": "Open node registry", "notRunning": "ComfyUI is not running. Start it to generate."
+      "title": "Workflow Dependencies", "recheck": "Re-check", "recheckHelp": "Re-check required nodes/models", "offline": "ComfyUI is offline. Start ComfyUI to run dependency checks.", "checking": "Checking installed nodes and models...", "missing": "Missing required dependencies. Queueing is blocked until these are installed.", "missingNodes": "Missing nodes:", "missingModels": "Missing models:", "cloudKey": "This workflow runs on Comfy.org's API. Add your key to unlock it.", "setUpKey": "Set up key", "autoInstall": "Install missing dependencies", "chooseFolder": "Choose ComfyUI folder", "installing": "Installing dependencies...", "restartComfy": "Restart ComfyUI to finish", "copyReport": "Copy report", "loadComfy": "Load in ComfyUI", "workflowSetup": "Workflow Setup", "openRegistry": "Open node registry", "notRunning": "ComfyUI is not running. Start it to generate."
     },
     "info": {
       "title": "Workflow Info", "category": "Category", "workflow": "Workflow", "hardware": "Hardware tier", "unknown": "Unknown", "runtime": "Runtime", "cloudEstimate": "Cloud estimate / run", "needsInput": "Needs input", "yesImage": "Yes (image)", "no": "No", "output": "Output", "resolution": "Resolution", "seed": "Seed"
+    },
+    "director": {
+      "common": {
+        "offline": "ComfyUI is offline.",
+        "offlineHelp": "Hit Start (or just queue a job) and Lumeweft will boot it for you.",
+        "startComfy": "Start ComfyUI",
+        "backToWorkflows": "Back to create workflows", "step": "Step {{number}}", "back": "Back", "next": "Next", "aspectRatio": "Aspect ratio", "resolution": "Resolution", "outputResolution": "Output resolution", "fps": "Frames per second", "fpsShort": "FPS"
+      },
+      "business": {
+        "navTitle": "Business Ad Creator", "assistant": "Lumeweft asks",
+        "steps": { "setup": "Setup", "references": "References", "script": "Script", "keyframes": "Keyframes", "videos": "Videos + Timeline" },
+        "setup": { "title": "Set up the business ad.", "description": "Start with the offer, audience, proof, and call to action. This version is aimed at local businesses, online shops, and small teams.", "brief": "Business brief", "creativeDirection": "Creative direction" },
+        "fields": { "businessName": "Business name", "productService": "Product or service", "audience": "Audience", "offer": "Offer", "proof": "Proof / trust cue", "cta": "Call to action", "contact": "Website / contact", "goal": "Ad goal", "tone": "Tone", "location": "Location / service area", "visualStyle": "Visual style / rules", "talent": "Optional talent or voice direction", "length": "Ad length" },
+        "goals": { "local_service": { "label": "Local Service", "help": "Book calls, appointments, or walk-ins." }, "ecommerce_product": { "label": "E-commerce Product", "help": "Sell one item or product line online." }, "restaurant_special": { "label": "Food / Event", "help": "Promote a special, pop-up, event, or menu item." }, "sale_offer": { "label": "Sale / Offer", "help": "Push a discount, bundle, or limited-time deal." }, "testimonial": { "label": "Testimonial", "help": "Make the ad feel like a real customer recommendation." }, "brand_awareness": { "label": "Brand Awareness", "help": "Introduce the business and make it memorable." } },
+        "tones": { "friendly-local": "Friendly Local", "social-fast": "Social Fast", "clean-professional": "Clean Pro", "premium-calm": "Premium Calm" },
+        "aspectHelp": { "vertical_9x16": "Portrait: 720x1280 or 1080x1920.", "landscape_16x9": "Landscape: 1280x720 or 1920x1080.", "square_1x1": "Square: 720x720 or 1080x1080." },
+        "output": { "fast": "Faster and lighter.", "sharp": "Sharper output, more work for local video.", "currentFrame": "Current frame size:", "fps24": "Cinematic default.", "fps25": "PAL-friendly delivery.", "fps30": "Smoother motion.", "seconds": "{{seconds}} seconds", "current": "Current output:" },
+        "references": { "title": "Do you have product, people, or location references?", "description": "Optional, but best results come from real product photos, staff/customer references, storefront shots, or brand environments.", "product": "Product or service reference", "productHelp": "Use product photos, menu items, finished work, before/after examples, or service proof shots.", "noProduct": "No product/service asset selected", "talent": "Talent reference", "talentHelp": "Recommended: character sheet with front, side, 3/4 view, expressions, and wardrobe.", "noTalent": "No talent asset selected", "environment": "Environment reference", "environmentHelp": "Optional location, room, surface, lighting, or set design reference for the ad world.", "noEnvironment": "No environment asset selected" },
+        "script": { "kicker": "Script plan", "title": "Proposed script and storyboard plan.", "description": "This script is structured Director text. You can edit it manually before building the plan." },
+        "keyframes": { "kicker": "Storyboard review" }, "videos": { "kicker": "Video review", "description": "Completed videos will appear here one by one. You can select a shot video, edit only its motion prompt, then regenerate just that clip." },
+        "actions": { "nextReferences": "Next: References", "regenerateScript": "Regenerate script from brief", "startAnother": "Start Another Ad" }
+      },
+      "music": {
+        "steps": { "song": "Song", "people": "People", "script": "Director Script", "keyframes": "Keyframes", "videos": "Videos" },
+        "fields": { "outputSettings": "Output Settings", "audioMode": "Audio Mode", "songAudio": "Song Audio", "chooseAudio": "Choose Existing Audio", "genre": "Song Style / Genre", "castReferences": "Cast References", "coveragePlan": "Coverage Plan" },
+        "song": { "title": "Choose the song source.", "description": "Import your song or vocal stem in the Assets panel first, then select it here. Advanced audio modes are available when needed.", "outputHelp": "These settings apply to both keyframes and videos.", "selectAudio": "Select audio from this project", "noAudio": "No audio assets in this project yet. Import song audio in Assets first.", "hideAdvanced": "Hide Advanced", "advancedAudio": "Advanced Audio", "selectFromAssets": "Select audio from Assets panel", "addAudioHelp": "Add audio in the Assets panel, then pick it from the list below.", "genreHelp": "Included in the copied Director Script brief so the LLM does not infer the visual style from lyrics alone." },
+        "audioKinds": { "mixed_track": { "label": "Finished song (full mix)", "help": "Lumeweft assumes a normal finished song by default. Lip-sync and b-roll routing still come from the director script." }, "vocal_stem": { "label": "Vocal stem (isolated vocals)", "help": "A clean vocal-only file. No preprocessing needed." }, "instrumental": { "label": "Instrumental (no vocals)", "help": "Music only. Lip-sync will be disabled for all shots." } },
+        "timing": { "notice": "Preparing lyric timing might take a moment.", "noticeHelp": "Wait for this step to finish before copying the LLM brief so the script uses the real song timings.", "title": "Lyrics Timing", "preparing": "Preparing", "prepare": "Prepare Timing", "engine": "Timing Engine", "language": "ASR Language", "source": "Lyrics source", "alignHelp": "Paste plain lyrics below. Lumeweft listens to the selected audio for timing, then writes your lyrics as SRT.", "transcribeHelp": "Lumeweft listens to the selected audio and writes timed SRT output.", "transcribe": "Transcribe Song", "align": "Align My Lyrics", "srtOutput": "SRT Output", "srtPlaceholder": "Timed lyrics will appear here after transcription or alignment.", "engines": { "auto": { "label": "Auto", "help": "Local Whisper first; ComfyUI fallback." }, "local": { "label": "Local Whisper", "help": "Runs locally without ComfyUI." }, "comfyui": { "label": "ComfyUI", "help": "Uses the Qwen3-ASR workflow." } } },
+        "people": { "title": "Define who appears on camera.", "description": "Add reference images for artists, band members, or performers so the script can route shots by Artist fields." },
+        "script": { "title": "Create the director script.", "description": "Copy a ready-made LLM brief with timing, cast, and format rules, then paste the returned script here." },
+        "keyframes": { "title": "Create keyframes from the script.", "description": "Each parsed script shot gets one starting image. The script, not a separate shot preset list, controls what gets made." },
+        "videos": { "title": "Generate videos from the script.", "description": "Each parsed shot can be generated or rerun on its own using the matching keyframe and song timing." }
+      },
+      "shortFilm": {
+        "steps": { "story": "Story", "characters": "Characters", "locations": "Locations", "script": "Script", "voices": "Voices", "shotPlan": "Shot Plan", "keyframes": "Keyframes", "videos": "Videos", "assemble": "Assemble" },
+        "fields": { "title": "Title", "premise": "Premise", "creativeDirection": "Creative direction", "runtime": "Runtime" },
+        "story": { "title": "Define the short film.", "description": "This builds the LLM brief. After the script exists, the script becomes the source of truth.", "directionHelp": "Tone, genre, pacing, and style live here so the LLM has direction before it writes the actual script.", "outputPrefix": "Output will be prepared as", "outputAt": "at" },
+        "voiceModes": { "text_to_speech": "Text to Speech", "text_to_dialogue": "Text to Dialogue", "speech_to_speech": "Speech to Speech" },
+        "characters": { "title": "Cast characters." }, "locations": { "title": "Build location sheets." },
+        "script": { "title": "Write or paste the script.", "brief": "LLM brief", "briefHelp": "Includes premise, creative direction, cast, locations, and required format.", "screenplay": "Screenplay / director script", "screenplayHelp": "This becomes the source of truth for voices, shots, keyframes, and assembly." },
+        "voices": { "title": "Generate character voices." }, "shotPlan": { "title": "Review visual coverage." }, "keyframes": { "title": "Create keyframes." }, "videos": { "title": "Generate shot videos." }, "assemble": { "title": "Assemble the edit." },
+        "sidebar": { "current": "Current concept", "principle": "Working principle", "principleHelp": "The script drives story, dialogue, timing, and shot choice. Characters provide faces and voices. Location sheets provide the visual world memory.", "routing": "Model routing", "titleLabel": "TITLE", "cast": "CAST", "locations": "LOCATIONS", "voices": "VOICES", "output": "OUTPUT", "characterCount": "{{count}} characters", "locationCount": "{{count}} locations", "ltxHelp": "Default for short generated video shots.", "voiceHelp": "The selected ElevenLabs or Irodori-TTS workflow turns dialogue into editable audio clips.", "locationSheets": "Location sheets", "locationSheetsHelp": "Reference images for consistent spaces and angles.", "notes": "Open implementation notes", "notesHelp": "Voices, keyframes, and video renders are wired. Timeline assembly is the next pass." }
+      },
+      "ugc": {
+        "steps": {
+          "aria": "UGC ad steps",
+          "number": "Step {{number}}",
+          "setup": "The Vibe",
+          "references": "References",
+          "generate": "Generate"
+        },
+        "header": {
+          "breadcrumb": "Generate / Ads / UGC Creator",
+          "tagline": "- social ads that still feel human",
+          "connected": "ComfyUI connected",
+          "beta": "Beta workflow"
+        },
+        "templates": {
+          "casual_review": {
+            "title": "Casual Review",
+            "description": "Talking to camera like a friend."
+          },
+          "unboxing_asmr": {
+            "title": "Unboxing ASMR",
+            "description": "Hands-only reveal. Taps, peels, and satisfying first looks."
+          },
+          "demo_review": {
+            "title": "Demo Review",
+            "description": "Test it on camera and react for real."
+          },
+          "try_on_grwm": {
+            "title": "Try-On / GRWM",
+            "description": "Get-ready-with-me energy. Wear it, style it, judge it."
+          },
+          "mini_testimonial": {
+            "title": "Mini Testimonial",
+            "description": "Believable, calm, zero ad voice."
+          },
+          "reaction_hook": {
+            "title": "Reaction Hook",
+            "description": "Curiosity does the heavy lifting."
+          },
+          "problem_solution": {
+            "title": "Problem / Solution",
+            "description": "Quick pain point, product solution, then an honest verdict."
+          }
+        },
+        "tones": {
+          "casual-friend": "Casual Friend",
+          "skeptical-impressed": "Won Over",
+          "excited-social": "Excited Social",
+          "cozy-asmr": "Cozy ASMR",
+          "premium-creator": "Premium Creator",
+          "funny-chaotic": "Funny"
+        },
+        "setup": {
+          "kicker": "The Vibe",
+          "title": "Make it look like a friend posted it.",
+          "description": "Pick the kind of post, write the hook, and tell Lumeweft what is being sold. The workflow turns that into editable dialogue, keyframes, video clips, and a timeline.",
+          "templateTitle": "Pick a starting template",
+          "templateDescription": "Each one writes a full default script — shots, dialogue, and camera — as a starting point. Pick the closest, then customize the prompt on the Generate step. These are templates, not locked formats; the real ad is yours to edit.",
+          "hook": "The hook - first 2 seconds",
+          "surprise": "surprise me",
+          "productTitle": "What are we selling?",
+          "productDescription": "The one thing that's in every shot.",
+          "product": "Product",
+          "productPlaceholder": "What are you selling? e.g. a can of Red Bull",
+          "energyTitle": "Creator energy",
+          "energyDescription": "How does the person on camera feel?",
+          "delivery": "Delivery",
+          "canvas": "Canvas",
+          "duration": "How long?",
+          "seconds": "seconds",
+          "quality": "Quality",
+          "frameRate": "Frame rate",
+          "frameRateHelp": "Locked to 25 fps — LTX 2.3's native rate for clean motion and lip-sync.",
+          "details": "Add detail",
+          "optionalDefaults": "optional - good defaults already set",
+          "detailsHelp": "All optional. Leave them and the workflow fills in sensible defaults; add any to steer the result. You can also tweak every line later in Script Review.",
+          "minimumHelp": "Format, hook, product, and tone are all you need — fine-tune the full script on the Generate step."
+        },
+        "references": {
+          "kicker": "Drop-ins",
+          "title": "Anchor the product, creator, and room.",
+          "description": "These are optional, but UGC gets more believable when the AI has real references for the product, person, and phone-camera environment.",
+          "product": "The Product",
+          "productHelp": "Packaging shots, close-ups, app screens - anything that locks the product identity.",
+          "noProduct": "No product asset selected",
+          "creator": "The Creator",
+          "handsOnly": "Hands only / no face",
+          "creatorHelp": "Creator or avatar image with outfit, expressions, social-camera personality.",
+          "noCreator": "No creator asset selected",
+          "room": "The Room",
+          "roomHelp": "Bathroom, kitchen, desk, gym - the world the phone lives in.",
+          "noRoom": "No room asset selected",
+          "reference": "Reference",
+          "noPreview": "No image selected",
+          "uploadImage": "Upload image",
+          "replaceImage": "Replace image",
+          "selectImage": "Select {{type}} image",
+          "openProjectRequired": "Open or create a project before uploading a reference image.",
+          "pickerFailed": "Could not open the image picker.",
+          "imagesOnly": "Only image files can be used as references.",
+          "tipTitle": "Pro move",
+          "tip": "A creator reference plus a room reference keeps the same person in the same place across shots. That continuity is what makes UGC ads feel real instead of stitched together."
+        },
+        "preview": {
+          "title": "Social preview",
+          "generateFirst": "Generate at least one video first.",
+          "tooltip": "Preview the ready clips back-to-back in this phone.",
+          "stop": "Stop",
+          "edit": "Preview Edit"
+        },
+        "summary": {
+          "title": "The brief so far",
+          "format": "Format",
+          "vibe": "Vibe",
+          "canvas": "Canvas",
+          "cut": "Cut",
+          "shots": "shots",
+          "keyframes": "Keyframes",
+          "video": "Video"
+        },
+        "why": {
+          "title": "Why this works",
+          "description": "UGC ads work when they feel native to the feed. The defaults here favor handheld framing, real skin tones, clear product handling, and editable shot-by-shot control."
+        },
+        "actions": {
+          "back": "Back",
+          "nextReferences": "Next: add references",
+          "buildPrompt": "Build Prompt",
+          "startAnother": "Start Another Ad"
+        },
+        "generate": {
+          "kicker": "One-Shot",
+          "title": "Generate the whole ad in one pass.",
+          "description": "Seedance 2.0 takes your full prompt + the references and builds the entire ad — all the cuts, performance, and native audio — in a single clip. Pick a length, review the prompt, and generate.",
+          "length": "Length",
+          "setInVibe": "set it in The Vibe",
+          "references": "References",
+          "product": "Product",
+          "creator": "Creator",
+          "environment": "Environment",
+          "none": "(none)",
+          "aiTitle": "Tailor it with AI (free)",
+          "aiDescription": "Copy this {{template}} template's prompt, paste it into ChatGPT / Claude / Gemini / any LLM (or your own), then paste the result into the box below. It rewrites the script for your exact product — no credits, your choice of model.",
+          "copyAiPrompt": "Copy AI script prompt",
+          "adPrompt": "Ad prompt (the whole script)",
+          "rebuild": "Rebuild from brief",
+          "queueing": "Queueing…",
+          "seedanceTooltip": "Cloud Seedance 2.0 — uses your references to lock the product and creator. The quality path.",
+          "seedanceButton": "Generate (Seedance 2.0, {{seconds}}s)",
+          "ltxTooltip": "Local LTX 2.3 — composes a first frame from your references, then animates it (one continuous shot). Slower on local GPUs.",
+          "ltxButton": "Generate (LTX 2.3 local, {{seconds}}s)",
+          "modelHelp": "Seedance (cloud) uses your references to lock the product and creator with true scene cuts. LTX 2.3 (local) auto-composes a first frame from your references, then animates it — one continuous shot, kept on your own GPU. (No references? LTX falls back to prompt-only.)",
+          "readyPrefix": "Your ad is ready — hit play in the",
+          "readySuffix": "to watch it. Saved to your project assets too; drag it onto the timeline to edit or export. Not happy? Tweak the prompt and generate again."
+        }
+      }
     }
   },
   "stock": {

@@ -1,4 +1,4 @@
-import { Fragment, useEffect, useState } from 'react'
+import { Fragment, useEffect, useRef, useState } from 'react'
 import { Copy, LayoutTemplate, Minus, PanelLeft, Square, X } from 'lucide-react'
 import ComfyLauncherChip from './ComfyLauncherChip'
 import CreditsChip from './CreditsChip'
@@ -14,7 +14,7 @@ const TOP_TABS = [
   { id: 'editor', label: 'Editor' },
   { id: 'generate', label: 'Generate' },
   { id: 'agent', label: 'Agent' },
-  { id: 'flow-ai', label: 'Flow AI' },
+  { id: 'flow-ai', label: 'CANVAS' },
   { id: 'mog', label: 'MoGraph' },
   { id: 'stock', label: 'Stock' },
   { id: 'comfyui', label: 'ComfyUI' },
@@ -23,7 +23,6 @@ const TOP_TABS = [
 
 const HIDDEN_TOP_TAB_IDS = new Set([
   'agent',
-  'flow-ai',
   'mog',
 ])
 
@@ -40,6 +39,7 @@ function TitleBar({
     isMaximized: false,
     isFullScreen: false,
   })
+  const manualDragRef = useRef({ active: false, x: 0, y: 0 })
 
   useEffect(() => {
     let mounted = true
@@ -88,21 +88,55 @@ function TitleBar({
   const handleCloseWindow = () => {
     window.electronAPI?.closeWindow?.()
   }
+
+  const handleManualDragStart = (event) => {
+    if (event.button !== 0 || !window.electronAPI?.moveWindowBy) return
+    manualDragRef.current = { active: true, x: event.screenX, y: event.screenY }
+    event.currentTarget.setPointerCapture?.(event.pointerId)
+  }
+
+  const handleManualDragMove = (event) => {
+    const drag = manualDragRef.current
+    if (!drag.active || !(event.buttons & 1)) return
+    const dx = event.screenX - drag.x
+    const dy = event.screenY - drag.y
+    if (!dx && !dy) return
+    manualDragRef.current = { active: true, x: event.screenX, y: event.screenY }
+    window.electronAPI?.moveWindowBy?.({ dx, dy, screenX: event.screenX, screenY: event.screenY })
+  }
+
+  const handleManualDragEnd = (event) => {
+    manualDragRef.current.active = false
+    if (event.currentTarget.hasPointerCapture?.(event.pointerId)) event.currentTarget.releasePointerCapture(event.pointerId)
+  }
   
   return (
-    <div className="h-10 bg-black flex items-center justify-between px-4 drag-region relative">
-      {/* Left - Spacer for center alignment */}
-      <div className="w-[120px] flex-shrink-0" />
+    <div className="relative z-40 flex h-10 flex-shrink-0 items-center justify-between bg-black px-4">
+      {/* Dedicated native window-drag surface. Controls below opt out via no-drag. */}
+      <div className="absolute inset-0 drag-region" aria-hidden="true" />
+      {/* A persistent, visible drag target. Its width flexes with the window. */}
+      <div
+        className="relative flex min-w-[180px] flex-1 items-center overflow-hidden pr-4 no-drag"
+        onPointerDown={handleManualDragStart}
+        onPointerMove={handleManualDragMove}
+        onPointerUp={handleManualDragEnd}
+        onPointerCancel={handleManualDragEnd}
+        onLostPointerCapture={() => { manualDragRef.current.active = false }}
+      >
+        <span className="max-w-[220px] truncate text-[10px] text-sf-text-muted/70" title={projectName}>
+          {projectName}
+        </span>
+      </div>
       
       {/* Center - App mode tabs; extend 1px into content so grey touches with no black line */}
       <div
-        className="absolute left-1/2 top-0 flex -translate-x-1/2 items-center justify-center"
+        className="absolute left-1/2 top-0 flex -translate-x-1/2 items-center justify-center drag-region"
         style={{
           bottom: -1,
           height: 'calc(100% + 1px)'
         }}
       >
-        <div className="no-drag flex items-center gap-0 h-full bg-sf-dark-800 border-x border-sf-dark-700 border-t-0 rounded-none p-0.5">
+        <div className="flex items-center gap-0 h-full bg-sf-dark-800 border-x border-sf-dark-700 border-t-0 rounded-none p-0.5">
           {tabs.map((tab, index) => (
             <Fragment key={tab.id}>
               {index > 0 && (
@@ -111,7 +145,7 @@ function TitleBar({
               <div className="relative flex h-full items-center">
                 <button
                   onClick={() => onTabChange?.(tab.id)}
-                  className={`px-3 py-1 text-[11px] rounded-none transition-colors ${
+                  className={`no-drag px-3 py-1 text-[11px] rounded-none transition-colors ${
                     activeTab === tab.id
                       ? 'bg-sf-accent text-white'
                       : 'text-sf-text-muted hover:text-sf-text-primary hover:bg-sf-dark-700'
@@ -131,7 +165,7 @@ function TitleBar({
       </div>
       
       {/* Right - Launcher chip + Window Controls (Windows style) */}
-      <div className="no-drag flex items-center">
+      <div className="relative flex items-center drag-region">
         {activeTab === 'editor' && onEditorLayoutChange && (
           <div className="mr-2 flex items-center gap-0.5 rounded bg-sf-dark-800 p-0.5">
             {EDITOR_LAYOUTS.map(({ id, Icon, label }) => (

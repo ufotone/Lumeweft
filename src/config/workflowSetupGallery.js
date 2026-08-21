@@ -5,7 +5,7 @@
 import { ALL_WORKFLOWS, getBundledWorkflowPath } from './workflowRegistry'
 import { TOPAZ_VIDEO_UPSCALE_WORKFLOW_ID } from './topazVideoUpscaleConfig'
 import { MUSIC_VIDEO_SHOT_WORKFLOW_ID, VOCAL_EXTRACT_WORKFLOW_ID } from './musicVideoShotConfig'
-import { ELEVENLABS_TTS_WORKFLOW_ID } from './shortFilmConfig'
+import { ELEVENLABS_TTS_WORKFLOW_ID, IRODORI_TTS_WORKFLOW_ID } from './shortFilmConfig'
 
 function coverPath(filename) {
   return getBundledWorkflowPath(`setup-covers/${filename}`)
@@ -70,6 +70,11 @@ const VISUAL_BY_WORKFLOW_ID = {
     gradient: 'from-pink-500/25 via-purple-900/25 to-sf-dark-950',
     icon: 'music',
     extraBadges: ['I2V', 'Lip-sync', 'Director Mode'],
+  },
+  [IRODORI_TTS_WORKFLOW_ID]: {
+    gradient: 'from-fuchsia-500/25 via-rose-900/25 to-sf-dark-950',
+    icon: 'audio',
+    extraBadges: ['TTS', 'Local'],
   },
   [VOCAL_EXTRACT_WORKFLOW_ID]: {
     gradient: 'from-teal-500/25 via-cyan-900/25 to-sf-dark-950',
@@ -140,6 +145,11 @@ const VISUAL_BY_WORKFLOW_ID = {
     icon: 'cloud',
     extraBadges: ['Prompt'],
   },
+  'minimax-h3-media-promptor': {
+    gradient: 'from-violet-500/25 via-sky-900/25 to-sf-dark-950',
+    icon: 'film',
+    extraBadges: ['Image analysis', 'Video analysis', 'Prompt'],
+  },
   'mask-gen': {
     gradient: 'from-purple-500/30 via-violet-900/25 to-sf-dark-950',
     icon: 'scanline',
@@ -173,6 +183,7 @@ const LONG_DESCRIPTIONS = {
   'seedream-5-lite-image-edit': 'Cloud image edit using ByteDance Seedream 5.0 Lite. Lower cost per generation and a good fit for batch edits. Requires a Comfy Partner API key.',
   'music-gen': 'Local music generation with ACE-Step. Feed it a short tag list and optional lyrics and it produces a short musical clip you can drop straight into a timeline.',
   'google-gemini-flash-lite': 'Cloud prompt helper using Gemini 3.1 Flash Lite. Feed it a rough brief and optional image reference and it returns a cleaner, more descriptive prompt you can pass downstream into image or video generation. Requires a Comfy Partner API key.',
+  'minimax-h3-media-promptor': 'Runs through the local ComfyUI custom node and analyzes a project image or full video before writing a structured MiniMax H3 prompt. The node can use a cloud vision API or local Ollama provider configured in ComfyUI. Video input is sampled across time instead of being reduced to one still frame.',
   'mask-gen': 'Text-prompted video/image masking using SAM 3 plus MatAnyone. Describe the subject you want isolated and it produces an alpha mask you can use for rotoscoping, replacement, or compositing.',
 }
 

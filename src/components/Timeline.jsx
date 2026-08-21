@@ -5,7 +5,7 @@ import {
   Plus, Video, Type, Image as ImageIcon,
   Sparkles, GripVertical, Magnet, ArrowRightLeft, Square, X, Check, Pencil,
   Diamond, Zap, AlertTriangle, Loader2, ChevronLeft, ChevronRight, Maximize2, Flag, Scissors, Clock,
-  Copy, ClipboardPaste, Trash2, Music as MusicIcon, MoreHorizontal,
+  Copy, ClipboardPaste, Trash2, Music as MusicIcon, MoreHorizontal, AudioWaveform,
 } from 'lucide-react'
 import useTimelineStore, { buildClipSyncLock, isMusicVideoSyncCapableClip, isSyncLockedClip, isCaptionsTrack, isCaptionClip } from '../stores/timelineStore'
 import useProjectStore from '../stores/projectStore'
@@ -92,6 +92,32 @@ const ROLL_EDIT_MAX_GAP_SECONDS = 1 / FRAME_RATE
 const AUDIO_WAVEFORM_CACHE = new Map()
 const AUDIO_WAVEFORM_PENDING = new Map()
 let audioWaveformContext = null
+
+const StereoTrackIcon = ({ className = '' }) => (
+  <svg
+    aria-hidden="true"
+    className={className}
+    viewBox="0 0 24 24"
+    fill="none"
+    stroke="currentColor"
+    strokeWidth="2"
+    strokeLinecap="round"
+    strokeLinejoin="round"
+  >
+    <path d="M2 7h3l2-3 3 6 3-6 2 3h7" />
+    <path d="M2 17h3l2-3 3 6 3-6 2 3h7" />
+  </svg>
+)
+
+const AddTrackIcon = ({ children }) => (
+  <span aria-hidden="true" className="relative inline-flex h-4 w-4 flex-none items-center justify-center">
+    {children}
+    <span className="absolute -bottom-0.5 -right-0.5 inline-flex h-2.5 w-2.5 items-center justify-center rounded-full bg-sf-dark-900 ring-1 ring-sf-dark-700">
+      <Plus className="h-2 w-2 text-white" strokeWidth={3} />
+    </span>
+  </span>
+)
+
 const TIMELINE_TOOL_STORAGE_KEY = 'comfystudio-timeline-active-tool-v1'
 const TIMELINE_TOOLS = Object.freeze({
   AUTO: 'auto',
@@ -5218,24 +5244,33 @@ function Timeline({ onActiveToolChange, onStatusChange }) {
               onClick={() => addTrack('video')}
               className={toolbarButtonClass}
               title={t('timelineEditor.tooltips.addVideoTrack')}
+              aria-label={t('timelineEditor.tooltips.addVideoTrack')}
             >
-              <Plus className="w-3 h-3" />
+              <AddTrackIcon>
+                <Video className="h-3.5 w-3.5 text-violet-300" />
+              </AddTrackIcon>
               {showToolbarLabels && 'Video'}
             </button>
             <button
               onClick={() => addTrack('audio', { channels: 'mono' })}
               className={toolbarButtonClass}
               title={t('timelineEditor.tooltips.addMonoAudioTrack')}
+              aria-label={t('timelineEditor.tooltips.addMonoAudioTrack')}
             >
-              <Plus className="w-3 h-3" />
+              <AddTrackIcon>
+                <AudioWaveform className="h-3.5 w-3.5 text-amber-300" />
+              </AddTrackIcon>
               {showToolbarLabels && 'Mono'}
             </button>
             <button
               onClick={() => addTrack('audio', { channels: 'stereo' })}
               className={toolbarButtonClass}
               title={t('timelineEditor.tooltips.addStereoAudioTrack')}
+              aria-label={t('timelineEditor.tooltips.addStereoAudioTrack')}
             >
-              <Plus className="w-3 h-3" />
+              <AddTrackIcon>
+                <StereoTrackIcon className="h-3.5 w-3.5 text-cyan-300" />
+              </AddTrackIcon>
               {showToolbarLabels && 'Stereo'}
             </button>
           </div>

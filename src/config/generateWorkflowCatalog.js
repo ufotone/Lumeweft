@@ -25,16 +25,17 @@ export const GENERATE_WORKFLOW_ROUTES = Object.freeze({
   custom: 'custom',
   // Live browse of ComfyUI's official template catalog (no local manifests).
   templates: 'templates',
+  community: 'community',
 })
 
 export const GENERATE_WORKFLOW_CATEGORY_LABELS = Object.freeze({
   all: 'All',
   image: 'Image',
   video: 'Video',
-  'image-to-video': 'Image to Video',
-  'text-to-video': 'Text to Video',
-  'text-to-image': 'Text to Image',
-  'image-edit': 'Image Edit',
+  'image-to-video': 'Image to Video (I2V)',
+  'text-to-video': 'Text to Video (T2V)',
+  'text-to-image': 'Text to Image (T2I)',
+  'image-edit': 'Image to Image (I2I)',
   'video-tools': 'Video Tools',
   audio: 'Audio',
   utility: 'Utility',
@@ -43,10 +44,10 @@ export const GENERATE_WORKFLOW_CATEGORY_LABELS = Object.freeze({
 
 export const GENERATE_WORKFLOW_FILTERS = Object.freeze([
   { id: 'all', label: 'All' },
-  { id: 'image-to-video', label: 'Image to Video' },
-  { id: 'text-to-video', label: 'Text to Video' },
-  { id: 'text-to-image', label: 'Text to Image' },
-  { id: 'image-edit', label: 'Image Edit' },
+  { id: 'image-to-video', label: 'Image to Video (I2V)' },
+  { id: 'text-to-video', label: 'Text to Video (T2V)' },
+  { id: 'text-to-image', label: 'Text to Image (T2I)' },
+  { id: 'image-edit', label: 'Image to Image (I2I)' },
   { id: 'video-tools', label: 'Video Tools' },
   { id: 'audio', label: 'Audio' },
   { id: 'utility', label: 'Utility' },
@@ -247,7 +248,7 @@ export const GENERATE_WORKFLOW_CATALOG = Object.freeze([
   {
     id: 'ltx23-i2v',
     workflowId: 'ltx23-i2v',
-    title: 'Image to Video (LTX 2.3)',
+    title: 'Image to Video (I2V) — LTX 2.3',
     description: 'Animate a reference image with local LTX 2.3.',
     subtitle: 'Local cinematic image-to-video',
     mode: 'generate',
@@ -266,7 +267,7 @@ export const GENERATE_WORKFLOW_CATALOG = Object.freeze([
   {
     id: 'ltx23-ia2v',
     workflowId: 'ltx23-ia2v',
-    title: 'Image + Audio to Video (LTX 2.3)',
+    title: 'Image + Audio to Video (IA2V) — LTX 2.3',
     description: 'Animate a reference image with LTX 2.3 audio conditioning.',
     subtitle: 'Local audio-conditioned image-to-video',
     mode: 'generate',
@@ -287,7 +288,7 @@ export const GENERATE_WORKFLOW_CATALOG = Object.freeze([
   {
     id: 'wan22-i2v',
     workflowId: 'wan22-i2v',
-    title: 'Image to Video (WAN 2.2)',
+    title: 'Image to Video (I2V) — WAN 2.2',
     description: 'Animate an image with WAN 2.2.',
     subtitle: 'Local natural motion',
     mode: 'generate',
@@ -306,7 +307,7 @@ export const GENERATE_WORKFLOW_CATALOG = Object.freeze([
   {
     id: 'ltx23-t2v',
     workflowId: 'ltx23-t2v',
-    title: 'Text to Video (LTX 2.3)',
+    title: 'Text to Video (T2V) — LTX 2.3',
     description: 'Generate video directly from a prompt with local LTX 2.3.',
     subtitle: 'Local cinematic text-to-video',
     mode: 'generate',
@@ -325,7 +326,7 @@ export const GENERATE_WORKFLOW_CATALOG = Object.freeze([
   {
     id: 'wan22-t2v',
     workflowId: 'wan22-t2v',
-    title: 'Text to Video (WAN 2.2)',
+    title: 'Text to Video (T2V) — WAN 2.2',
     description: 'Generate video directly from a prompt with local WAN 2.2.',
     subtitle: 'Local text-to-video motion',
     mode: 'generate',
@@ -536,7 +537,7 @@ export const GENERATE_WORKFLOW_CATALOG = Object.freeze([
   {
     id: 'kling-o3-i2v',
     workflowId: 'kling-o3-i2v',
-    title: 'Kling 3.0: Image to Video',
+    title: 'Kling 3.0: Image to Video (I2V)',
     description: 'Premium cloud image-to-video with Kling O3 Omni.',
     subtitle: 'Premium cloud i2v',
     mode: 'generate',
@@ -555,7 +556,7 @@ export const GENERATE_WORKFLOW_CATALOG = Object.freeze([
   {
     id: 'vidu-q2-i2v',
     workflowId: 'vidu-q2-i2v',
-    title: 'Vidu Q2: Image to Video',
+    title: 'Vidu Q2: Image to Video (I2V)',
     description: 'Fast cloud image-to-video for blocking and exploration.',
     subtitle: 'Affordable cloud i2v',
     mode: 'generate',
@@ -593,7 +594,7 @@ export const GENERATE_WORKFLOW_CATALOG = Object.freeze([
   {
     id: 'minimax-h3-r2v',
     workflowId: 'minimax-h3-r2v',
-    title: 'MiniMax H3: Reference + Audio to Video',
+    title: 'MiniMax H3: Reference + Audio to Video (R2V)',
     description: 'Generate a premium reference-driven video with native audio-conditioned performance timing.',
     subtitle: 'MiniMax H3 image + audio reference video',
     mode: 'generate',
@@ -612,7 +613,7 @@ export const GENERATE_WORKFLOW_CATALOG = Object.freeze([
   {
     id: 'seedance2-t2v',
     workflowId: 'seedance2-t2v',
-    title: 'Seedance 2.0: Text to Video',
+    title: 'Seedance 2.0: Text to Video (T2V)',
     description: 'Generate cloud video directly from a prompt with ByteDance Seedance 2.0.',
     subtitle: 'ByteDance cloud text-to-video',
     mode: 'generate',
@@ -631,7 +632,7 @@ export const GENERATE_WORKFLOW_CATALOG = Object.freeze([
   {
     id: 'seedance2-mini-t2v',
     workflowId: 'seedance2-mini-t2v',
-    title: 'Seedance 2.0 Mini: Text to Video',
+    title: 'Seedance 2.0 Mini: Text to Video (T2V)',
     description: 'Lower-cost cloud video from a prompt with ByteDance Seedance 2.0 Mini — about half the price of Seedance 2.0 at 720p.',
     subtitle: 'ByteDance budget cloud text-to-video',
     mode: 'generate',
@@ -650,7 +651,7 @@ export const GENERATE_WORKFLOW_CATALOG = Object.freeze([
   {
     id: 'seedance2-mini-r2v',
     workflowId: 'seedance2-mini-r2v',
-    title: 'Seedance 2.0 Mini: Reference + Audio Guide',
+    title: 'Seedance 2.0 Mini: Reference + Audio Guide (R2V)',
     description: 'Lower-cost multi-reference video with a video reference for timed puppet or character performance.',
     subtitle: 'ByteDance Mini multi-reference video',
     mode: 'generate',
@@ -669,7 +670,7 @@ export const GENERATE_WORKFLOW_CATALOG = Object.freeze([
   {
     id: 'seedance2-flf2v',
     workflowId: 'seedance2-flf2v',
-    title: 'Seedance 2.0: First/Last Frame to Video',
+    title: 'Seedance 2.0: First/Last Frame to Video (FLF2V)',
     description: 'Animate between a chosen first frame and final frame with Seedance 2.0.',
     subtitle: 'ByteDance cloud transition video',
     mode: 'generate',
@@ -688,7 +689,7 @@ export const GENERATE_WORKFLOW_CATALOG = Object.freeze([
   {
     id: 'seedance2-r2v',
     workflowId: 'seedance2-r2v',
-    title: 'Seedance 2.0: Reference to Video',
+    title: 'Seedance 2.0: Reference to Video (R2V)',
     description: 'Generate video from up to four reference images and a motion prompt.',
     subtitle: 'ByteDance cloud multi-reference video',
     mode: 'generate',
