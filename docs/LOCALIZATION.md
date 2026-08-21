@@ -1,4 +1,4 @@
-# Localizing Velorn
+# Localizing Lumeweft
 
 This guide explains how to add a new interface language and how to move remaining hard-coded UI text into Velorn's localization system.
 
