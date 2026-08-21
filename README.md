@@ -13,26 +13,35 @@
 
 </div>
 
-<p align="center"><img src="docs/readme/agent-editing.gif" alt="One prompt: an agent builds the edit in Lumeweft via MCP" width="860"></p>
-<p align="center"><i>One prompt. The agent generates media, builds the timeline, and mixes the audio — live, via MCP.</i></p>
-
 Lumeweft is an independent, open-source desktop AI media workstation for creators who use ComfyUI. It brings planning, generation, asset management, timeline editing, captions, effects, and export into one project-based app.
-
-Lumeweft is derived from Velorn but is not affiliated with, endorsed by, or supported by VelornLabs or the Velorn project. See [UPSTREAM.md](UPSTREAM.md) for attribution and compatibility details.
 
 Editing, captions, export, project management, and MCP editorial tools work without ComfyUI. All current generation features require a locally running ComfyUI instance.
 
 Use built-in local and cloud workflows, import either a ComfyUI API workflow or regular UI/graph JSON, or install the bundled compatibility bridge so a graph open in ComfyUI can be sent back into Lumeweft. UI/graph JSON conversion requires the local ComfyUI frontend.
 
-<p align="center">
-  <img src="docs/readme/editor-timeline.png" alt="Lumeweft editor with generated assets, preview, timeline tracks, and inspector" />
-</p>
+## Relationship to Velorn
 
-## Origin and scope
+This project can be regarded as an improved and expanded version based on Velorn.
 
-Lumeweft is a modified distribution derived from [Velorn](https://github.com/VelornLabs/velorn). The upstream project provides the original editing foundation: project and asset management, the multitrack timeline, preview and effects rendering, captions, export, guided generation, ComfyUI workflow integration, stock-media search, and the local MCP control layer.
+Most of its core functionality depends on Velorn, but Lumeweft also includes many original features.
 
-Lumeweft retains those capabilities and extends them for a Windows-first local development workflow. The inherited Linux and macOS code paths are intentionally preserved, but the Lumeweft-specific additions are currently developed and verified primarily on Windows.
+For the basic functionality, see [Velorn](https://github.com/VelornLabs/velorn).
+
+This is a personal project developed independently from the Velorn development team.
+
+No support or warranty of any kind is provided for this project.
+
+### 日本語
+
+このプロジェクトはVelornを元にした改良発展版のようなものです。
+
+最も基本的な機能はVelornに依存していますが、Lumeweft独自の機能も多く存在します。
+
+基本機能については[Velorn](https://github.com/VelornLabs/velorn)を参照してください。
+
+Velornの開発チームとは独立した個人のプロジェクトです。
+
+このプロジェクトに関しては何のサポートも保証も存在しません。
 
 Major Lumeweft additions include:
 
@@ -56,10 +65,6 @@ See [Changes from Velorn](docs/CHANGES_FROM_VELORN.md) for a more detailed compa
 - Keeping generated media, prompts, workflow outputs, and timelines organized inside a project.
 
 For generation, Lumeweft is not a replacement for ComfyUI. It is the production layer around ComfyUI: plan the work, send jobs to ComfyUI, collect the outputs, and finish the edit.
-
-<p align="center">
-  <img src="docs/readme/create-workflows.png" alt="Lumeweft Create workspace with UGC, business ad, music video, and short film creators" />
-</p>
 
 ## Download
 
@@ -90,15 +95,7 @@ Generate runs built-in local workflows, cloud/partner workflows, and custom Comf
 - Workflow setup checks for missing nodes, models, credentials, and configuration.
 - A Featured / My Workflows / Templates browser with Local and Cloud filters. Imported community workflows appear in Featured next to the built-ins.
 
-<p align="center">
-  <img src="docs/readme/generate-featured.png" alt="Lumeweft Generate browser with Featured workflows, Local and Cloud filters, and the dependency checker" />
-</p>
-
 The Templates tab browses the official ComfyUI template catalog (500+ templates with size and popularity info) and launches any of them into the embedded ComfyUI tab.
-
-<p align="center">
-  <img src="docs/readme/generate-templates.png" alt="Lumeweft Templates browser showing the official ComfyUI template catalog with categories and filters" />
-</p>
 
 ### Create
 
@@ -150,17 +147,9 @@ Captions can be generated from edited timeline audio and styled in-app.
 
 The Export tab includes practical render presets, hardware-accelerated options where available, numbered PNG image sequence export, queue controls, and project-aware output settings.
 
-<p align="center">
-  <img src="docs/readme/export-settings.png" alt="Lumeweft export settings with presets, codec controls, and export queue" />
-</p>
-
 ### Stock
 
 The Stock tab uses Pexels so you can search and import photos or videos directly into the current project. A Pexels API key is optional and can be added in Settings.
-
-<p align="center">
-  <img src="docs/readme/stock-pexels.png" alt="Lumeweft Stock tab with Pexels photo and video search" />
-</p>
 
 ### ComfyUI Integration
 
@@ -191,10 +180,6 @@ Agents can also bring in community ComfyUI workflows: hand one a workflow link o
 
 Most MCP write tools support a preview step, and many default to preview-first behavior. Normal timeline edits participate in Lumeweft's undo system. Imports, exports, generated files, project creation, and other filesystem changes are not universally undoable, so agents should get explicit approval before applying them. MCP is the recommended automation path for agent-assisted review, timeline operations, graphics polish, and generation workflows.
 
-<p align="center">
-  <img src="docs/readme/agents-mcp.png" alt="Lumeweft Agents (MCP) settings with the running local server, connect commands, and the full tool list" />
-</p>
-
 ## Custom Workflows
 
 Custom workflows are one of the main reasons Lumeweft exists.
@@ -223,10 +208,6 @@ Common inherited endpoint node titles include:
 Exact `VELORN_*` titles are preferred for compatibility with existing graphs, but Lumeweft also recognizes readable titles such as `Velorn input image`. Older graphs that still use `COMFYSTUDIO_*` marker titles remain supported. These names are compatibility identifiers and do not indicate affiliation with the upstream project.
 
 If an endpoint is present, Lumeweft can inject that value. If an endpoint is not present, the graph controls that setting itself.
-
-<p align="center">
-  <img src="docs/readme/comfyui-bridge.png" alt="Embedded ComfyUI graph with inherited endpoint nodes and compatibility bridge button" />
-</p>
 
 ## Requirements
 
@@ -303,12 +284,6 @@ For release process details, see:
 ## Roadmap
 
 See [ROADMAP.md](ROADMAP.md).
-
-<p align="center">
-  <a href="ROADMAP.md">
-    <img src="docs/roadmap-overview.svg" alt="Lumeweft roadmap overview" />
-  </a>
-</p>
 
 ## Contributing
 
