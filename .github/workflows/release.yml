@@ -44,7 +44,7 @@ jobs:
               --draft \
               --verify-tag \
               --title "Lumeweft $RELEASE_TAG (Alpha)" \
-              --notes-file docs/RELEASE_NOTES_0.3.28_ALPHA_1.md
+              --notes-file docs/RELEASE_NOTES_0.3.28_ALPHA_2.md
           fi
 
   build-windows:
@@ -94,4 +94,4 @@ jobs:
             --draft=false `
             --prerelease `
             --title "Lumeweft $env:RELEASE_TAG (Alpha)" `
-            --notes-file docs/RELEASE_NOTES_0.3.28_ALPHA_1.md
+            --notes-file docs/RELEASE_NOTES_0.3.28_ALPHA_2.md

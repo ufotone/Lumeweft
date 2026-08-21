@@ -278,7 +278,8 @@ export const FLOW_AI_NODE_LIBRARY = Object.freeze([
     supported: true,
     inputs: [
       { id: 'in:text', type: 'text', label: 'Prompt' },
-      { id: 'in:image', type: 'image', label: 'Input' },
+      { id: 'in:image', type: 'image', label: 'Start Frame' },
+      { id: 'in:last-image', type: 'image', label: 'Last Frame' },
     ],
     outputs: [{ id: 'out:video', type: 'video', label: 'Video' }],
   },
@@ -338,6 +339,16 @@ export const FLOW_AI_TEMPLATES = Object.freeze([
     id: 'style-edit',
     label: 'Image Edit With References',
     description: 'Drive an edit workflow with an input image and style references.',
+  },
+  {
+    id: 'image-to-video',
+    label: 'Image -> Video',
+    description: 'Animate a project image with MiniMax H3 GGUF and native audio.',
+  },
+  {
+    id: 'start-last-frame-video',
+    label: 'Start + Last -> Video',
+    description: 'Generate the motion between two project images with MiniMax H3 GGUF.',
   },
   {
     id: 'media-to-prompt',
@@ -714,6 +725,121 @@ function buildStyleEditTemplate() {
   }
 }
 
+function buildImageToVideoTemplate() {
+  const imageNode = createFlowNode(FLOW_AI_NODE_TYPES.imageInput, {
+    position: { x: 80, y: 160 },
+    data: { label: 'Source Image' },
+  })
+  const promptNode = createFlowNode(FLOW_AI_NODE_TYPES.prompt, {
+    position: { x: 80, y: 20 },
+    data: {
+      label: 'Motion + Audio Prompt',
+      promptText: 'Cinematic natural motion. Preserve the subject and composition. Audio: subtle environmental ambience synchronized with the scene.',
+    },
+  })
+  const videoNode = createFlowNode(FLOW_AI_NODE_TYPES.videoGen, {
+    position: { x: 430, y: 100 },
+    data: {
+      label: 'MiniMax H3 GGUF',
+      workflowId: 'minimax-h3-gguf-i2v',
+      width: 608,
+      height: 352,
+      duration: 5,
+      fps: 24,
+    },
+  })
+  const outputNode = createFlowNode(FLOW_AI_NODE_TYPES.output, {
+    position: { x: 790, y: 140 },
+  })
+
+  return {
+    nodes: [imageNode, promptNode, videoNode, outputNode],
+    edges: [
+      createFlowEdge({
+        source: imageNode.id,
+        sourceHandle: 'out:image',
+        target: videoNode.id,
+        targetHandle: 'in:image',
+      }),
+      createFlowEdge({
+        source: promptNode.id,
+        sourceHandle: 'out:text',
+        target: videoNode.id,
+        targetHandle: 'in:text',
+      }),
+      createFlowEdge({
+        source: videoNode.id,
+        sourceHandle: 'out:video',
+        target: outputNode.id,
+        targetHandle: 'in:video',
+      }),
+    ],
+  }
+}
+
+function buildStartLastFrameVideoTemplate() {
+  const startNode = createFlowNode(FLOW_AI_NODE_TYPES.imageInput, {
+    position: { x: 80, y: 100 },
+    data: { label: 'Start Frame' },
+  })
+  const lastNode = createFlowNode(FLOW_AI_NODE_TYPES.imageInput, {
+    position: { x: 80, y: 300 },
+    data: { label: 'Last Frame' },
+  })
+  const promptNode = createFlowNode(FLOW_AI_NODE_TYPES.prompt, {
+    position: { x: 80, y: -80 },
+    data: {
+      label: 'Motion + Audio Prompt',
+      promptText: 'Create a smooth, physically coherent transition from the start frame to the last frame. Preserve subject identity and scene continuity. Audio: subtle environmental ambience synchronized with the motion.',
+    },
+  })
+  const videoNode = createFlowNode(FLOW_AI_NODE_TYPES.videoGen, {
+    position: { x: 440, y: 120 },
+    data: {
+      label: 'MiniMax H3 Start / Last',
+      workflowId: 'minimax-h3-gguf-i2v',
+      width: 608,
+      height: 352,
+      duration: 5,
+      fps: 24,
+      requiresLastFrame: true,
+    },
+  })
+  const outputNode = createFlowNode(FLOW_AI_NODE_TYPES.output, {
+    position: { x: 800, y: 160 },
+  })
+
+  return {
+    nodes: [startNode, lastNode, promptNode, videoNode, outputNode],
+    edges: [
+      createFlowEdge({
+        source: startNode.id,
+        sourceHandle: 'out:image',
+        target: videoNode.id,
+        targetHandle: 'in:image',
+      }),
+      createFlowEdge({
+        source: lastNode.id,
+        sourceHandle: 'out:image',
+        target: videoNode.id,
+        targetHandle: 'in:last-image',
+      }),
+      createFlowEdge({
+        source: promptNode.id,
+        sourceHandle: 'out:text',
+        target: videoNode.id,
+        targetHandle: 'in:text',
+      }),
+      createFlowEdge({
+        source: videoNode.id,
+        sourceHandle: 'out:video',
+        target: outputNode.id,
+        targetHandle: 'in:video',
+      }),
+    ],
+  }
+}
+
 function buildMediaToPromptTemplate() {
   const mediaNode = createFlowNode(FLOW_AI_NODE_TYPES.imageInput, {
     position: { x: 80, y: 120 },
@@ -763,6 +889,8 @@ export function createFlowDocument(options = {}) {
 
   let template = buildBlankTemplate()
   if (templateId === 'text-to-video') template = buildTextToVideoTemplate()
+  if (templateId === 'image-to-video') template = buildImageToVideoTemplate()
+  if (templateId === 'start-last-frame-video') template = buildStartLastFrameVideoTemplate()
   if (templateId === 'music-cue') template = buildMusicTemplate()
   if (templateId === 'style-edit') template = buildStyleEditTemplate()
   if (templateId === 'media-to-prompt') template = buildMediaToPromptTemplate()

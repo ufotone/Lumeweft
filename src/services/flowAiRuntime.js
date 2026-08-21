@@ -1,6 +1,7 @@
 import comfyui, {
   modifyGeminiPromptWorkflow,
   modifyMinimaxH3MediaPromptWorkflow,
+  modifyMinimaxH3GGUFI2VWorkflow,
   modifyGrokTextToImageWorkflow,
   modifyGrokVideoI2VWorkflow,
   modifyKlingO3I2VWorkflow,
@@ -48,6 +49,7 @@ const EXECUTABLE_NODE_TYPES = new Set([
 ])
 
 const SINGLE_VIDEO_WORKFLOW_IDS = new Set([
+  'minimax-h3-gguf-i2v',
   'wan22-i2v',
   'ltx23-i2v',
   'kling-o3-i2v',
@@ -66,6 +68,7 @@ const VIDEO_EXTENSIONS = new Set(['mp4', 'webm', 'mov', 'mkv', 'avi'])
 const AUDIO_EXTENSIONS = new Set(['mp3', 'wav', 'ogg', 'm4a', 'flac'])
 
 const WORKFLOW_MODIFIERS = Object.freeze({
+  'minimax-h3-gguf-i2v': modifyMinimaxH3GGUFI2VWorkflow,
   'wan22-i2v': modifyWAN22Workflow,
   'ltx23-i2v': modifyLTX23I2VWorkflow,
   'kling-o3-i2v': modifyKlingO3I2VWorkflow,
@@ -1061,6 +1064,17 @@ async function configureWorkflow(workflowId, workflowJson, context) {
   }
 
   switch (workflowId) {
+    case 'minimax-h3-gguf-i2v':
+      return modifier(workflowJson, {
+        prompt: context.promptText,
+        inputImage: context.uploadedFilename,
+        lastImage: context.lastFrameFilename,
+        width: context.width,
+        height: context.height,
+        duration: context.duration,
+        seed: context.seed,
+        filenamePrefix: context.outputPrefix || 'video/CANVAS_minimax_h3_gguf',
+      })
     case 'wan22-i2v':
       return modifier(workflowJson, {
         prompt: context.promptText,
@@ -1224,11 +1238,13 @@ async function buildExecutionContext(document, node) {
   }
 
   assertNoBundledExecutableInput(document, node, 'in:image', 'image')
+  assertNoBundledExecutableInput(document, node, 'in:last-image', 'image')
   assertNoBundledExecutableInput(document, node, 'in:style', 'image')
   assertNoBundledExecutableInput(document, node, 'in:video', 'video')
 
   const promptText = resolvePromptText(document, node)
   const primaryAsset = resolveConnectedAsset(document, node, 'in:image', 'image')
+  const lastFrameAsset = resolveConnectedAsset(document, node, 'in:last-image', 'image')
   const videoAsset = resolveConnectedAsset(document, node, 'in:video', 'video')
   const styleAssets = resolveConnectedAssets(document, node, 'in:style', 'image')
   const isMinimaxH3Promptor = workflowId === 'minimax-h3-media-promptor'
@@ -1237,6 +1253,9 @@ async function buildExecutionContext(document, node) {
   const needsImage = Boolean(workflowOption.needsImage)
   if (needsImage && !primaryAsset) {
     throw new Error('This workflow needs an upstream image input or image generation result.')
+  }
+  if (node?.data?.requiresLastFrame && !lastFrameAsset) {
+    throw new Error('This flow needs both a Start Frame and a Last Frame image.')
   }
   if (isMinimaxH3Promptor && !mediaAsset) {
     throw new Error('MiniMax H3 Media Promptor needs an upstream image or video asset.')
@@ -1262,6 +1281,16 @@ async function buildExecutionContext(document, node) {
     })
     const uploadResult = await comfyui.uploadFile(fileToUpload)
     uploadedFilename = uploadResult?.name || fileToUpload.name
+  }
+
+  let lastFrameFilename = null
+  if (lastFrameAsset) {
+    const lastFrameFile = await assetToUploadFile(lastFrameAsset, Number(node?.data?.lastFrameTime) || 0)
+    const lastFrameUpload = await comfyui.uploadFile(
+      lastFrameFile,
+      `canvas_last_${Date.now()}_${lastFrameFile.name || 'frame.png'}`
+    )
+    lastFrameFilename = lastFrameUpload?.name || lastFrameFile.name
   }
 
   const h3Providers = isMinimaxH3Promptor
@@ -1299,6 +1328,7 @@ async function buildExecutionContext(document, node) {
     variantCount,
     imageVariantBehavior,
     uploadedFilename,
+    lastFrameFilename,
     uploadedMediaKind: mediaAsset?.type === 'video' ? 'video' : 'image',
     visionProvider: h3Providers[0],
     promptorProvider: h3Providers[1],

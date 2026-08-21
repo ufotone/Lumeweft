@@ -96,8 +96,10 @@ ipcMain.handle('prompt:translate', async (_event, payload = {}) => {
   }
 })
 
-// App icon (build/icon.png) – used for window and taskbar/dock
-const iconPath = path.join(__dirname, '..', 'build', 'icon.png')
+// Use Lumeweft branding for Windows builds while preserving the inherited
+// platform assets until macOS and Linux packaging can be tested separately.
+const iconFilename = process.platform === 'win32' ? 'lumeweft-icon.png' : 'icon.png'
+const iconPath = path.join(__dirname, '..', 'build', iconFilename)
 
 const SPLASH_MIN_DURATION_MS = 4500  // Minimum time splash is visible (Resolve-style)
 const COMFYUI_CHECK_MS = 2500        // Max wait for ComfyUI

@@ -56,6 +56,68 @@ const QWEN_IMAGE_EDIT_REQUIRED_NODES = Object.freeze([
 ])
 
 export const WORKFLOW_DEPENDENCY_PACKS = Object.freeze({
+  'minimax-h3-gguf-i2v': Object.freeze({
+    id: 'minimax-h3-gguf-i2v',
+    displayName: 'MiniMax H3 GGUF Image-to-Video',
+    requiredNodes: Object.freeze([
+      { classType: 'H3ModelLoaderAny' },
+      { classType: 'H3ClipLoaderAny' },
+      { classType: 'UnetLoaderGGUF' },
+      { classType: 'CLIPLoaderGGUF' },
+      { classType: 'MiniMaxH3ImageToVideo' },
+      { classType: 'MiniMaxH3SigmaShift' },
+      { classType: 'VAEDecodeAudio' },
+      { classType: 'VAEDecode' },
+      { classType: 'VAELoader' },
+      { classType: 'LoraLoaderModelOnly' },
+      { classType: 'BasicScheduler' },
+      { classType: 'BasicGuider' },
+      { classType: 'KSamplerSelect' },
+      { classType: 'RandomNoise' },
+      { classType: 'SamplerCustomAdvanced' },
+      { classType: 'CreateVideo' },
+      { classType: 'SaveVideo' },
+    ]),
+    requiredModels: Object.freeze([
+      {
+        classType: 'H3ModelLoaderAny',
+        inputKey: 'model_name',
+        filename: 'minimax_h3_fl2va_pruned_fp8_Q4_0.gguf',
+        targetSubdir: 'diffusion_models',
+      },
+      {
+        classType: 'H3ClipLoaderAny',
+        inputKey: 'clip_name',
+        filename: 'MiniMax-H3-encoder-Q4_K_M.gguf',
+        targetSubdir: 'text_encoders',
+      },
+      {
+        classType: 'H3ClipLoaderAny',
+        inputKey: 'mmproj_name',
+        filename: 'MiniMax-H3-encoder-mmproj-F16.gguf',
+        targetSubdir: 'text_encoders',
+      },
+      {
+        classType: 'VAELoader',
+        inputKey: 'vae_name',
+        filename: 'minimax_h3_video_vae_fp16.safetensors',
+        targetSubdir: 'vae',
+      },
+      {
+        classType: 'VAELoader',
+        inputKey: 'vae_name',
+        filename: 'minimax_h3_audio_vae_fp32.safetensors',
+        targetSubdir: 'vae',
+      },
+      {
+        classType: 'LoraLoaderModelOnly',
+        inputKey: 'lora_name',
+        filename: 'minimax_h3_fl2v_turbo_8step_v1.0_comfyui_bf16.safetensors',
+        targetSubdir: 'loras',
+      },
+    ]),
+    docsUrl: 'https://github.com/Comfy-Org/workflow_templates/blob/main/templates/video_minimax_h3_i2v.json',
+  }),
   'minimax-h3-media-promptor': Object.freeze({
     id: 'minimax-h3-media-promptor',
     displayName: 'Media to Prompt (MiniMax H3 Promptor)',

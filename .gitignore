@@ -13,6 +13,9 @@ build/*
 !build/icon.png
 !build/icon.icns
 !build/icon.ico
+!build/lumeweft-icon.svg
+!build/lumeweft-icon.png
+!build/lumeweft-icon.ico
 !build/icons/
 !build/icons/*.png
 

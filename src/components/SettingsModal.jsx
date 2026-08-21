@@ -3,7 +3,7 @@ import {
   X, Server, FolderOpen, Palette, Monitor, Save,
   HardDrive, Film, Keyboard, Wrench, Power,
   KeyRound, CheckCircle2, ExternalLink, Loader2, RefreshCcw,
-  Volume2, Play, Bot, Copy, MessageSquare, Globe2,
+  Volume2, Play, Bot, Copy, Globe2,
 } from 'lucide-react'
 import useProjectStore, { RESOLUTION_PRESETS, FPS_PRESETS } from '../stores/projectStore'
 import useTimelineStore from '../stores/timelineStore'
@@ -11,7 +11,6 @@ import useAssetsStore from '../stores/assetsStore'
 import { THEMES, getStoredThemeId, applyTheme } from '../config/themes'
 import { getPexelsApiKey, setPexelsApiKey } from '../services/pexelsSettings'
 import WorkflowSetupSection from './WorkflowSetupSection'
-import FeedbackSection from './FeedbackSection'
 import ComfyLauncherSettingsSection from './ComfyLauncherSettingsSection'
 import ComfyLauncherLogViewer from './ComfyLauncherLogViewer'
 import ApiKeyDialog from './ApiKeyDialog'
@@ -146,12 +145,6 @@ const SETTINGS_SECTIONS = [
     title: 'New Project Defaults',
     icon: Monitor,
     description: 'Set default resolution and frame rate for new projects.',
-  },
-  {
-    id: 'feedback',
-    title: 'Send Feedback',
-    icon: MessageSquare,
-    description: 'Report a bug or share an idea — it lands directly with the team.',
   },
 ]
 
@@ -1136,9 +1129,6 @@ function GeneralTab({ initialSection = null }) {
         </div>
       )
       break
-    case 'feedback':
-      activeSectionContent = <FeedbackSection />
-      break
     case 'agents': {
       const mcpUrl = mcpStatus?.url || 'http://127.0.0.1:19790/mcp'
       const codexCommand = `codex mcp add velorn --url ${mcpUrl}`
@@ -1148,7 +1138,7 @@ function GeneralTab({ initialSection = null }) {
           <div className="rounded-lg border border-sf-dark-700 bg-sf-dark-900/60 px-3 py-3">
             <div className="flex items-start justify-between gap-3">
               <div className="min-w-0">
-                <div className="text-sm font-medium text-sf-text-primary">Lumeweft MCP server</div>
+                <div className="text-sm font-medium text-sf-text-primary">MCP server</div>
                 <p className="mt-1 text-[11px] text-sf-text-muted">
                   {t('settings.agents.serverDescription')}
                 </p>

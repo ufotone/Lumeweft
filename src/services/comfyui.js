@@ -1591,6 +1591,52 @@ export function modifyMaskWorkflow(workflow, options = {}) {
 }
 
 /**
+ * Configure the CANVAS MiniMax H3 GGUF image-to-video graph.
+ * H3 only accepts frame counts on the 17n+5 grid at 24fps.
+ */
+export function modifyMinimaxH3GGUFI2VWorkflow(workflow, options = {}) {
+  const {
+    prompt = '',
+    inputImage = '',
+    lastImage = '',
+    width = 608,
+    height = 352,
+    duration = 5,
+    seed = Math.floor(Math.random() * 1000000000000),
+    filenamePrefix = 'video/CANVAS_minimax_h3_gguf',
+  } = options
+
+  const modified = JSON.parse(JSON.stringify(workflow))
+  const normalizedWidth = Math.max(32, Math.round((Number(width) || 608) / 32) * 32)
+  const normalizedHeight = Math.max(32, Math.round((Number(height) || 352) / 32) * 32)
+  const requestedFrames = Math.max(5, Math.round((Number(duration) || 5) * 24))
+  const length = requestedFrames + ((5 - (requestedFrames % 17)) + 17) % 17
+
+  if (modified['1']?.inputs) modified['1'].inputs.image = inputImage
+  if (modified['8']?.inputs) {
+    modified['8'].inputs.prompt = String(prompt || '')
+    modified['8'].inputs.width = normalizedWidth
+    modified['8'].inputs.height = normalizedHeight
+    modified['8'].inputs.length = length
+    if (lastImage) {
+      modified['18'] = {
+        inputs: { image: lastImage },
+        class_type: 'LoadImage',
+        _meta: { title: 'CANVAS Last Frame' },
+      }
+      modified['8'].inputs.last_frame = ['18', 0]
+    } else {
+      delete modified['8'].inputs.last_frame
+      delete modified['18']
+    }
+  }
+  if (modified['9']?.inputs) modified['9'].inputs.noise_seed = seed
+  if (modified['17']?.inputs) modified['17'].inputs.filename_prefix = filenamePrefix
+
+  return modified
+}
+
+/**
  * Workflow modifier for WAN 2.2 14B Image-to-Video
  */
 export function modifyWAN22Workflow(workflow, options = {}) {

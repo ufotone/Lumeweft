@@ -1,6 +1,6 @@
 {
   "name": "lumeweft",
-  "version": "0.3.28-alpha.1",
+  "version": "0.3.28-alpha.2",
   "description": "A local-first AI media workstation with community model integration and user-controlled content settings.",
   "main": "electron/main.js",
   "scripts": {
@@ -104,6 +104,7 @@
       "dist/**/*",
       "electron/**/*",
       "build/icon.png",
+      "build/lumeweft-icon.png",
       "package.json"
     ],
     "extraResources": [
@@ -149,7 +150,7 @@
           ]
         }
       ],
-      "icon": "build/icon.ico",
+      "icon": "build/lumeweft-icon.ico",
       "artifactName": "${productName}-${version}-windows-${arch}.${ext}"
     },
     "mac": {
@@ -190,9 +191,9 @@
       "artifactName": "${productName}-${version}-windows-installer-${arch}.${ext}",
       "oneClick": false,
       "allowToChangeInstallationDirectory": true,
-      "installerIcon": "build/icon.ico",
-      "uninstallerIcon": "build/icon.ico",
-      "installerHeaderIcon": "build/icon.ico"
+      "installerIcon": "build/lumeweft-icon.ico",
+      "uninstallerIcon": "build/lumeweft-icon.ico",
+      "installerHeaderIcon": "build/lumeweft-icon.ico"
     },
     "portable": {
       "artifactName": "${productName}-${version}-windows-portable-${arch}.${ext}"

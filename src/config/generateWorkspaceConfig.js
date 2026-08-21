@@ -30,6 +30,7 @@ export const SEEDANCE_UGC_VIDEO_WORKFLOW_ID = 'seedance2-r2v'
 export const WORKFLOWS = {
   video: [
     { id: CUSTOM_GENERATE_VIDEO_WORKFLOW_ID, label: 'Custom Video Workflow', needsImage: false, description: 'Run your own ComfyUI video graph from Generate' },
+    { id: 'minimax-h3-gguf-i2v', label: 'Image to Video (MiniMax H3 GGUF)', needsImage: true, description: 'Local GGUF image-to-video with native stereo audio and Turbo sampling' },
     { id: 'ltx23-i2v', label: 'Image to Video (LTX 2.3)', needsImage: true, description: 'Animate an image with local LTX 2.3' },
     { id: 'ltx23-ia2v', label: 'Image + Audio to Video (LTX 2.3)', needsImage: true, description: 'Animate an image with local LTX 2.3 audio conditioning' },
     { id: 'ltx23-t2v', label: 'Text to Video (LTX 2.3)', needsImage: false, description: 'Generate video from text with local LTX 2.3' },
@@ -371,6 +372,7 @@ const WORKFLOW_DISPLAY_LABELS = Object.freeze({
   'longcat-image-edit': 'LongCat Image Edit',
   'google-gemini-flash-lite': 'Prompt Helper (Gemini 3.1 Flash Lite)',
   'minimax-h3-media-promptor': 'Media to Prompt (MiniMax H3 Promptor)',
+  'minimax-h3-gguf-i2v': 'MiniMax H3 GGUF Image to Video',
   'sonilo-v2m': 'Sonilo Video to Music',
   'seedream-5-lite-image-edit': 'Seedream 5.0 Lite',
   'image-edit-model-product': 'Qwen Image Edit 2509 (Model + Product)',
@@ -408,6 +410,12 @@ export const HARDWARE_TIERS = Object.freeze({
 })
 
 const WORKFLOW_HARDWARE = Object.freeze({
+  'minimax-h3-gguf-i2v': {
+    tierId: 'standard',
+    runtime: 'local',
+    minimumVramGb: 8,
+    recommendedVramGb: 16,
+  },
   'z-image-turbo': {
     tierId: 'lite',
     runtime: 'local',

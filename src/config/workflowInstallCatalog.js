@@ -104,6 +104,26 @@ function createManualNodeHint({
 
 export const CURATED_NODE_PACKS = Object.freeze([
   createAutoNodePack({
+    id: 'comfyui-gguf',
+    displayName: 'ComfyUI-GGUF',
+    repoUrl: 'https://github.com/city96/ComfyUI-GGUF',
+    installDirName: 'ComfyUI-GGUF',
+    docsUrl: 'https://github.com/city96/ComfyUI-GGUF',
+    requirementsStrategy: 'requirements-txt',
+    notes: 'Loads the MiniMax H3 diffusion model and text encoder in GGUF format.',
+    classTypes: ['UnetLoaderGGUF', 'CLIPLoaderGGUF'],
+  }),
+  createAutoNodePack({
+    id: 'comfyui-h3-multishot',
+    displayName: 'ComfyUI-H3-Multishot',
+    repoUrl: 'https://github.com/jlucasmcrell/ComfyUI-H3-Multishot',
+    installDirName: 'ComfyUI-H3-Multishot',
+    docsUrl: 'https://github.com/jlucasmcrell/ComfyUI-H3-Multishot',
+    requirementsStrategy: 'requirements-txt',
+    notes: 'Provides MiniMax H3 GGUF-aware model/encoder loaders and the in-memory architecture compatibility patch.',
+    classTypes: ['H3ModelLoaderAny', 'H3ClipLoaderAny'],
+  }),
+  createAutoNodePack({
     id: 'minimax-h3-promptor',
     displayName: 'ComfyUI-MiniMax-H3-Promptor',
     repoUrl: 'https://github.com/1038lab/ComfyUI-MiniMax-H3-Promptor',
@@ -194,6 +214,16 @@ const AUTO_NODE_PACK_BY_CLASS_TYPE = Object.freeze(
 )
 
 export const CORE_NODE_HINTS = Object.freeze({
+  MiniMaxH3ImageToVideo: createCoreNodeHint({
+    classType: 'MiniMaxH3ImageToVideo',
+    docsUrl: 'https://docs.comfy.org/built-in-nodes/MiniMaxH3ImageToVideo',
+    notes: 'MiniMax H3 support requires ComfyUI 0.30.0 or newer. Update ComfyUI if this node is missing.',
+  }),
+  MiniMaxH3SigmaShift: createCoreNodeHint({
+    classType: 'MiniMaxH3SigmaShift',
+    docsUrl: 'https://docs.comfy.org/built-in-nodes/MiniMaxH3SigmaShift',
+    notes: 'MiniMax H3 audio/video sigma scheduling ships with current ComfyUI builds.',
+  }),
   BatchImagesNode: createCoreNodeHint({
     classType: 'BatchImagesNode',
     docsUrl: `${COMFY_REGISTRY_URL}`,
@@ -658,6 +688,60 @@ export const MANUAL_NODE_HINTS = Object.freeze({
 })
 
 export const MODEL_INSTALL_RECIPES = Object.freeze({
+  [modelKey('diffusion_models', 'minimax_h3_fl2va_pruned_fp8_Q4_0.gguf')]: createModelRecipe({
+    filename: 'minimax_h3_fl2va_pruned_fp8_Q4_0.gguf',
+    targetSubdir: 'diffusion_models',
+    displayName: 'MiniMax H3 FL2VA GGUF Q4_0',
+    downloadUrl: hfResolve('molbal/MiniMax-H3-GGUF', 'minimax_h3_fl2va_pruned_fp8_Q4_0.gguf'),
+    sourceUrl: hfBlob('molbal/MiniMax-H3-GGUF', 'minimax_h3_fl2va_pruned_fp8_Q4_0.gguf'),
+    licenseUrl: 'https://huggingface.co/MiniMaxAI/MiniMax-H3/blob/main/LICENSE',
+    notes: 'Default GGUF diffusion model for the CANVAS MiniMax H3 image-to-video flow. MiniMax H3 uses its own community license.',
+  }),
+  [modelKey('text_encoders', 'MiniMax-H3-encoder-Q4_K_M.gguf')]: createModelRecipe({
+    filename: 'MiniMax-H3-encoder-Q4_K_M.gguf',
+    targetSubdir: 'text_encoders',
+    displayName: 'MiniMax H3 text encoder GGUF Q4_K_M',
+    downloadUrl: hfResolve('joeygambino/MiniMax-H3-encoder-GGUF', 'MiniMax-H3-encoder-Q4_K_M.gguf'),
+    sourceUrl: hfBlob('joeygambino/MiniMax-H3-encoder-GGUF', 'MiniMax-H3-encoder-Q4_K_M.gguf'),
+    licenseUrl: 'https://huggingface.co/MiniMaxAI/MiniMax-H3/blob/main/LICENSE',
+    notes: 'GGUF text encoder. Keep the matching mmproj sidecar in the same text_encoders folder.',
+  }),
+  [modelKey('text_encoders', 'MiniMax-H3-encoder-mmproj-F16.gguf')]: createModelRecipe({
+    filename: 'MiniMax-H3-encoder-mmproj-F16.gguf',
+    targetSubdir: 'text_encoders',
+    displayName: 'MiniMax H3 encoder vision sidecar F16',
+    downloadUrl: hfResolve('joeygambino/MiniMax-H3-encoder-GGUF', 'MiniMax-H3-encoder-mmproj-F16.gguf'),
+    sourceUrl: hfBlob('joeygambino/MiniMax-H3-encoder-GGUF', 'MiniMax-H3-encoder-mmproj-F16.gguf'),
+    licenseUrl: 'https://huggingface.co/MiniMaxAI/MiniMax-H3/blob/main/LICENSE',
+    notes: 'Vision projection sidecar paired explicitly with the GGUF text encoder.',
+  }),
+  [modelKey('vae', 'minimax_h3_video_vae_fp16.safetensors')]: createModelRecipe({
+    filename: 'minimax_h3_video_vae_fp16.safetensors',
+    targetSubdir: 'vae',
+    displayName: 'MiniMax H3 video VAE FP16',
+    downloadUrl: hfResolve('Comfy-Org/MiniMax-H3', 'vae/minimax_h3_video_vae_fp16.safetensors'),
+    sourceUrl: hfBlob('Comfy-Org/MiniMax-H3', 'vae/minimax_h3_video_vae_fp16.safetensors'),
+    licenseUrl: 'https://huggingface.co/MiniMaxAI/MiniMax-H3/blob/main/LICENSE',
+    notes: 'Official ComfyUI-packaged video VAE for MiniMax H3.',
+  }),
+  [modelKey('vae', 'minimax_h3_audio_vae_fp32.safetensors')]: createModelRecipe({
+    filename: 'minimax_h3_audio_vae_fp32.safetensors',
+    targetSubdir: 'vae',
+    displayName: 'MiniMax H3 audio VAE FP32',
+    downloadUrl: hfResolve('Comfy-Org/MiniMax-H3', 'vae/minimax_h3_audio_vae_fp32.safetensors'),
+    sourceUrl: hfBlob('Comfy-Org/MiniMax-H3', 'vae/minimax_h3_audio_vae_fp32.safetensors'),
+    licenseUrl: 'https://huggingface.co/MiniMaxAI/MiniMax-H3/blob/main/LICENSE',
+    notes: 'Official ComfyUI-packaged audio VAE for native stereo audio output.',
+  }),
+  [modelKey('loras', 'minimax_h3_fl2v_turbo_8step_v1.0_comfyui_bf16.safetensors')]: createModelRecipe({
+    filename: 'minimax_h3_fl2v_turbo_8step_v1.0_comfyui_bf16.safetensors',
+    targetSubdir: 'loras',
+    displayName: 'MiniMax H3 FL2V Turbo 8-step LoRA',
+    downloadUrl: hfResolve('Comfy-Org/MiniMax-H3', 'loras/minimax_h3_fl2v_turbo_8step_v1.0_comfyui_bf16.safetensors'),
+    sourceUrl: hfBlob('Comfy-Org/MiniMax-H3', 'loras/minimax_h3_fl2v_turbo_8step_v1.0_comfyui_bf16.safetensors'),
+    licenseUrl: 'https://huggingface.co/lightx2v/Minimax-h3-Turbo',
+    notes: 'Officially packaged LightX2V Turbo LoRA used to reduce the default CANVAS flow to eight sampling steps.',
+  }),
   [modelKey('checkpoints', 'irodori-tts-500m-v3.safetensors')]: createModelRecipe({
     filename: 'irodori-tts-500m-v3.safetensors',
     targetSubdir: 'checkpoints',

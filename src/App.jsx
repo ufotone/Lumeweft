@@ -73,6 +73,7 @@ function App() {
   const [selectedItem, setSelectedItem] = useState({ type: 'shot', id: '2.1' })
   const [mainTab, setMainTab] = useState('editor')
   const [hasMountedFlowAi, setHasMountedFlowAi] = useState(false)
+  const [flowAiReloadNonce, setFlowAiReloadNonce] = useState(0)
   const [hasMountedGenerate, setHasMountedGenerate] = useState(false)
   const [bottomEditorView, setBottomEditorView] = useState('timeline')
   const [activeTimelineToolLabel, setActiveTimelineToolLabel] = useState('Move tool')
@@ -124,6 +125,9 @@ function App() {
   const reloadComfyIframe = useCallback(() => {
     setComfyReloadRequestId('')
     setComfyIframeNonce((n) => n + 1)
+  }, [])
+  const reloadFlowAiWorkspace = useCallback(() => {
+    setFlowAiReloadNonce((nonce) => nonce + 1)
   }, [])
   // The frame is mounted while hidden so direct ComfyUI jobs can keep running,
   // but on application startup it can race the ComfyUI server/frontend boot.
@@ -809,9 +813,16 @@ function App() {
             className="flex-1 flex flex-col min-h-0 overflow-hidden bg-sf-dark-950"
             style={{ display: mainTab === 'flow-ai' ? 'flex' : 'none' }}
           >
-            <WorkspaceErrorBoundary>
+            <WorkspaceErrorBoundary
+              key={`flow-ai-workspace-${projectSessionKey}-${flowAiReloadNonce}`}
+              onRetry={reloadFlowAiWorkspace}
+              retryLabel="Reload CANVAS"
+            >
               <Suspense fallback={WORKSPACE_LOADING_FALLBACK}>
-                <FlowAIWorkspace onOpenWorkflowSetup={() => openSettingsModal(WORKFLOW_SETUP_SECTION_ID)} />
+                <FlowAIWorkspace
+                  onOpenWorkflowSetup={() => openSettingsModal(WORKFLOW_SETUP_SECTION_ID)}
+                  onReloadWorkspace={reloadFlowAiWorkspace}
+                />
               </Suspense>
             </WorkspaceErrorBoundary>
           </div>

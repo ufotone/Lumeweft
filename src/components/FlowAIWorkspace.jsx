@@ -29,6 +29,7 @@ import {
   Music,
   Play,
   Plus,
+  RefreshCw,
   Save,
   Settings2,
   Square,
@@ -1299,7 +1300,7 @@ function renderWorkflowOptions(nodeType) {
   return []
 }
 
-export default function FlowAIWorkspace({ onOpenWorkflowSetup }) {
+export default function FlowAIWorkspace({ onOpenWorkflowSetup, onReloadWorkspace }) {
   const currentProject = useProjectStore((state) => state.currentProject)
   const currentProjectHandle = useProjectStore((state) => state.currentProjectHandle)
   const setFlowAiData = useProjectStore((state) => state.setFlowAiData)
@@ -2370,6 +2371,29 @@ export default function FlowAIWorkspace({ onOpenWorkflowSetup }) {
     setRunNotice('Saved CANVAS changes to the current project.')
   }, [activeDocumentId, flowProjectData, saveProject, setFlowAiData])
 
+  const handleReloadWorkspace = useCallback(() => {
+    // Flush the live graph before App remounts ReactFlow. The normal project
+    // sync is debounced, so reloading immediately after an edit must not drop
+    // the latest node positions, edges, or viewport.
+    const payload = {
+      ...flowProjectData,
+      activeDocumentId,
+      documents: flowProjectData.documents.map((document) => (
+        document.id === activeDocumentId
+          ? {
+              ...document,
+              nodes,
+              edges,
+              viewport,
+              updatedAt: new Date().toISOString(),
+            }
+          : document
+      )),
+    }
+    setFlowAiData(payload)
+    onReloadWorkspace?.()
+  }, [activeDocumentId, edges, flowProjectData, nodes, onReloadWorkspace, setFlowAiData, viewport])
+
   const handleResetInspectorWidth = useCallback(() => {
     setInspectorWidth(clampFlowInspectorWidth(FLOW_AI_INSPECTOR_DEFAULT_WIDTH, workspaceWidth))
   }, [workspaceWidth])
@@ -2774,6 +2798,15 @@ export default function FlowAIWorkspace({ onOpenWorkflowSetup }) {
           </button>
           <button
             type="button"
+            onClick={handleReloadWorkspace}
+            className="inline-flex items-center gap-2 rounded-lg border border-sf-dark-700 bg-sf-dark-900 px-3 py-2 text-sm text-sf-text-primary hover:bg-sf-dark-800"
+            title="Reload CANVAS rendering if the graph is blank or failed to draw"
+          >
+            <RefreshCw className="h-4 w-4" />
+            Reload
+          </button>
+          <button
+            type="button"
             onClick={() => onOpenWorkflowSetup?.()}
             className="inline-flex items-center gap-2 rounded-lg border border-sf-dark-700 bg-sf-dark-900 px-3 py-2 text-sm text-sf-text-primary"
           >
@@ -3041,6 +3074,9 @@ export default function FlowAIWorkspace({ onOpenWorkflowSetup }) {
                         ...(selectedNode.type === FLOW_AI_NODE_TYPES.imageGen
                           ? { variantCount: normalizeFlowImageVariantCount(selectedNode.data.variantCount, event.target.value) }
                           : {}),
+                        ...(selectedNode.type === FLOW_AI_NODE_TYPES.videoGen && event.target.value === 'minimax-h3-gguf-i2v'
+                          ? { width: 608, height: 352, duration: 5, fps: 24 }
+                          : {}),
                       })}
                       className="w-full rounded-lg border border-sf-dark-700 bg-sf-dark-900 px-3 py-2 text-sm text-sf-text-primary outline-none"
                     >
@@ -3306,6 +3342,7 @@ export default function FlowAIWorkspace({ onOpenWorkflowSetup }) {
                           <select
                             value={selectedNode.data.fps ?? 24}
                             onChange={(event) => updateNodeData(selectedNode.id, { fps: Number(event.target.value) || 24 })}
+                            disabled={selectedNode.data.workflowId === 'minimax-h3-gguf-i2v'}
                             className="w-full rounded-lg border border-sf-dark-700 bg-sf-dark-900 px-3 py-2 text-sm text-sf-text-primary outline-none"
                           >
                             <option value={16}>16 fps</option>
@@ -3325,6 +3362,11 @@ export default function FlowAIWorkspace({ onOpenWorkflowSetup }) {
                             <option value="balanced">Balanced</option>
                           </select>
                         </InspectorRow>
+                      )}
+                      {selectedNode.data.workflowId === 'minimax-h3-gguf-i2v' && (
+                        <div className="rounded-xl border border-cyan-500/30 bg-cyan-500/10 p-3 text-sm text-cyan-100">
+                          MiniMax H3 is fixed at 24 fps. Connect the optional Last Frame port to constrain the ending image. The 608 x 352, 5-second default is a low-resource first test; raise resolution only after it runs successfully. The model weights use the MiniMax H3 Community License.
+                        </div>
                       )}
                       <div className="rounded-xl border border-sf-dark-800 bg-sf-dark-900/70 p-3 text-sm text-sf-text-secondary">
                         Video Gen currently outputs one final video per run. Multi-video bundles can come later.

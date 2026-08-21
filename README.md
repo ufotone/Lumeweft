@@ -71,7 +71,7 @@ For generation, Lumeweft is not a replacement for ComfyUI. It is the production 
 
 Lumeweft is currently available as an **alpha preview for Windows only**. Download the current Windows x64 installer from the [Lumeweft Releases page](https://github.com/ufotone/Lumeweft/releases).
 
-The Windows installer is the only tested and officially distributed build. Alpha releases are incomplete, may contain breaking bugs, and are provided without support or warranty.
+The Windows installer is the only tested and officially distributed build. The current alpha installer is unsigned, so Windows SmartScreen may display a warning. Alpha releases are incomplete, may contain breaking bugs, and are provided without support or warranty.
 
 macOS and Linux packages may be produced experimentally through GitHub Actions in the future, but they are not currently tested, distributed, or supported.
 
@@ -81,7 +81,7 @@ Ignore GitHub's auto-generated source-code archives unless you plan to build Lum
 
 Lumeweftは現在、**Windows専用のアルファプレビュー版**です。[Lumeweft Releasesページ](https://github.com/ufotone/Lumeweft/releases)からWindows x64インストーラーをダウンロードできます。
 
-現時点で検証および正式配布の対象となるのはWindowsインストーラーのみです。アルファ版は未完成で重大な不具合を含む可能性があり、サポートや保証はありません。
+現時点で検証および正式配布の対象となるのはWindowsインストーラーのみです。現在のアルファ版インストーラーは未署名のため、Windows SmartScreenの警告が表示される場合があります。アルファ版は未完成で重大な不具合を含む可能性があり、サポートや保証はありません。
 
 macOS版とLinux版は将来GitHub Actionsで実験的にビルドされる可能性がありますが、現在は未検証・未配布・非サポートです。
 

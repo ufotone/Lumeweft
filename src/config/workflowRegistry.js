@@ -32,6 +32,7 @@ export function getBundledWorkflowPath(filename) {
 
 // Built-in workflows shipped with Velorn - always installed, cannot be deleted
 export const BUILTIN_WORKFLOWS = [
+  { id: 'minimax-h3-gguf-i2v', label: 'Image to Video (MiniMax H3 GGUF)', category: 'video', needsImage: true, description: 'Local MiniMax H3 GGUF image-to-video with native audio and an 8-step Turbo LoRA', file: 'video_minimax_h3_gguf_i2v.json' },
   { id: 'wan22-i2v', label: 'Image to Video (WAN 2.2)', category: 'video', needsImage: true, description: 'Animate an image into video', file: 'video_wan2_2_14B_i2v.json' },
   { id: 'ltx23-i2v', label: 'Image to Video (LTX 2.3)', category: 'video', needsImage: true, description: 'Animate an image with local LTX 2.3', file: 'video_ltx2_3_i2v.json' },
   { id: 'ltx23-ia2v', label: 'Image + Audio to Video (LTX 2.3)', category: 'video', needsImage: true, description: 'Animate an image with local LTX 2.3 audio conditioning', file: 'video_ltx2_3_ia2v.json' },
@@ -77,6 +78,7 @@ export const BUILTIN_WORKFLOWS = [
 
 // Map workflow id -> public path (for loading JSON)
 export const BUILTIN_WORKFLOW_PATHS = {
+  'minimax-h3-gguf-i2v': getBundledWorkflowPath('video_minimax_h3_gguf_i2v.json'),
   'wan22-i2v': getBundledWorkflowPath('video_wan2_2_14B_i2v.json'),
   'ltx23-i2v': getBundledWorkflowPath('video_ltx2_3_i2v.json'),
   'ltx23-ia2v': getBundledWorkflowPath('video_ltx2_3_ia2v.json'),
