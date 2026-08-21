@@ -5,6 +5,7 @@
 <img src="public/splash.png" alt="Lumeweft — weave generative workflows into finished stories" width="100%">
 
 **A local-first AI media workstation with community model integration and user-controlled content settings.**
+**An experimental project derived and evolved from Velorn.**
 
 [![License: GPL-3.0](https://img.shields.io/badge/License-GPL--3.0-blue)](LICENSE)
 [![Platform](https://img.shields.io/badge/Platform-Windows-0078D4)](#download)
