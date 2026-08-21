@@ -15,7 +15,7 @@ Lumeweft intentionally retains legacy project, bridge, workflow-marker, and stor
 ### Community models
 
 - Added a provider-neutral Community area in Generate, with Civitai implemented as the first provider.
-- Supports `civitai.com` and `civitai.red` model links, authenticated downloads, cancellation, persistent download state, and filename-based installed detection.
+- Supports `civitai.com` model links, authenticated downloads, cancellation, persistent download state, and filename-based installed detection.
 - Displays model/version/file metadata and author-provided permission information before use.
 - Builds guided local workflows for compatible diffusion models, checkpoints, LoRA/LyCORIS files, and ANIMA split-model configurations.
 - Reuses published prompts, trigger words, LoRA weights, seed, steps, CFG, sampler, scheduler, denoise, and output dimensions when available, while keeping the locally selected compatible base model authoritative.
