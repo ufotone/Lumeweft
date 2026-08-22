@@ -2,7 +2,8 @@
 
 ## Our Standard
 
-Velorn is committed to a welcoming, respectful, and constructive community.
+Lumeweft is committed to a welcoming, respectful, and constructive community.
+(same as original Velorn)
 
 Examples of behavior that help build that environment:
 
