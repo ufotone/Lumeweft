@@ -1,6 +1,6 @@
 {
   "name": "lumeweft",
-  "version": "0.3.28-alpha.2",
+  "version": "0.3.28-alpha.3",
   "description": "A local-first AI media workstation with community model integration and user-controlled content settings.",
   "main": "electron/main.js",
   "scripts": {
