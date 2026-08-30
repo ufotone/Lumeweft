@@ -1,22 +1,24 @@
-# Contributing to Velorn
+# Contributing to Lumeweft
 
-Thanks for contributing.
+Thank you for your contribution.
 
-## Before You Start
+## Before You Begin
 
-- Read `README.md` for setup and product context.
-- Review `RELEASE_CHECKLIST.md` if your change affects packaging, workflows, docs, or release behavior.
-- Keep changes focused. Small, reviewable pull requests are preferred over large mixed changes.
+- Please read `README.md` for information on setup and the project background.
+- If your changes affect packaging, workflows, documentation, or release behavior, please check `RELEASE_CHECKLIST.md`.
+- Please keep the scope of your changes focused. Small, easy-to-review pull requests are preferred over large ones containing multiple, mixed changes.
 
 ## Proposing Changes
 
-Velorn currently has one maintainer, so coordination happens before code, not after:
-
-- Non-trivial changes start as an issue. Describe the user problem and, if you have one, your proposed approach — then wait for a maintainer go-ahead before writing code.
-- One pull request per agreed issue, scoped to what was agreed. Follow-up ideas go in new issues, not into the open PR.
-- Review latency is days, not hours. Please don't stack additional PRs while one of yours is open.
-- Unsolicited pull requests may be closed without full review.
-- Typo fixes and small documentation corrections are welcome without an issue.
+Lumeweft currently has only one maintainer. Therefore, coordination is required before writing code.
+- Whether or not a pull request is processed is at the maintainer's discretion.
+- We recommend forking the repository first. Please work on new code or fixes in your fork before submitting an issue or pull request.
+- You do not need permission to fork the repository.
+- For non-trivial changes, please create an issue first. Describe the problem users are facing and your proposed solution; provided the changes do not break existing code, you may then begin coding.
+- Please create one pull request per issue and keep the changes within the agreed scope. Do not include additional ideas in an open PR; instead, create a new issue for them.
+- Reviews may take a few days. Please refrain from submitting additional pull requests while one of your PRs is still open.
+- Pull requests submitted without prior consultation may be closed without a detailed review.
+- Contributions regarding translations, typo corrections, or minor documentation fixes are welcome without a prior issue.
 
 ## Development Setup
 

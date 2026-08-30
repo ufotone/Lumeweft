@@ -1,8 +1,10 @@
-# Localizing Velorn
+# Localizing Lumeweft
 
-This guide explains how to add a new interface language and how to move remaining hard-coded UI text into Velorn's localization system.
+This guide explains how to add a new interface language and how to move remaining hard-coded UI text into Lumeweft's localization system.
 
 English is the source and fallback language. A missing translation falls back to English, so a language can be developed incrementally without making the application unusable.
+
+This localization system is also a valid approach for the original Velorn. Although currently classified as a future issue, it can easily be implemented. It might also be a good idea to translate for Lumeweft first and then apply the changes to Velorn.
 
 ## Files involved
 

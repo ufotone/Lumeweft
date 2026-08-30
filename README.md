@@ -5,6 +5,7 @@
 <img src="public/splash.png" alt="Lumeweft — weave generative workflows into finished stories" width="100%">
 
 **A local-first AI media workstation with community model integration and user-controlled content settings.**
+**An experimental project derived and evolved from Velorn.**
 
 [![License: GPL-3.0](https://img.shields.io/badge/License-GPL--3.0-blue)](LICENSE)
 [![Platform](https://img.shields.io/badge/Platform-Windows-0078D4)](#download)
@@ -24,6 +25,8 @@ Use built-in local and cloud workflows, import either a ComfyUI API workflow or 
 
 This project can be regarded as an improved and expanded version based on Velorn.
 
+( Thank you to the Velorn team for releasing such a fantastic project as open-source software.)
+
 Most of its core functionality depends on Velorn, but Lumeweft also includes many original features.
 
 For the basic functionality, see [Velorn](https://github.com/VelornLabs/velorn).
@@ -31,6 +34,20 @@ For the basic functionality, see [Velorn](https://github.com/VelornLabs/velorn).
 This is a personal project developed independently from the Velorn development team.
 
 No support or warranty of any kind is provided for this project.
+
+## Disclaimer
+
+The author of this software assumes **no responsibility or liability** for any damages, losses, or legal issues arising from the use of this project.
+
+All users are solely responsible for ensuring that their use of this software complies with the **laws and regulations of their own region or country**.
+
+The author shall not be held liable for any actions taken by users, including but not limited to:
+- misuse or unauthorized use of the software,
+- violations of local or international laws,
+- any direct, indirect, incidental, or consequential damages.
+
+By using this software, you acknowledge and agree that **all risks and responsibilities rest entirely with you**, and the author provides this project **“as is” without any warranties** of any kind.
+
 
 ### 日本語
 
@@ -43,6 +60,20 @@ No support or warranty of any kind is provided for this project.
 Velornの開発チームとは独立した個人のプロジェクトです。
 
 このプロジェクトに関しては何のサポートも保証も存在しません。
+
+## 免責事項
+
+本ソフトウェアの作者は、ユーザーによる利用に関連して発生したいかなる損害・損失・法的問題についても、一切の責任を負いません。
+
+ユーザーは、自身の居住地域・国の法令を遵守し、本ソフトウェアの利用に伴うすべての責任を自ら負うものとします。
+
+作者は以下を含む、ユーザーのいかなる行為に対しても責任を負いません：
+- ソフトウェアの誤用・不正利用  
+- 地域法令・国際法の違反  
+- 直接的・間接的・偶発的・結果的な損害  
+
+本ソフトウェアを利用することで、ユーザーは **すべてのリスクと責任が自身にある** ことに同意したものとみなされます。
+
 
 Major Lumeweft additions include:
 
