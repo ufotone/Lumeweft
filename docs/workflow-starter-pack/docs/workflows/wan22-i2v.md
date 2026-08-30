@@ -1,10 +1,10 @@
-# Image to Video (WAN 2.2)
+# Image to Video (WAN 2.2 GGUF)
 
-Animate an image into video
+Animate an image locally with WAN 2.2 Q4_K_M GGUF + Lightning
 
 - **Workflow ID:** `wan22-i2v`
 - **Category:** `video`
-- **Tier:** `pro`
+- **Tier:** `standard`
 - **Runtime:** `local`
 - **App Workflow JSON:** `/workflows/video_wan2_2_14B_i2v.json`
 - **Starter Pack Setup Workflow:** `workflows/local/wan22-i2v.comfyui.json`
@@ -16,18 +16,18 @@ Animate an image into video
 - This is a local workflow: expect to install the listed custom nodes and local model files before it runs successfully.
 
 ## Required Custom Nodes
-- `CLIPLoader` - Built into newer ComfyUI builds
-  - Core text-encoder loader. Missing this usually means the ComfyUI install is incomplete or very outdated.
-  - Docs: https://registry.comfy.org
+- `CLIPLoaderGGUF` - Auto-install supported
+  - Loads supported diffusion models and text encoders in GGUF format.
+  - Repo: https://github.com/city96/ComfyUI-GGUF
 - `LoraLoaderModelOnly` - Built into newer ComfyUI builds
   - Core LoRA loader. Missing this usually means the ComfyUI install is incomplete or very outdated.
   - Docs: https://registry.comfy.org
 - `SaveVideo` - Built into newer ComfyUI builds
   - Core video output support ships with newer ComfyUI builds.
   - Docs: https://docs.comfy.org/built-in-nodes/CreateVideo
-- `UNETLoader` - Built into newer ComfyUI builds
-  - Core diffusion model loader. Missing this usually means the ComfyUI install is incomplete or very outdated.
-  - Docs: https://registry.comfy.org
+- `UnetLoaderGGUF` - Auto-install supported
+  - Loads supported diffusion models and text encoders in GGUF format.
+  - Repo: https://github.com/city96/ComfyUI-GGUF
 - `VAELoader` - Built into newer ComfyUI builds
   - Core VAE loader. Missing this usually means the ComfyUI install is incomplete or very outdated.
   - Docs: https://registry.comfy.org
@@ -38,12 +38,12 @@ Animate an image into video
 ## Required Models
 | Filename | ComfyUI Folder | Loader | Input Key | Download |
 |---|---|---|---|---|
-| `umt5_xxl_fp8_e4m3fn_scaled.safetensors` | `models/text_encoders` | `CLIPLoader` | `clip_name` | [Download](https://huggingface.co/Comfy-Org/Wan_2.2_ComfyUI_Repackaged/resolve/main/split_files/text_encoders/umt5_xxl_fp8_e4m3fn_scaled.safetensors) |
+| `umt5-xxl-encoder-Q4_K_M.gguf` | `models/text_encoders` | `CLIPLoaderGGUF` | `clip_name` | [Download](https://huggingface.co/city96/umt5-xxl-encoder-gguf/resolve/main/umt5-xxl-encoder-Q4_K_M.gguf) |
 | `wan_2.1_vae.safetensors` | `models/vae` | `VAELoader` | `vae_name` | [Download](https://huggingface.co/Comfy-Org/Wan_2.2_ComfyUI_Repackaged/resolve/main/split_files/vae/wan_2.1_vae.safetensors) |
-| `wan2.2_i2v_high_noise_14B_fp8_scaled.safetensors` | `models/diffusion_models` | `UNETLoader` | `unet_name` | [Download](https://huggingface.co/Comfy-Org/Wan_2.2_ComfyUI_Repackaged/resolve/main/split_files/diffusion_models/wan2.2_i2v_high_noise_14B_fp8_scaled.safetensors) |
 | `wan2.2_i2v_lightx2v_4steps_lora_v1_high_noise.safetensors` | `models/loras` | `LoraLoaderModelOnly` | `lora_name` | [Download](https://huggingface.co/Comfy-Org/Wan_2.2_ComfyUI_Repackaged/resolve/main/split_files/loras/wan2.2_i2v_lightx2v_4steps_lora_v1_high_noise.safetensors) |
 | `wan2.2_i2v_lightx2v_4steps_lora_v1_low_noise.safetensors` | `models/loras` | `LoraLoaderModelOnly` | `lora_name` | [Download](https://huggingface.co/Comfy-Org/Wan_2.2_ComfyUI_Repackaged/resolve/main/split_files/loras/wan2.2_i2v_lightx2v_4steps_lora_v1_low_noise.safetensors) |
-| `wan2.2_i2v_low_noise_14B_fp8_scaled.safetensors` | `models/diffusion_models` | `UNETLoader` | `unet_name` | [Download](https://huggingface.co/Comfy-Org/Wan_2.2_ComfyUI_Repackaged/resolve/main/split_files/diffusion_models/wan2.2_i2v_low_noise_14B_fp8_scaled.safetensors) |
+| `Wan2.2-I2V-A14B-HighNoise-Q4_K_M.gguf` | `models/diffusion_models` | `UnetLoaderGGUF` | `unet_name` | [Download](https://huggingface.co/QuantStack/Wan2.2-I2V-A14B-GGUF/resolve/main/HighNoise/Wan2.2-I2V-A14B-HighNoise-Q4_K_M.gguf) |
+| `Wan2.2-I2V-A14B-LowNoise-Q4_K_M.gguf` | `models/diffusion_models` | `UnetLoaderGGUF` | `unet_name` | [Download](https://huggingface.co/QuantStack/Wan2.2-I2V-A14B-GGUF/resolve/main/LowNoise/Wan2.2-I2V-A14B-LowNoise-Q4_K_M.gguf) |
 
 ## API Key
 - Not required for this workflow.

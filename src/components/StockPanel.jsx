@@ -1,11 +1,11 @@
 import { useState, useEffect, useCallback } from 'react'
-import { Search, Video, Image as ImageIcon, Download, Loader2, ExternalLink, AlertCircle, Play, X, Home } from 'lucide-react'
+import { Search, Video, Image as ImageIcon, Download, Loader2, ExternalLink, AlertCircle, Play, X, Home, KeyRound } from 'lucide-react'
 import useProjectStore from '../stores/projectStore'
 import useAssetsStore from '../stores/assetsStore'
 import { importAsset, isElectron } from '../services/fileSystem'
 import { enqueuePlaybackTranscode } from '../services/playbackCache'
 import { enqueueProxyTranscode, isProxyPlaybackEnabled } from '../services/proxyCache'
-import { getPexelsApiKey } from '../services/pexelsSettings'
+import { getPexelsApiKey, PEXELS_API_KEY_CHANGED_EVENT } from '../services/pexelsSettings'
 import { useI18n } from '../i18n/I18nContext'
 
 const PEXELS_PHOTOS_URL = 'https://api.pexels.com/v1/search'
@@ -36,7 +36,7 @@ function getBestVideoUrl(item) {
   return best?.link || null
 }
 
-function StockPanel() {
+function StockPanel({ onOpenApiSettings = null }) {
   const { t } = useI18n()
   const persistedState = loadPersistedStockState()
   const [apiKey, setApiKey] = useState(null)
@@ -59,6 +59,14 @@ function StockPanel() {
   // Load API key on mount
   useEffect(() => {
     getPexelsApiKey().then(key => setApiKey(key?.trim() || null))
+  }, [])
+
+  useEffect(() => {
+    const refreshApiKey = () => {
+      getPexelsApiKey().then(key => setApiKey(key?.trim() || null))
+    }
+    window.addEventListener(PEXELS_API_KEY_CHANGED_EVENT, refreshApiKey)
+    return () => window.removeEventListener(PEXELS_API_KEY_CHANGED_EVENT, refreshApiKey)
   }, [])
 
   // Persist panel state so tab switches keep current stock context/results.
@@ -237,17 +245,28 @@ function StockPanel() {
     <div className="flex-1 flex flex-col min-h-0 bg-sf-dark-950">
       {/* Header */}
       <div className="flex-shrink-0 p-4 border-b border-sf-dark-700">
-        <div className="flex items-center gap-3 mb-3">
-          <h1 className="text-lg font-semibold text-sf-text-primary">{t('stock.title')}</h1>
-          <a
-            href="https://www.pexels.com"
-            target="_blank"
-            rel="noopener noreferrer"
-            className="text-[10px] text-sf-text-muted hover:text-sf-accent flex items-center gap-1"
+        <div className="mb-3 flex items-center justify-between gap-3">
+          <div className="flex min-w-0 items-center gap-3">
+            <h1 className="text-lg font-semibold text-sf-text-primary">{t('stock.title')}</h1>
+            <a
+              href="https://www.pexels.com"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="flex items-center gap-1 text-[10px] text-sf-text-muted hover:text-sf-accent"
+            >
+              <ExternalLink className="w-3 h-3" />
+              {t('stock.source')}
+            </a>
+          </div>
+          <button
+            type="button"
+            onClick={() => onOpenApiSettings?.()}
+            className="flex flex-shrink-0 items-center gap-1.5 rounded-lg border border-sf-dark-600 bg-sf-dark-800 px-3 py-1.5 text-xs text-sf-text-secondary transition-colors hover:border-sf-accent/50 hover:bg-sf-dark-700 hover:text-sf-text-primary"
+            title={t('stock.apiSettingsHelp')}
           >
-            <ExternalLink className="w-3 h-3" />
-            {t('stock.source')}
-          </a>
+            <KeyRound className="h-3.5 w-3.5" />
+            {t('stock.apiSettings')}
+          </button>
         </div>
         <div className="flex flex-wrap items-center gap-2">
           <div className="flex-1 min-w-[200px] relative">

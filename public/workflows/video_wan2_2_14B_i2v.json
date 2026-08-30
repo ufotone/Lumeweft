@@ -154,33 +154,30 @@
   },
   "129:84": {
     "inputs": {
-      "clip_name": "umt5_xxl_fp8_e4m3fn_scaled.safetensors",
-      "type": "wan",
-      "device": "default"
+      "clip_name": "umt5-xxl-encoder-Q4_K_M.gguf",
+      "type": "wan"
     },
-    "class_type": "CLIPLoader",
+    "class_type": "CLIPLoaderGGUF",
     "_meta": {
-      "title": "Load CLIP"
+      "title": "Load CLIP (GGUF)"
     }
   },
   "129:96": {
     "inputs": {
-      "unet_name": "wan2.2_i2v_low_noise_14B_fp8_scaled.safetensors",
-      "weight_dtype": "default"
+      "unet_name": "Wan2.2-I2V-A14B-LowNoise-Q4_K_M.gguf"
     },
-    "class_type": "UNETLoader",
+    "class_type": "UnetLoaderGGUF",
     "_meta": {
-      "title": "Load Diffusion Model"
+      "title": "Load Diffusion Model (GGUF)"
     }
   },
   "129:95": {
     "inputs": {
-      "unet_name": "wan2.2_i2v_high_noise_14B_fp8_scaled.safetensors",
-      "weight_dtype": "default"
+      "unet_name": "Wan2.2-I2V-A14B-HighNoise-Q4_K_M.gguf"
     },
-    "class_type": "UNETLoader",
+    "class_type": "UnetLoaderGGUF",
     "_meta": {
-      "title": "Load Diffusion Model"
+      "title": "Load Diffusion Model (GGUF)"
     }
   },
   "129:127": {

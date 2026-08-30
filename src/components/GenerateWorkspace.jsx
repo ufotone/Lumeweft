@@ -3,9 +3,8 @@ import {
   Sparkles, Video, Image as ImageIcon, Music, RefreshCw, Loader2, Languages,
   ChevronLeft, ChevronRight, Play, Pause, Upload, X, Film, Search,
   FolderOpen, Wand2, Volume2, Mic, Clock, Settings, Terminal, ChevronDown, ChevronUp, PenLine, KeyRound,
-  Copy, Download,
+  Copy, Download, Cloud, Trash2,
 } from 'lucide-react'
-import { jsPDF } from 'jspdf'
 import ImageAnnotationModal from './ImageAnnotationModal'
 import ConfirmDialog from './ConfirmDialog'
 import ApiKeyDialog from './ApiKeyDialog'
@@ -14,6 +13,7 @@ import BusinessAdCreator from './generate/BusinessAdCreator'
 import UGCAdCreator from './generate/UGCAdCreator'
 import MusicVideoEasyMode from './generate/MusicVideoEasyMode'
 import ShortFilmEasyMode from './generate/ShortFilmEasyMode'
+import IrodoriVoiceCloneCreator from './generate/IrodoriVoiceCloneCreator'
 import WorkflowBrowser from './generate/WorkflowBrowser'
 import WorkflowDetail from './generate/WorkflowDetail'
 import TemplateDetail from './generate/TemplateDetail'
@@ -32,6 +32,16 @@ import { applyImportedWorkflowBindings } from '../services/importedWorkflowBindi
 import { fetchComfyTemplateCatalog } from '../services/comfyTemplateCatalog'
 import { importComfyTemplate, reimportImportedWorkflow } from '../services/templateImporter'
 import { COMFY_PARTNER_KEY_CHANGED_EVENT } from '../services/comfyPartnerAuth'
+import {
+  CLOUD_RUNTIME_SETTINGS_CHANGED_EVENT,
+  LOCAL_COMFY_RUNTIME_ID,
+  cancelCloudRuntimeRun,
+  cloudRuntimeRunToGenerationResult,
+  createCloudRuntimeRun,
+  getCloudRuntimeSettings,
+  pollCloudRuntimeRun,
+  uploadCloudRuntimeFile,
+} from '../services/cloudRuntimes'
 import useComfyUI from '../hooks/useComfyUI'
 import useAssetsStore from '../stores/assetsStore'
 import useProjectStore from '../stores/projectStore'
@@ -54,9 +64,11 @@ import {
   getProjectFileUrl,
   importAsset,
   isElectron,
+  deleteProjectFile,
   loadProject as loadProjectFile,
   saveProject as saveProjectFile,
 } from '../services/fileSystem'
+import { planGenerationResultDeletion } from '../services/generationResultDeletion'
 import { enqueuePlaybackTranscode } from '../services/playbackCache'
 import { enqueueProxyTranscode, isProxyPlaybackEnabled } from '../services/proxyCache'
 import { formatCaptionCuesAsSrt, transcribeAsset } from '../services/captionTranscription'
@@ -99,6 +111,7 @@ import {
   NON_TERMINAL_JOB_STATUSES,
   SHOT_CATEGORIES,
   SEEDANCE_UGC_VIDEO_WORKFLOW_ID,
+  UGC_EXACT_LIPSYNC_WORKFLOW_ID,
   WORKFLOWS,
   YOLO_AD_CAMERA_CHIP_OPTIONS,
   YOLO_AD_COMMERCIAL_BEAT_OPTIONS,
@@ -160,6 +173,9 @@ import {
   ELEVENLABS_TTS_WORKFLOW_ID,
   IRODORI_TTS_MODEL_FILENAME,
   IRODORI_TTS_WORKFLOW_ID,
+  IRODORI_VOICE_CLONE_WORKFLOW_ID,
+  IRODORI_VOICE_DESIGN_DEPENDENCY_ID,
+  IRODORI_VOICE_DESIGN_MODEL_FILENAME,
   SHORT_FILM_DIALOGUE_VIDEO_WORKFLOW_ID,
   SHORT_FILM_KEYFRAME_WORKFLOW_OPTIONS,
   SHORT_FILM_VIDEO_WORKFLOW_ID,
@@ -357,6 +373,7 @@ const SINGLE_VIDEO_WORKFLOW_IDS = new Set([
   'wan22-i2v',
   'ltx23-i2v',
   'ltx23-ia2v',
+  UGC_EXACT_LIPSYNC_WORKFLOW_ID,
   SHORT_FILM_DIALOGUE_VIDEO_WORKFLOW_ID,
   'frame-interpolation',
   'kling-o3-i2v',
@@ -907,6 +924,9 @@ function getDirectorWorkflowShortToken(workflowId = '', stage = '') {
 
 function buildDirectorAssetDisplayName(directorMeta, workflowId = '') {
   if (!directorMeta) return ''
+  if (directorMeta?.mode === 'voice-clone' || directorMeta?.mode === 'voice-design') {
+    return `Irodori_Voice_${new Date().toISOString().replace(/[-:]/g, '').slice(0, 15)}`
+  }
   const sceneNumber = String(directorMeta?.sceneId || '').match(/\d+/)?.[0] || ''
   const shotNumber = String(directorMeta?.shotId || '').match(/\d+/)?.[0] || ''
   const sceneToken = sceneNumber ? `S${sceneNumber.padStart(2, '0')}` : slugifyNameToken(directorMeta?.sceneId, { fallback: 'S', maxLength: 8 }).toUpperCase()
@@ -970,6 +990,7 @@ function getAdModelFolderName(workflowId = '') {
 }
 
 function buildDirectorGeneratedFolderName(directorMeta, workflowId = '', mediaKind = '') {
+  if (directorMeta?.mode === 'voice-clone' || directorMeta?.mode === 'voice-design') return 'Irodori Voice Studio'
   // Ad mode (UGC / Business): name the folder after the model only. Music video
   // and short film keep the MVC folder scheme below.
   if (directorMeta?.mode === 'ad') {
@@ -3458,7 +3479,10 @@ function loadPersistedGenerateWorkspaceState(project, projectHandle) {
 // ============================================
 // Main GenerateWorkspace Component
 // ============================================
-function GenerateWorkspace({ onOpenWorkflowSetup = null }) {
+function GenerateWorkspace({
+  onOpenWorkflowSetup = null,
+  onOpenDirectorRecipe = null,
+}) {
   const { t, language } = useI18n()
   const {
     currentProjectHandle,
@@ -3477,7 +3501,14 @@ function GenerateWorkspace({ onOpenWorkflowSetup = null }) {
   ), [currentProject?.created, currentProject?.name, currentProjectHandle])
 
   // UI mode
-  const [generationMode, setGenerationMode] = useState(persistedState?.generationMode === 'prompter' ? 'history' : (persistedState?.generationMode || 'single'))
+  const [generationMode, setGenerationMode] = useState(
+    persistedState?.generationMode === 'prompter'
+      ? 'history'
+      : persistedState?.generationMode === 'skills'
+        ? 'yolo'
+        : (persistedState?.generationMode || 'single')
+  )
+  const isBackstageSurface = generationMode === 'backstage'
 
   // Category + workflow selection
   const [category, setCategory] = useState(persistedState?.category || 'video')
@@ -3498,17 +3529,33 @@ function GenerateWorkspace({ onOpenWorkflowSetup = null }) {
   const [workflowDetailOpen, setWorkflowDetailOpen] = useState(false)
   const [selectedComfyTemplate, setSelectedComfyTemplate] = useState(null)
   const [importedWorkflowsVersion, setImportedWorkflowsVersion] = useState(0)
+  const [cloudRuntimeSettings, setCloudRuntimeSettings] = useState({ providers: [], routing: { importedApiWorkflows: LOCAL_COMFY_RUNTIME_ID } })
   const [latestWorkflowPreview, setLatestWorkflowPreview] = useState(null)
 
   // Input asset (store ID, will resolve to object)
   const [selectedAssetId, setSelectedAssetId] = useState(persistedState?.selectedAssetId || null)
   const [selectedAsset, setSelectedAsset] = useState(null)
   const [queueImageImporting, setQueueImageImporting] = useState(false)
+  const [irodoriReferenceAudioImporting, setIrodoriReferenceAudioImporting] = useState(false)
+  const [irodoriAssetBrowserOpen, setIrodoriAssetBrowserOpen] = useState(false)
+  const [irodoriAssetBrowserSource, setIrodoriAssetBrowserSource] = useState('project')
+  const [irodoriComfyInputFiles, setIrodoriComfyInputFiles] = useState([])
+  const [irodoriComfyInputRoot, setIrodoriComfyInputRoot] = useState('')
+  const [irodoriComfyInputSearch, setIrodoriComfyInputSearch] = useState('')
+  const [irodoriComfyInputLoading, setIrodoriComfyInputLoading] = useState(false)
+  const [irodoriComfyInputError, setIrodoriComfyInputError] = useState('')
+  const [irodoriComfyInputImportingPath, setIrodoriComfyInputImportingPath] = useState('')
+  const filteredIrodoriComfyInputFiles = useMemo(() => {
+    const query = irodoriComfyInputSearch.trim().toLocaleLowerCase()
+    if (!query) return irodoriComfyInputFiles
+    return irodoriComfyInputFiles.filter((file) => String(file?.relativePath || file?.name || '').toLocaleLowerCase().includes(query))
+  }, [irodoriComfyInputFiles, irodoriComfyInputSearch])
   const [promptTranslating, setPromptTranslating] = useState(false)
   const [promptOriginal, setPromptOriginal] = useState('')
   const [promptTranslationActive, setPromptTranslationActive] = useState(false)
   const [selectedAudioAssetId, setSelectedAudioAssetId] = useState(persistedState?.selectedAudioAssetId || null)
   const [selectedAudioAsset, setSelectedAudioAsset] = useState(null)
+  const [irodoriVoiceMode, setIrodoriVoiceMode] = useState('standard')
   const [selectedAssetFieldIds, setSelectedAssetFieldIds] = useState(
     persistedState?.selectedAssetFieldIds && typeof persistedState.selectedAssetFieldIds === 'object'
       ? persistedState.selectedAssetFieldIds
@@ -3795,6 +3842,7 @@ function GenerateWorkspace({ onOpenWorkflowSetup = null }) {
 
   // Generation queue state
   const [generationQueue, setGenerationQueue] = useState(() => loadPersistedGenerationQueue())
+  const [deletingGenerationJobIds, setDeletingGenerationJobIds] = useState(() => new Set())
   const [generationCompletionSoundSettings, setGenerationCompletionSoundSettingsState] = useState(() => (
     getGenerationCompletionSoundSettings()
   ))
@@ -3816,6 +3864,7 @@ function GenerateWorkspace({ onOpenWorkflowSetup = null }) {
   const MIN_JOB_INTERVAL_MS = 2000
   const [formError, setFormError] = useState(null)
   const [formErrorCopyStatus, setFormErrorCopyStatus] = useState('')
+  const [formErrorWorkflowIds, setFormErrorWorkflowIds] = useState([])
   const [creatingStoryboardPdf, setCreatingStoryboardPdf] = useState(false)
   const [yoloMusicAudioImporting, setYoloMusicAudioImporting] = useState(false)
   const [yoloMusicCastImageImporting, setYoloMusicCastImageImporting] = useState(false)
@@ -4391,7 +4440,10 @@ function GenerateWorkspace({ onOpenWorkflowSetup = null }) {
   )
   useEffect(() => {
     setFormErrorCopyStatus('')
+    if (!formError) setFormErrorWorkflowIds([])
   }, [formError])
+  const formErrorHasDependencySetup = formErrorWorkflowIds.length > 0
+    && /Missing dependencies/i.test(String(formError || ''))
   const handleCopyFormError = useCallback(async () => {
     if (!formError) return
     const text = buildGenerationErrorClipboardText({
@@ -4409,7 +4461,7 @@ function GenerateWorkspace({ onOpenWorkflowSetup = null }) {
       setTimeout(() => setFormErrorCopyStatus(''), 1600)
     }
   }, [errorReportWorkflow, formError, formErrorTroubleshootingHints, generationMode])
-  const activeWorkflowBrowserMode = generationMode === 'yolo' ? 'create' : 'generate'
+  const activeWorkflowBrowserMode = isBackstageSurface || generationMode === 'yolo' ? 'create' : 'generate'
   const visibleWorkflowManifests = useMemo(() => {
     // Curated manifests plus registered imports (catalog templates and
     // MCP/community workflows, badge "Imported"). The ComfyUI templates route
@@ -4417,6 +4469,8 @@ function GenerateWorkspace({ onOpenWorkflowSetup = null }) {
     const curated = GENERATE_WORKFLOW_CATALOG.filter((workflow) => (
       !workflow.hidden
         && workflow.mode === activeWorkflowBrowserMode
+        && (activeWorkflowBrowserMode !== 'create'
+          || (isBackstageSurface ? workflow.workspace === 'backstage' : workflow.workspace !== 'backstage'))
         && (activeWorkflowBrowserMode === 'create'
           ? workflow.route === 'local'
           : workflowRoute === 'featured'
@@ -4433,17 +4487,17 @@ function GenerateWorkspace({ onOpenWorkflowSetup = null }) {
     ))
     return [...curated, ...imported]
     // eslint-disable-next-line react-hooks/exhaustive-deps -- importedWorkflowsVersion invalidates the registry lookup
-  }, [activeWorkflowBrowserMode, workflowRoute, importedWorkflowsVersion])
+  }, [activeWorkflowBrowserMode, isBackstageSurface, workflowRoute, importedWorkflowsVersion])
   const selectedWorkflowManifest = useMemo(() => (
-    GENERATE_WORKFLOW_CATALOG.find((workflow) => !workflow.hidden && workflow.id === selectedWorkflowManifestId)
-      || getImportedManifestById(selectedWorkflowManifestId)
+    visibleWorkflowManifests.find((workflow) => workflow.id === selectedWorkflowManifestId)
+      || (activeWorkflowBrowserMode === 'generate' ? getImportedManifestById(selectedWorkflowManifestId) : null)
       || (() => {
         const manifest = getWorkflowManifestByWorkflowId(workflowId)
-        return manifest?.hidden ? null : manifest
+        return manifest?.hidden || !visibleWorkflowManifests.some((workflow) => workflow.id === manifest?.id) ? null : manifest
       })()
       || visibleWorkflowManifests[0]
       || null
-  ), [selectedWorkflowManifestId, visibleWorkflowManifests, workflowId])
+  ), [activeWorkflowBrowserMode, selectedWorkflowManifestId, visibleWorkflowManifests, workflowId])
 
   useEffect(() => {
     const parameterFields = (selectedWorkflowManifest?.fields || [])
@@ -4529,16 +4583,27 @@ function GenerateWorkspace({ onOpenWorkflowSetup = null }) {
   const handleWorkflowManifestSelect = useCallback((manifest) => {
     if (!manifest) return
 
+    if (manifest.presentation === 'recipe' && manifest.templateId) {
+      onOpenDirectorRecipe?.({
+        templateId: manifest.templateId,
+        title: manifest.title,
+        returnMode: manifest.workspace === 'backstage' ? 'backstage' : 'director',
+      })
+      return
+    }
+
     setSelectedWorkflowManifestId(manifest.id)
     setWorkflowRoute(manifest.route === 'local' || manifest.route === 'cloud' ? 'featured' : (manifest.route || 'featured'))
     setFormError(null)
     setWorkflowDetailOpen(true)
 
     if (manifest.mode === 'create') {
-      setGenerationMode('yolo')
+      setGenerationMode(manifest.workspace === 'backstage' ? 'backstage' : 'yolo')
       const createTitle = String(manifest.title || '').toLowerCase()
       setYoloCreationType(
-        manifest.id === 'short-film-easy-mode' || createTitle.includes('short')
+        manifest.id === 'irodori-voice-clone-creator'
+          ? 'voice-clone'
+          : manifest.id === 'short-film-easy-mode' || createTitle.includes('short')
           ? 'short-film'
           : createTitle.includes('music')
             ? 'music'
@@ -4621,11 +4686,18 @@ function GenerateWorkspace({ onOpenWorkflowSetup = null }) {
     setWorkflowRoute(manifest.route === 'local' || manifest.route === 'cloud' ? 'featured' : (manifest.route || 'featured'))
   }, [workflowId])
 
+  const selectedCloudRuntimeId = generationMode === 'single' && isImportedWorkflowId(workflowId)
+    ? String(cloudRuntimeSettings.routing?.importedApiWorkflows || LOCAL_COMFY_RUNTIME_ID)
+    : LOCAL_COMFY_RUNTIME_ID
+  const selectedCloudRuntime = selectedCloudRuntimeId !== LOCAL_COMFY_RUNTIME_ID
+    ? cloudRuntimeSettings.providers.find((provider) => provider.id === selectedCloudRuntimeId && provider.hasCredential) || null
+    : null
+
   const runWorkflowDependencyCheck = useCallback(async () => {
     const requestVersion = dependencyCheckVersionRef.current + 1
     dependencyCheckVersionRef.current = requestVersion
 
-    if (generationMode !== 'single' || !workflowId) {
+    if (generationMode !== 'single' || !workflowId || selectedCloudRuntime) {
       setDependencyCheck({
         status: 'idle',
         hasPack: false,
@@ -4665,7 +4737,7 @@ function GenerateWorkspace({ onOpenWorkflowSetup = null }) {
     if (dependencyCheckVersionRef.current !== requestVersion) return null
     setDependencyCheck(result)
     return result
-  }, [generationMode, workflowId, isConnected])
+  }, [generationMode, workflowId, isConnected, selectedCloudRuntime])
 
   useEffect(() => {
     void runWorkflowDependencyCheck()
@@ -4693,6 +4765,24 @@ function GenerateWorkspace({ onOpenWorkflowSetup = null }) {
     return () => window.removeEventListener(IMPORTED_WORKFLOWS_CHANGED_EVENT, handler)
   }, [])
 
+  useEffect(() => {
+    let active = true
+    const refresh = async () => {
+      try {
+        const settings = await getCloudRuntimeSettings()
+        if (active) setCloudRuntimeSettings(settings)
+      } catch {
+        if (active) setCloudRuntimeSettings({ providers: [], routing: { importedApiWorkflows: LOCAL_COMFY_RUNTIME_ID } })
+      }
+    }
+    void refresh()
+    window.addEventListener(CLOUD_RUNTIME_SETTINGS_CHANGED_EVENT, refresh)
+    return () => {
+      active = false
+      window.removeEventListener(CLOUD_RUNTIME_SETTINGS_CHANGED_EVENT, refresh)
+    }
+  }, [])
+
 
   const validateDependenciesForQueue = useCallback(async (workflowIds, queueLabel) => {
     const normalizedIds = Array.from(new Set(
@@ -4702,6 +4792,7 @@ function GenerateWorkspace({ onOpenWorkflowSetup = null }) {
     ))
     if (normalizedIds.length === 0) return true
 
+    setFormErrorWorkflowIds([])
     setYoloDependencyCheckInProgress(true)
     try {
       const results = await Promise.all(normalizedIds.map((workflow) => checkWorkflowDependencies(workflow)))
@@ -4714,7 +4805,12 @@ function GenerateWorkspace({ onOpenWorkflowSetup = null }) {
 
       const blocked = results.filter((result) => result?.hasPack && result?.hasBlockingIssues)
       if (blocked.length > 0) {
+        const blockedWorkflowIds = results.reduce((ids, result, index) => {
+          if (result?.hasPack && result?.hasBlockingIssues) ids.push(normalizedIds[index])
+          return ids
+        }, [])
         const summary = blocked.map(summarizeBlockingDependency).join('; ')
+        setFormErrorWorkflowIds(blockedWorkflowIds)
         setFormError(`Cannot queue ${queueLabel}. Missing dependencies: ${summary}.`)
         addComfyLog('error', `Blocked ${queueLabel}: ${summary}`)
         return false
@@ -4845,7 +4941,7 @@ function GenerateWorkspace({ onOpenWorkflowSetup = null }) {
   const dependencyCheckInProgress = generationMode === 'single' && dependencyCheck.status === 'checking'
   const hasBlockingDependencies = generationMode === 'single' && dependencyCheck.hasBlockingIssues
   const baseGenerateDisabled = (
-    (!isConnected && !allowQueueWhileWaiting)
+    (!selectedCloudRuntime && !isConnected && !allowQueueWhileWaiting)
     || (generationMode === 'single' && selectedWorkflowManifest && !selectedWorkflowManifest.runnable)
     || (generationMode === 'single' && (dependencyCheckInProgress || hasBlockingDependencies))
     || (generationMode === 'yolo' && yoloDependencyCheckInProgress)
@@ -4873,6 +4969,8 @@ function GenerateWorkspace({ onOpenWorkflowSetup = null }) {
   const isUgcAdCreator = generationMode === 'yolo'
     && yoloCreationType === 'ad'
     && selectedWorkflowManifest?.id === 'ugc-ad-creator'
+  const isIrodoriVoiceCloneCreator = isBackstageSurface
+    && selectedWorkflowManifest?.id === 'irodori-voice-clone-creator'
   const ActiveAdEasyComponent = isUgcAdCreator ? UGCAdCreator : isBusinessAdCreator ? BusinessAdCreator : AdEasyMode
   // Active-target plan for music mode: null id → master, otherwise the alt
   // slot's own plan[]. Defined inline here (instead of reusing the richer
@@ -5055,6 +5153,136 @@ function GenerateWorkspace({ onOpenWorkflowSetup = null }) {
     saveProject,
     yoloMusicAudioImporting,
   ])
+  const importIrodoriReferenceAudioFile = useCallback(async (selectedFile) => {
+    if (irodoriReferenceAudioImporting) return null
+    if (!currentProjectHandle) {
+      setFormError('参照音声をアップロードするには、先にプロジェクトを作成または開いてください。')
+      return null
+    }
+    if (!selectedFile) return null
+
+    setIrodoriReferenceAudioImporting(true)
+    setFormError(null)
+    try {
+      const assetInfo = await importAsset(currentProjectHandle, selectedFile, 'audio')
+      const sessionUrl = typeof selectedFile !== 'string' ? URL.createObjectURL(selectedFile) : null
+      const newAsset = addAsset({
+        ...assetInfo,
+        type: 'audio',
+        url: sessionUrl || assetInfo.url,
+        settings: { ...(assetInfo.settings || {}), duration: assetInfo.duration, irodoriVoiceReference: true },
+      })
+      await saveProject?.()
+      addComfyLog('status', `Imported Irodori reference audio: ${newAsset.name || 'audio file'}`)
+      return newAsset
+    } catch (error) {
+      setFormError(`参照音声を取り込めませんでした: ${error?.message || 'Unknown error'}`)
+      return null
+    } finally {
+      setIrodoriReferenceAudioImporting(false)
+    }
+  }, [addAsset, addComfyLog, currentProjectHandle, irodoriReferenceAudioImporting, saveProject])
+  const handleImportIrodoriReferenceAudio = useCallback(async () => {
+    let selectedFile = null
+    try {
+      if (isElectron() && window.electronAPI?.selectFile) {
+        selectedFile = await window.electronAPI.selectFile({
+          title: 'Irodori ボイススタジオの参照音声を選択',
+          filters: [
+            { name: 'Audio Files', extensions: ['wav', 'flac', 'mp3', 'm4a', 'aac', 'ogg', 'opus', 'wma'] },
+            { name: 'All Files', extensions: ['*'] },
+          ],
+        })
+      } else {
+        selectedFile = await new Promise((resolve) => {
+          const input = document.createElement('input')
+          input.type = 'file'
+          input.accept = 'audio/*,.wav,.flac,.mp3,.m4a,.aac,.ogg,.opus,.wma'
+          input.onchange = () => resolve(input.files?.[0] || null)
+          input.click()
+        })
+      }
+    } catch (error) {
+      setFormError(`参照音声の選択画面を開けませんでした: ${error?.message || 'Unknown error'}`)
+      return null
+    }
+    return importIrodoriReferenceAudioFile(selectedFile)
+  }, [importIrodoriReferenceAudioFile])
+
+  const scanIrodoriComfyInputAudio = useCallback(async () => {
+    const api = window.electronAPI
+    if (!isElectron() || !api?.getSetting || !api?.pathJoin || !api?.listDirectory) {
+      setIrodoriComfyInputError('ComfyUI Inputの参照にはElectron版Lumeweftが必要です。')
+      setIrodoriComfyInputFiles([])
+      return
+    }
+
+    setIrodoriComfyInputLoading(true)
+    setIrodoriComfyInputError('')
+    try {
+      const comfyRootPath = String(await api.getSetting('comfyRootPath') || '').trim()
+      if (!comfyRootPath) {
+        throw new Error('設定 → File PathsでComfyUIのルートフォルダーを設定してください。')
+      }
+      const inputRoot = await api.pathJoin(comfyRootPath, 'input')
+      if (!await api.exists?.(inputRoot)) {
+        throw new Error(`ComfyUI Inputが見つかりません: ${inputRoot}`)
+      }
+
+      const audioExtensionPattern = /\.(wav|flac|mp3|m4a|aac|ogg|opus|wma)$/i
+      const discovered = []
+      const pending = [{ path: inputRoot, relativePath: '' }]
+      while (pending.length > 0) {
+        const current = pending.shift()
+        const listing = await api.listDirectory(current.path, { includeStats: true })
+        if (!listing?.success) throw new Error(listing?.error || `フォルダーを読み取れません: ${current.path}`)
+        for (const item of listing.items || []) {
+          const relativePath = current.relativePath ? `${current.relativePath}/${item.name}` : item.name
+          if (item.isDirectory) {
+            pending.push({ path: item.path, relativePath })
+          } else if (item.isFile && audioExtensionPattern.test(item.name)) {
+            discovered.push({
+              name: item.name,
+              path: item.path,
+              relativePath,
+              size: Number(item.size) || 0,
+              modified: item.modified || '',
+            })
+          }
+        }
+      }
+
+      discovered.sort((a, b) => a.relativePath.localeCompare(b.relativePath, undefined, { numeric: true, sensitivity: 'base' }))
+      const withUrls = await Promise.all(discovered.map(async (file) => ({
+        ...file,
+        url: api.getFileUrlDirect ? await api.getFileUrlDirect(file.path).catch(() => '') : '',
+      })))
+      setIrodoriComfyInputRoot(inputRoot)
+      setIrodoriComfyInputFiles(withUrls)
+    } catch (error) {
+      setIrodoriComfyInputFiles([])
+      setIrodoriComfyInputError(error?.message || 'ComfyUI Inputを読み取れませんでした。')
+    } finally {
+      setIrodoriComfyInputLoading(false)
+    }
+  }, [])
+
+  useEffect(() => {
+    if (!irodoriAssetBrowserOpen || irodoriAssetBrowserSource !== 'comfy-input') return
+    void scanIrodoriComfyInputAudio()
+  }, [irodoriAssetBrowserOpen, irodoriAssetBrowserSource, scanIrodoriComfyInputAudio])
+
+  const handleChooseIrodoriComfyInputAudio = useCallback(async (file) => {
+    if (!file?.path || irodoriComfyInputImportingPath) return
+    setIrodoriComfyInputImportingPath(file.path)
+    const asset = await importIrodoriReferenceAudioFile(file.path)
+    if (asset?.id) {
+      setSelectedAudioAsset(asset)
+      setSelectedAudioAssetId(asset.id)
+      setIrodoriAssetBrowserOpen(false)
+    }
+    setIrodoriComfyInputImportingPath('')
+  }, [importIrodoriReferenceAudioFile, irodoriComfyInputImportingPath])
   const handleImportYoloMusicCastImage = useCallback(async () => {
     if (yoloMusicCastImageImporting) return null
     if (!currentProjectHandle) {
@@ -7085,7 +7313,7 @@ function GenerateWorkspace({ onOpenWorkflowSetup = null }) {
     // Local workflows that honor a user-supplied FPS in their
     // modify*Workflow() helpers. Cloud partner-node workflows ignore
     // it (the provider returns its own FPS) so they stay excluded.
-    const customFpsWorkflowIds = new Set(['wan22-i2v', 'ltx23-i2v', MUSIC_VIDEO_SHOT_WORKFLOW_ID, CUSTOM_MUSIC_VIDEO_WORKFLOW_ID])
+    const customFpsWorkflowIds = new Set(['wan22-i2v', 'ltx23-i2v', UGC_EXACT_LIPSYNC_WORKFLOW_ID, MUSIC_VIDEO_SHOT_WORKFLOW_ID, CUSTOM_MUSIC_VIDEO_WORKFLOW_ID])
     return yoloSelectedVideoWorkflowIds.some((id) => customFpsWorkflowIds.has(String(id || '').trim()))
   }, [yoloSelectedVideoWorkflowIds])
   const yoloSelectedVideoWorkflowLabel = useMemo(
@@ -7149,12 +7377,17 @@ function GenerateWorkspace({ onOpenWorkflowSetup = null }) {
     yoloSelectedVideoTierMeta,
     yoloNormalizedAdVideoTier,
   ])
-  const yoloDependencyWorkflowIds = useMemo(() => Array.from(new Set([
-    yoloStoryboardWorkflowId,
-    ...yoloSelectedVideoWorkflowIds,
-  ].map((workflow) => String(workflow || '').trim()).filter((workflow) => (
-    workflow && workflow !== CUSTOM_MUSIC_KEYFRAME_WORKFLOW_ID && workflow !== CUSTOM_MUSIC_VIDEO_WORKFLOW_ID
-  )))), [
+  const yoloDependencyWorkflowIds = useMemo(() => isIrodoriVoiceCloneCreator
+    ? [selectedAudioAssetId || irodoriVoiceMode !== 'design' ? IRODORI_VOICE_CLONE_WORKFLOW_ID : IRODORI_VOICE_DESIGN_DEPENDENCY_ID]
+    : Array.from(new Set([
+      yoloStoryboardWorkflowId,
+      ...yoloSelectedVideoWorkflowIds,
+    ].map((workflow) => String(workflow || '').trim()).filter((workflow) => (
+      workflow && workflow !== CUSTOM_MUSIC_KEYFRAME_WORKFLOW_ID && workflow !== CUSTOM_MUSIC_VIDEO_WORKFLOW_ID
+    )))), [
+    isIrodoriVoiceCloneCreator,
+    selectedAudioAssetId,
+    irodoriVoiceMode,
     yoloStoryboardWorkflowId,
     yoloSelectedVideoWorkflowIds,
   ])
@@ -7656,6 +7889,11 @@ function GenerateWorkspace({ onOpenWorkflowSetup = null }) {
     const items = Array.isArray(batch.items) ? batch.items : []
     if (items.length === 0) return null
 
+    // PDF export is an occasional action and jspdf is relatively large. Keep
+    // it out of the initial Generate workspace load so the first tab visit is
+    // not delayed by code that most sessions never use.
+    const { jsPDF } = await import('jspdf')
+
     const sortedItems = [...items].sort((a, b) => {
       const sequenceDiff = (Number(a.sequence) || 0) - (Number(b.sequence) || 0)
       if (sequenceDiff !== 0) return sequenceDiff
@@ -8111,8 +8349,15 @@ function GenerateWorkspace({ onOpenWorkflowSetup = null }) {
     if (!confirmed) return
 
     if (hasActiveJobs) {
+      const cloudRuns = generationQueue.filter((job) => (
+        job.executionRuntimeId && job.executionRuntimeId !== LOCAL_COMFY_RUNTIME_ID
+        && job.promptId && ACTIVE_JOB_STATUSES.includes(job.status)
+      ))
+      await Promise.allSettled(cloudRuns.map((job) => cancelCloudRuntimeRun(job.executionRuntimeId, job.promptId)))
       try {
-        await comfyui.interrupt()
+        if (generationQueue.some((job) => (!job.executionRuntimeId || job.executionRuntimeId === LOCAL_COMFY_RUNTIME_ID) && ACTIVE_JOB_STATUSES.includes(job.status))) {
+          await comfyui.interrupt()
+        }
       } catch (_) {
         // ignore interrupt failure; queue reset still proceeds
       }
@@ -8181,6 +8426,113 @@ function GenerateWorkspace({ onOpenWorkflowSetup = null }) {
     addComfyLog('status', `Retrying failed job: ${failedJob.workflowLabel || failedJob.workflowId || failedJob.id}`)
   }, [addComfyLog])
 
+  const handleDeleteGenerationResult = useCallback(async (job) => {
+    const jobId = String(job?.id || '').trim()
+    const status = String(job?.status || '').toLowerCase()
+    if (!jobId || !['done', 'error', 'cancelled', 'canceled'].includes(status)) return
+    if (deletingGenerationJobIds.has(jobId)) return
+
+    const currentAssets = useAssetsStore.getState().assets || []
+    const history = useGenerationHistoryStore.getState()
+    const plan = planGenerationResultDeletion({
+      job,
+      assets: currentAssets,
+      historyRecords: history.records,
+    })
+    const hasOutputAssets = plan.assetIds.length > 0
+    const confirmed = await requestConfirm({
+      title: t('generate.queue.deleteResultTitle', {}, '生成結果を削除しますか？'),
+      message: hasOutputAssets
+        ? t('generate.queue.deleteResultWithFilesConfirm', { count: plan.assetIds.length }, 'この生成結果と関連する素材{{count}}件を削除します。プロジェクト内の生成ファイルも削除され、元に戻せません。入力・参照素材は削除されません。')
+        : t('generate.queue.deleteFailedResultConfirm', {}, 'この失敗した生成結果を一覧から削除します。'),
+      confirmLabel: t('generate.queue.deleteResult', {}, '結果を削除'),
+      cancelLabel: t('generate.queue.keepResult', {}, '残す'),
+      tone: 'danger',
+    })
+    if (!confirmed) return
+
+    setDeletingGenerationJobIds((current) => new Set(current).add(jobId))
+    let failedFileCount = 0
+    try {
+      if (currentProjectHandle) {
+        for (const relativePath of plan.relativePaths) {
+          try {
+            await deleteProjectFile(currentProjectHandle, relativePath)
+          } catch (_) {
+            failedFileCount += 1
+          }
+        }
+      } else {
+        failedFileCount += plan.relativePaths.length
+      }
+      if (isElectron() && window.electronAPI?.deleteFile) {
+        for (const absolutePath of plan.absolutePaths) {
+          try {
+            const result = await window.electronAPI.deleteFile(absolutePath)
+            if (result?.success === false) failedFileCount += 1
+          } catch (_) {
+            failedFileCount += 1
+          }
+        }
+      }
+
+      if (failedFileCount > 0) {
+        throw new Error(t(
+          'generate.queue.deleteResultFilesFailed',
+          { count: failedFileCount },
+          '関連ファイル{{count}}件を削除できませんでした。ファイルが使用中でないか確認して、もう一度お試しください。',
+        ))
+      }
+
+      plan.blobUrls.forEach((url) => {
+        try { URL.revokeObjectURL(url) } catch (_) {}
+      })
+      const assetsState = useAssetsStore.getState()
+      plan.assetIds.forEach((assetId) => assetsState.removeAsset(assetId))
+      plan.historyVersions.forEach(({ recordId, versionId }) => history.removeVersion(recordId, versionId))
+
+      setGenerationQueue((current) => current.filter((entry) => entry?.id !== jobId))
+      setJobWorkflowSnapshots((current) => {
+        if (!Object.prototype.hasOwnProperty.call(current, jobId)) return current
+        const next = { ...current }
+        delete next[jobId]
+        return next
+      })
+      executedWorkflowByJobIdRef.current.delete(jobId)
+      startedJobIdsRef.current.delete(jobId)
+      setLatestWorkflowPreview((current) => (
+        current?.asset?.id && plan.assetIds.includes(current.asset.id) ? null : current
+      ))
+      if (status === 'error') setFormError(null)
+      await saveProject?.()
+
+      const label = job.workflowLabel || job.workflowId || jobId
+      addComfyLog('status', hasOutputAssets
+        ? `Deleted generation result and ${plan.assetIds.length} project asset${plan.assetIds.length === 1 ? '' : 's'}: ${label}`
+        : `Removed failed generation result: ${label}`)
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error || 'Could not delete the generation result.')
+      setFormError(message)
+      addComfyLog('error', `Generation result deletion failed: ${message}`)
+    } finally {
+      setDeletingGenerationJobIds((current) => {
+        const next = new Set(current)
+        next.delete(jobId)
+        return next
+      })
+    }
+  }, [addComfyLog, currentProjectHandle, deletingGenerationJobIds, requestConfirm, saveProject, t])
+
+  const handleGenerationHistoryAssetsDeleted = useCallback((assetIds = []) => {
+    const deletedIds = new Set((Array.isArray(assetIds) ? assetIds : []).filter(Boolean))
+    if (deletedIds.size === 0) return
+    setGenerationQueue((current) => current.filter((job) => {
+      const resultIds = Array.isArray(job?.resultAssetIds) ? job.resultAssetIds.filter(Boolean) : []
+      if (resultIds.length === 0) return true
+      return !resultIds.every((assetId) => deletedIds.has(assetId))
+    }))
+  }, [])
+
   const handleOpenJobWorkflowInComfyUi = useCallback(async (job) => {
     const apiWorkflow = jobWorkflowSnapshots[job?.id]
     if (!apiWorkflow) return
@@ -8234,6 +8586,10 @@ function GenerateWorkspace({ onOpenWorkflowSetup = null }) {
       category,
       workflowId,
       workflowLabel: selectedWorkflowManifest?.title || currentWorkflow?.label || workflowId,
+      executionRuntimeId: isImportedWorkflowId(overrides.workflowId || workflowId)
+        && cloudRuntimeSettings.providers.some((provider) => provider.id === cloudRuntimeSettings.routing?.importedApiWorkflows && provider.hasCredential)
+        ? cloudRuntimeSettings.routing.importedApiWorkflows
+        : LOCAL_COMFY_RUNTIME_ID,
       needsImage: !!(selectedWorkflowManifest?.needsImage ?? currentWorkflow?.needsImage),
       inputAssetType: selectedWorkflowManifest?.inputAssetType || primaryAssetSlot?.assetType || ((selectedWorkflowManifest?.needsImage ?? currentWorkflow?.needsImage) ? 'image' : null),
       prompt: fullPrompt,
@@ -8301,6 +8657,7 @@ function GenerateWorkspace({ onOpenWorkflowSetup = null }) {
     assets,
     bpm,
     category,
+    cloudRuntimeSettings,
     currentProject?.created,
     currentProject?.name,
     currentProjectHandle,
@@ -8390,7 +8747,7 @@ function GenerateWorkspace({ onOpenWorkflowSetup = null }) {
     const providerLabel = providerId === 'irodori' ? 'Irodori-TTS' : 'ElevenLabs'
     const depsOk = await validateDependenciesForQueue([voiceWorkflowId], `short film voices (${providerLabel})`)
     if (!depsOk) {
-      onOpenWorkflowSetup?.()
+      onOpenWorkflowSetup?.({ workflowIds: [voiceWorkflowId] })
       return { queued: 0, skipped: 0, message: `Voice queue blocked by missing ${providerLabel} requirements. Use Workflow Setup to install them, restart ComfyUI when prompted, then queue again.` }
     }
 
@@ -11434,13 +11791,10 @@ function GenerateWorkspace({ onOpenWorkflowSetup = null }) {
       const hasTalkingTalent = talent.includes('spokesperson') || talent.includes('testimonial')
       return hasTalkingTalent && Boolean(String(variant?.dialogue || '').trim()) && !isSilentUgcDialogue(variant?.dialogue)
     }
-    // UGC voiceover: when the user generated a consistent voice clip for this
-    // shot (yoloUgcVoiceAssetMap, keyed by variant.key) and is rendering with
-    // local LTX 2.3, route to the LTX 2.3 ID-LoRA lip-sync graph so the clip
-    // drives the mouth (real lip-sync via the talkvid ID LoRA) and the voice
-    // stays identical across shots — instead of LTX I2V inventing a fresh voice
-    // per shot. (Plain ltx23-ia2v carries the audio but does NOT articulate the
-    // mouth, so it is not used here.) Silent shots keep plain I2V.
+    // UGC voiceover: Exact Audio keeps the completed TTS waveform and inserts
+    // LatentSync after the LTX frame render. The legacy LTX option auto-routes
+    // voiced shots to TalkVid, where the clip is only a voice/performance
+    // reference and speech is regenerated. Silent shots always stay plain I2V.
     const ugcVoiceAssetForVariant = (variant) => {
       if (!isUgcAdCreator || isYoloMusicMode) return null
       if (isSilentUgcDialogue(variant?.dialogue)) return null
@@ -11448,6 +11802,9 @@ function GenerateWorkspace({ onOpenWorkflowSetup = null }) {
     }
     const resolveVariantWorkflowId = (variant) => {
       if (adVariantNeedsLipSync(variant)) return MUSIC_VIDEO_SHOT_WORKFLOW_ID
+      if (workflowId === UGC_EXACT_LIPSYNC_WORKFLOW_ID) {
+        return ugcVoiceAssetForVariant(variant) ? UGC_EXACT_LIPSYNC_WORKFLOW_ID : 'ltx23-i2v'
+      }
       if (workflowId === 'ltx23-i2v' && ugcVoiceAssetForVariant(variant)) return 'ltx23-id-lora'
       return workflowId
     }
@@ -11533,7 +11890,7 @@ function GenerateWorkspace({ onOpenWorkflowSetup = null }) {
       // Same set as yoloSelectedVideoWorkflowSupportsCustomFps — only
       // workflows whose modify*Workflow helper accepts an fps input
       // get the user's YOLO FPS setting; cloud providers ignore it.
-      const customFpsWorkflowIds = new Set(['wan22-i2v', 'ltx23-i2v', 'ltx23-ia2v', 'ltx23-id-lora', MUSIC_VIDEO_SHOT_WORKFLOW_ID, CUSTOM_MUSIC_VIDEO_WORKFLOW_ID])
+      const customFpsWorkflowIds = new Set(['wan22-i2v', 'ltx23-i2v', 'ltx23-ia2v', 'ltx23-id-lora', UGC_EXACT_LIPSYNC_WORKFLOW_ID, MUSIC_VIDEO_SHOT_WORKFLOW_ID, CUSTOM_MUSIC_VIDEO_WORKFLOW_ID])
       const requestedFps = customFpsWorkflowIds.has(String(effectiveWorkflowId || '').trim())
         ? (Number(yoloVideoFps) || 24)
         : null
@@ -11573,10 +11930,10 @@ function GenerateWorkspace({ onOpenWorkflowSetup = null }) {
       // creator (isYoloMusicMode / MUSIC_VIDEO_SHOT_WORKFLOW_ID), short film
       // (separate handleQueueShortFilmVideos path), and the Business creator
       // (isUgcAdCreator). See removeUgcSceneBriefFragments for the rationale.
-      const isUgcLtxAdVideo = isUgcAdCreator && !isYoloMusicMode && (effectiveWorkflowId === 'ltx23-i2v' || effectiveWorkflowId === 'ltx23-ia2v' || effectiveWorkflowId === 'ltx23-id-lora')
+      const isUgcLtxAdVideo = isUgcAdCreator && !isYoloMusicMode && (effectiveWorkflowId === 'ltx23-i2v' || effectiveWorkflowId === 'ltx23-ia2v' || effectiveWorkflowId === 'ltx23-id-lora' || effectiveWorkflowId === UGC_EXACT_LIPSYNC_WORKFLOW_ID)
       // When this UGC shot resolved to an LTX audio-driven graph, attach the
       // matching voice clip so runJob uploads it and feeds it in as the audio.
-      const ugcVoiceAsset = (effectiveWorkflowId === 'ltx23-ia2v' || effectiveWorkflowId === 'ltx23-id-lora') ? ugcVoiceAssetForVariant(variant) : null
+      const ugcVoiceAsset = (effectiveWorkflowId === 'ltx23-ia2v' || effectiveWorkflowId === 'ltx23-id-lora' || effectiveWorkflowId === UGC_EXACT_LIPSYNC_WORKFLOW_ID) ? ugcVoiceAssetForVariant(variant) : null
       const adVideoPromptCleanSource = isUgcLtxAdVideo
         ? removeUgcSceneBriefFragments(adVideoPromptSource)
         : adVideoPromptSource
@@ -11585,6 +11942,15 @@ function GenerateWorkspace({ onOpenWorkflowSetup = null }) {
           omitTerms: [yoloAdBrandName, yoloAdProductName],
         })
         : null
+      const isUgcIdLoraVideo = isUgcAdCreator && !isYoloMusicMode && effectiveWorkflowId === 'ltx23-id-lora'
+      const idLoraDialogue = isUgcIdLoraVideo ? extractUgcDialogueFromVariant(variant) : ''
+      const idLoraUgcPrompt = isUgcIdLoraVideo
+        ? [
+          `[VISUAL]: ${adVideoPrompt || 'The creator speaks naturally to the camera with clear, believable mouth movement.'}`,
+          `[SPEECH]: ${idLoraDialogue}`,
+          '[SOUNDS]: Clean close-microphone speech. Preserve the supplied reference voice character and natural delivery. No music and no extra spoken words.',
+        ].join('\n')
+        : ''
       const seedanceUgcDialogue = isSeedanceUgcVideo ? extractUgcDialogueFromVariant(variant) : ''
       const seedanceUgcVisualPrompt = isSeedanceUgcVideo
         ? buildAdVideoPromptWithNoTextGuard([
@@ -11616,7 +11982,7 @@ function GenerateWorkspace({ onOpenWorkflowSetup = null }) {
         inputAssetId: storyboardAsset.id,
         inputAssetName: storyboardAsset.name || variant.key,
         inputFromTimelineFrame: false,
-        prompt: musicShotPayload?.shotPrompt || seedanceUgcPrompt || adVideoPrompt || variant.videoPrompt || variant.prompt,
+        prompt: musicShotPayload?.shotPrompt || seedanceUgcPrompt || idLoraUgcPrompt || adVideoPrompt || variant.videoPrompt || variant.prompt,
         negativePrompt: !isYoloMusicMode
           ? buildAdVideoNegativePrompt(negativePrompt)
           : buildMusicVideoNegativePrompt(negativePrompt, musicShotPayload?.shotType),
@@ -11731,6 +12097,8 @@ function GenerateWorkspace({ onOpenWorkflowSetup = null }) {
 
   const handleQueueUgcVoices = useCallback(async (options = {}) => {
     const {
+      provider = 'elevenlabs',
+      language = 'en',
       voice = 'Jessica (female, american)',
       stability = 0.5,
       similarityBoost = 0.75,
@@ -11774,13 +12142,21 @@ function GenerateWorkspace({ onOpenWorkflowSetup = null }) {
       return { queued: 0, skipped: 0 }
     }
 
-    const depsOk = await validateDependenciesForQueue([ELEVENLABS_TTS_WORKFLOW_ID], 'UGC voiceover')
+    const providerId = String(provider || '').trim() === 'irodori' ? 'irodori' : 'elevenlabs'
+    const languageCode = String(language || '').trim().toLowerCase() === 'ja' ? 'ja' : 'en'
+    if (providerId === 'irodori' && languageCode !== 'ja') {
+      setFormError('Irodori-TTS is available for Japanese dialogue. Select Japanese or use ElevenLabs for English.')
+      return { queued: 0, skipped: 0 }
+    }
+    const voiceWorkflowId = providerId === 'irodori' ? IRODORI_TTS_WORKFLOW_ID : ELEVENLABS_TTS_WORKFLOW_ID
+    const providerLabel = providerId === 'irodori' ? 'Irodori-TTS' : 'ElevenLabs'
+    const depsOk = await validateDependenciesForQueue([voiceWorkflowId], `UGC voiceover (${providerLabel})`)
     if (!depsOk) return { queued: 0, skipped: 0 }
 
     const activeVoiceKeys = new Set(
       generationQueue
         .filter((job) => (
-          job?.workflowId === ELEVENLABS_TTS_WORKFLOW_ID &&
+          job?.workflowId === voiceWorkflowId &&
           NON_TERMINAL_JOB_STATUSES.includes(job.status) &&
           job?.yolo?.stage === 'voice' &&
           job?.yolo?.variantKey
@@ -11798,13 +12174,15 @@ function GenerateWorkspace({ onOpenWorkflowSetup = null }) {
       const line = lineTextFor(variant)
       // A retake (force) wants a genuinely different read, so vary the seed;
       // a fresh batch stays deterministic per line.
-      const lineSeed = force
-        ? Number(seed) + index + 1 + Math.floor(Math.random() * 1000000)
-        : Number(seed) + index + 1
+      const lineSeed = providerId === 'irodori'
+        ? (force ? Number(seed) + Math.floor(Math.random() * 1000000) : Number(seed) || 1)
+        : (force
+            ? Number(seed) + index + 1 + Math.floor(Math.random() * 1000000)
+            : Number(seed) + index + 1)
       jobs.push(createQueuedJob({
         category: 'audio',
-        workflowId: ELEVENLABS_TTS_WORKFLOW_ID,
-        workflowLabel: 'UGC Voiceover (ElevenLabs)',
+        workflowId: voiceWorkflowId,
+        workflowLabel: `UGC Voiceover (${providerLabel})`,
         needsImage: false,
         inputAssetType: null,
         inputAssetId: null,
@@ -11825,15 +12203,28 @@ function GenerateWorkspace({ onOpenWorkflowSetup = null }) {
           similarityBoost,
           useSpeakerBoost: false,
           style,
-          languageCode: '',
+          languageCode,
           outputFormat: 'mp3_44100_192',
+        },
+        irodoriTts: {
+          text: line,
+          model: IRODORI_TTS_MODEL_FILENAME,
+          seconds: 0,
+          numSteps: 40,
+          modelDevice: 'cuda',
+          modelPrecision: 'bf16',
+          codecDevice: 'cpu',
+          codecPrecision: 'fp32',
+          runtimeCachePolicy: 'offload_after_use',
         },
         yolo: {
           mode: yoloModeKey,
           stage: 'voice',
           key: variant.key,
           variantKey: variant.key,
-          workflowId: ELEVENLABS_TTS_WORKFLOW_ID,
+          workflowId: voiceWorkflowId,
+          voiceProvider: providerId,
+          voiceLanguage: languageCode,
           sceneId: variant.sceneId,
           shotId: variant.shotId,
           angle: variant.angle,
@@ -11864,6 +12255,91 @@ function GenerateWorkspace({ onOpenWorkflowSetup = null }) {
     yoloModeKey,
     yoloQueueNameLabel,
   ])
+
+  const handleQueueIrodoriVoiceClone = useCallback(async (options = {}) => {
+    const cleanText = String(options?.text || '').trim()
+    const referenceAudioAssetId = String(options?.referenceAudioAssetId || '').trim()
+    const requestedVoiceMode = String(options?.voiceMode || 'standard').trim()
+    const voiceDesignCaption = String(options?.voiceDesignCaption || '').trim()
+    if (!isConnected) {
+      setFormError('ComfyUIが接続されていません。ComfyUIを起動してから音声を生成してください。')
+      return { queued: 0 }
+    }
+    if (!cleanText) {
+      setFormError('読み上げる台詞を入力してください。')
+      return { queued: 0 }
+    }
+    const referenceAsset = referenceAudioAssetId
+      ? assets.find((asset) => asset?.id === referenceAudioAssetId && asset?.type === 'audio')
+      : null
+    if (referenceAudioAssetId && !referenceAsset) {
+      setFormError('選択した参照音声がプロジェクト素材に見つかりません。')
+      return { queued: 0 }
+    }
+    if (!referenceAsset && requestedVoiceMode === 'design' && !voiceDesignCaption) {
+      setFormError('参照音声がない場合は声質プロンプトを入力してください。')
+      return { queued: 0 }
+    }
+    const isVoiceDesign = !referenceAsset && requestedVoiceMode === 'design'
+    const isStandardVoice = !referenceAsset && !isVoiceDesign
+    const dependencyId = isVoiceDesign ? IRODORI_VOICE_DESIGN_DEPENDENCY_ID : IRODORI_VOICE_CLONE_WORKFLOW_ID
+    const dependencyLabel = isVoiceDesign ? 'Irodori Voice Design' : isStandardVoice ? 'Irodori Standard Voice' : 'Irodori Voice Clone'
+    const depsOk = await validateDependenciesForQueue([dependencyId], dependencyLabel)
+    if (!depsOk) {
+      onOpenWorkflowSetup?.({ workflowIds: [dependencyId] })
+      return {
+        queued: 0,
+        message: isVoiceDesign
+          ? 'VoiceDesignモデルまたは必要ノードが未導入です。Workflow Setupから導入してください。'
+          : 'Irodori-TTSの必要モデルまたはノードが未導入です。Workflow Setupから導入してください。',
+      }
+    }
+
+    const job = createQueuedJob({
+      category: 'audio',
+      workflowId: IRODORI_VOICE_CLONE_WORKFLOW_ID,
+      workflowLabel: dependencyLabel,
+      needsImage: false,
+      inputAssetType: null,
+      inputAssetId: null,
+      inputAssetName: '',
+      audioAssetId: referenceAsset?.id || null,
+      audioAssetName: referenceAsset?.name || '',
+      prompt: cleanText,
+      musicTags: cleanText,
+      duration: null,
+      fps: null,
+      resolution: null,
+      seed: Math.max(0, Math.round(Number(options?.seed) || 0)),
+      directorLabel: 'Irodori Voice Studio',
+      irodoriVoiceClone: {
+        text: cleanText,
+        model: isVoiceDesign ? IRODORI_VOICE_DESIGN_MODEL_FILENAME : IRODORI_TTS_MODEL_FILENAME,
+        seconds: 0,
+        numSteps: Math.max(1, Math.min(120, Math.round(Number(options?.numSteps) || 30))),
+        normalizeReference: Boolean(options?.normalizeReference),
+        maxReferenceSeconds: Math.max(1, Math.min(120, Number(options?.maxReferenceSeconds) || 30)),
+        voiceDesignCaption: isVoiceDesign ? voiceDesignCaption : '',
+        cfgText: 3,
+        cfgSpeaker: Math.max(0, Math.min(10, Number(options?.cfgSpeaker) || 5)),
+        cfgCaption: Math.max(0, Math.min(10, Number(options?.cfgCaption) || 3)),
+        outputFormat: 'flac',
+      },
+      yolo: {
+        mode: isVoiceDesign ? 'voice-design' : isStandardVoice ? 'voice-standard' : 'voice-clone',
+        stage: isVoiceDesign ? 'irodori-voice-design' : isStandardVoice ? 'irodori-voice-standard' : 'irodori-voice-clone',
+        workflowId: IRODORI_VOICE_CLONE_WORKFLOW_ID,
+        referenceAudioAssetId: referenceAsset?.id || null,
+        voiceDesignCaption: isVoiceDesign ? voiceDesignCaption : '',
+        dialogue: cleanText,
+      },
+    })
+
+    setGenerationQueue((prev) => [...prev, job])
+    setFormError(null)
+    addComfyLog('status', `${dependencyLabel} queued`)
+    return { queued: 1, jobId: job.id }
+  }, [addComfyLog, assets, createQueuedJob, isConnected, onOpenWorkflowSetup, validateDependenciesForQueue])
 
   // One-time generation of voice audition clips. Each clip is a short fixed
   // identity line on the stable v2 model; results are cached globally by
@@ -12620,7 +13096,7 @@ function GenerateWorkspace({ onOpenWorkflowSetup = null }) {
         const mappedDuration = durationOptions.reduce((closest, candidate) => (
           Math.abs(candidate - requestedDuration) < Math.abs(closest - requestedDuration) ? candidate : closest
         ), durationOptions[0])
-        const customFpsWorkflowIds = new Set(['wan22-i2v', 'ltx23-i2v', 'ltx23-ia2v', 'ltx23-id-lora', MUSIC_VIDEO_SHOT_WORKFLOW_ID, CUSTOM_MUSIC_VIDEO_WORKFLOW_ID])
+        const customFpsWorkflowIds = new Set(['wan22-i2v', 'ltx23-i2v', 'ltx23-ia2v', 'ltx23-id-lora', UGC_EXACT_LIPSYNC_WORKFLOW_ID, MUSIC_VIDEO_SHOT_WORKFLOW_ID, CUSTOM_MUSIC_VIDEO_WORKFLOW_ID])
         variantReports.push({
           key: variant.key,
           scopedKey,
@@ -13808,13 +14284,13 @@ function GenerateWorkspace({ onOpenWorkflowSetup = null }) {
   ])
 
   const handleGenerate = () => {
-    if (!isConnected && !allowQueueWhileWaiting) {
+    if (!selectedCloudRuntime && !isConnected && !allowQueueWhileWaiting) {
       return {
         success: false,
         message: 'ComfyUI is not connected yet. Start ComfyUI, then queue generation.',
       }
     }
-    if (!isConnected && launcherCanAutoStart) {
+    if (!selectedCloudRuntime && !isConnected && launcherCanAutoStart) {
       void startComfyLauncher()
     }
     if (generationMode === 'yolo') {
@@ -15581,6 +16057,19 @@ function GenerateWorkspace({ onOpenWorkflowSetup = null }) {
       importedMediaSignaturesRef.current.add(signature)
       return false
     }
+    const getGenerationOutputUrl = (item) => item?.presignedUrl
+      || comfyui.getMediaUrl(item?.filename, item?.subfolder, item?.outputType)
+    const downloadGenerationOutput = async (item, kind) => {
+      if (!item?.presignedUrl) {
+        return kind === 'video'
+          ? comfyui.downloadVideo(item.filename, item.subfolder, item.outputType)
+          : comfyui.downloadImage(item.filename, item.subfolder, item.outputType)
+      }
+      const response = await fetch(item.presignedUrl)
+      if (!response.ok) throw new Error(`Cloud output download failed (HTTP ${response.status}).`)
+      const blob = await response.blob()
+      return new File([blob], item.filename, { type: item.mimeType || blob.type || (kind === 'video' ? 'video/mp4' : 'image/png') })
+    }
 
     const jobPrompt = job?.prompt || ''
     const jobTags = job?.musicTags || ''
@@ -15659,7 +16148,7 @@ function GenerateWorkspace({ onOpenWorkflowSetup = null }) {
         const item = freshVideoItems[videoIndex]
         const videoAssetName = `${shortFilmVideoName || resolvedName}${freshVideoItems.length > 1 ? ` (${videoIndex + 1})` : ''}`
         try {
-          const videoFile = await comfyui.downloadVideo(item.filename, item.subfolder, item.outputType)
+          const videoFile = await downloadGenerationOutput(item, 'video')
           const assetInfo = await importAsset(targetProjectHandle, videoFile, 'video')
           const blobUrl = importsIntoActiveProject ? URL.createObjectURL(videoFile) : null
           const newAsset = await saveImportedAssetRecord({
@@ -15693,7 +16182,7 @@ function GenerateWorkspace({ onOpenWorkflowSetup = null }) {
           console.error('Failed to save video:', err)
           if (!importsIntoActiveProject) throw err
           // Fallback: use ComfyUI URL
-          const url = comfyui.getMediaUrl(item.filename, item.subfolder, item.outputType)
+          const url = getGenerationOutputUrl(item)
           const fallbackAsset = addAsset({
             name: videoAssetName,
             type: 'video',
@@ -15747,7 +16236,7 @@ function GenerateWorkspace({ onOpenWorkflowSetup = null }) {
           generatedImageFolderId = getGeneratedFolderId('image', generatedImageFolderPath)
         }
         try {
-          const imageFile = await comfyui.downloadImage(img.filename, img.subfolder, img.outputType)
+          const imageFile = await downloadGenerationOutput(img, 'image')
           const assetInfo = await importAsset(targetProjectHandle, imageFile, 'images')
           const blobUrl = importsIntoActiveProject ? URL.createObjectURL(imageFile) : null
           const wizardImageName = peopleWizardAssetPrefix ? buildPeopleWizardAssetName(peopleWizardAssetPrefix, 'image', resolvedName) : ''
@@ -15770,7 +16259,7 @@ function GenerateWorkspace({ onOpenWorkflowSetup = null }) {
         } catch (err) {
           console.warn('Failed to save image:', err)
           if (!importsIntoActiveProject) throw err
-          const url = comfyui.getMediaUrl(img.filename, img.subfolder, img.outputType)
+          const url = getGenerationOutputUrl(img)
           const wizardImageName = peopleWizardAssetPrefix ? buildPeopleWizardAssetName(peopleWizardAssetPrefix, 'image', resolvedName) : ''
           const baseImageName = wizardImageName || shortFilmKeyframeName || resolvedName
           const imageName = imageItems.length > 1 ? `${baseImageName}_I${imageIndex + 1}` : baseImageName
@@ -15795,7 +16284,7 @@ function GenerateWorkspace({ onOpenWorkflowSetup = null }) {
       if (directorMeta?.stage === 'voice-preview') {
         const voiceName = directorMeta?.voicePreviewVoice || job?.elevenLabsTts?.voice || ''
         try {
-          const url = comfyui.getMediaUrl(result.filename, result.subfolder, result.outputType)
+          const url = getGenerationOutputUrl(result)
           const resp = await fetch(url)
           const blob = await resp.blob()
           const dataUrl = await blobToDataUrl(blob)
@@ -15821,10 +16310,18 @@ function GenerateWorkspace({ onOpenWorkflowSetup = null }) {
         ? `VO ${String((Number(shortFilmMeta.lineIndex) || 0) + 1).padStart(2, '0')} - ${shortFilmMeta.speaker || 'Character'}`
         : ''
       try {
-        const url = comfyui.getMediaUrl(result.filename, result.subfolder, result.outputType)
+        const url = getGenerationOutputUrl(result)
         const resp = await fetch(url)
         const blob = await resp.blob()
-        const file = new File([blob], result.filename, { type: 'audio/mpeg' })
+        const audioExtension = String(result.filename || '').split('.').pop()?.toLowerCase()
+        const audioMimeType = audioExtension === 'flac'
+          ? 'audio/flac'
+          : audioExtension === 'wav'
+            ? 'audio/wav'
+            : audioExtension === 'ogg' || audioExtension === 'opus'
+              ? 'audio/ogg'
+              : 'audio/mpeg'
+        const file = new File([blob], result.filename, { type: blob.type || audioMimeType })
         const assetInfo = await importAsset(targetProjectHandle, file, 'audio')
         const blobUrl = importsIntoActiveProject ? URL.createObjectURL(file) : null
         const newAsset = await saveImportedAssetRecord({
@@ -15844,7 +16341,7 @@ function GenerateWorkspace({ onOpenWorkflowSetup = null }) {
       } catch (err) {
         console.warn('Failed to save audio:', err)
         if (!importsIntoActiveProject) throw err
-        const url = comfyui.getMediaUrl(result.filename, result.subfolder, result.outputType)
+        const url = getGenerationOutputUrl(result)
         const fallbackAsset = addAsset({
           name: shortFilmVoiceName || (directorMeta ? resolvedName : autoName),
           type: 'audio',
@@ -16138,6 +16635,15 @@ function GenerateWorkspace({ onOpenWorkflowSetup = null }) {
         return new File([result.data], filename, { type: mimeType })
       }
       const importedJobEntry = isImportedWorkflowId(job.workflowId) ? getImportedWorkflowEntry(job.workflowId) : null
+      const executionRuntimeId = String(job.executionRuntimeId || LOCAL_COMFY_RUNTIME_ID)
+      const isCloudRuntimeJob = executionRuntimeId !== LOCAL_COMFY_RUNTIME_ID && Boolean(importedJobEntry)
+      const uploadGenerationFile = async (file) => {
+        if (!isCloudRuntimeJob) return comfyui.uploadFile(file)
+        const uploaded = await uploadCloudRuntimeFile(executionRuntimeId, file)
+        const inputPath = uploaded?.input_path || uploaded?.inputPath || uploaded?.full_path || uploaded?.path
+        if (!inputPath) throw new Error(`${executionRuntimeId} uploaded the file but did not return an input path.`)
+        return { ...uploaded, name: inputPath }
+      }
       const outputPrefix = importedJobEntry ? (
         `${importedJobEntry.manifest?.outputType === 'image'
           ? 'image'
@@ -16199,19 +16705,22 @@ function GenerateWorkspace({ onOpenWorkflowSetup = null }) {
       }
 
       if (job.promptId) {
-        markPromptHandledByApp(job.promptId)
+        if (!isCloudRuntimeJob) markPromptHandledByApp(job.promptId)
         updateJob(job.id, {
           status: 'running',
           progress: Math.max(Number(job.progress) || 0, 45),
           error: null,
         })
-        addComfyLog('status', `Reconnected to prompt ${String(job.promptId).slice(0, 8)}…`)
-        const result = await pollForResult(job.promptId, job.workflowId, (p) => {
+        addComfyLog('status', `Reconnected to ${isCloudRuntimeJob ? `${executionRuntimeId} run` : 'prompt'} ${String(job.promptId).slice(0, 12)}…`)
+        const updateRunProgress = (p) => {
           updateJob(job.id, (prev) => ({
             ...prev,
             progress: Math.max(prev.progress || 0, p)
           }))
-        }, outputPrefix)
+        }
+        const result = isCloudRuntimeJob
+          ? cloudRuntimeRunToGenerationResult(await pollCloudRuntimeRun(executionRuntimeId, job.promptId, { onProgress: updateRunProgress }))
+          : await pollForResult(job.promptId, job.workflowId, updateRunProgress, outputPrefix)
 
         if (result) {
           updateJob(job.id, { status: 'saving', progress: 95 })
@@ -16266,7 +16775,7 @@ function GenerateWorkspace({ onOpenWorkflowSetup = null }) {
           if (!fileToUpload) throw new Error('Unsupported input asset')
         }
 
-        const uploadResult = await comfyui.uploadFile(fileToUpload)
+        const uploadResult = await uploadGenerationFile(fileToUpload)
         if (job.inputAssetType === 'video') {
           uploadedVideoFilename = uploadResult?.name || fileToUpload.name
         } else {
@@ -16281,7 +16790,7 @@ function GenerateWorkspace({ onOpenWorkflowSetup = null }) {
       let uploadedAudioFilename = null
       const audioUploadAssetId = job.workflowId === MUSIC_VIDEO_SHOT_WORKFLOW_ID || job.workflowId === CUSTOM_MUSIC_VIDEO_WORKFLOW_ID
         ? job.musicAudioAssetId
-        : (job.workflowId === 'ltx23-ia2v' || job.workflowId === 'ltx23-id-lora' || job.workflowId === SHORT_FILM_DIALOGUE_VIDEO_WORKFLOW_ID ? job.audioAssetId : null)
+        : (job.workflowId === 'ltx23-ia2v' || job.workflowId === 'ltx23-id-lora' || job.workflowId === UGC_EXACT_LIPSYNC_WORKFLOW_ID || job.workflowId === SHORT_FILM_DIALOGUE_VIDEO_WORKFLOW_ID || job.workflowId === IRODORI_VOICE_CLONE_WORKFLOW_ID ? job.audioAssetId : null)
       if (audioUploadAssetId) {
         const audioAsset = findJobAsset(audioUploadAssetId, 'audio')
         if (!audioAsset) {
@@ -16319,7 +16828,7 @@ function GenerateWorkspace({ onOpenWorkflowSetup = null }) {
             file = await createFileFromJobAsset(audioAsset, `audio_${Date.now()}.mp3`)
           }
           if (!file) throw new Error('Audio asset is not accessible')
-          const uploadResult = await comfyui.uploadFile(file)
+          const uploadResult = await uploadGenerationFile(file)
           uploadedAudioFilename = uploadResult?.name || file.name
         } catch (audioError) {
           throw new Error(`Failed to upload audio: ${audioError?.message || audioError}`)
@@ -16338,7 +16847,7 @@ function GenerateWorkspace({ onOpenWorkflowSetup = null }) {
             const fallbackName = `${fieldId}_${Date.now()}${asset.type === 'video' ? '.mp4' : asset.type === 'audio' ? '.mp3' : '.png'}`
             const file = await createFileFromJobAsset(asset, fallbackName)
             if (!file) throw new Error('Asset is not accessible')
-            const uploadResult = await comfyui.uploadFile(file)
+            const uploadResult = await uploadGenerationFile(file)
             assetFieldFilenames[fieldId] = uploadResult?.name || file.name
           } catch (assetError) {
             throw new Error(`Failed to upload ${fieldId}: ${assetError?.message || assetError}`)
@@ -16372,7 +16881,7 @@ function GenerateWorkspace({ onOpenWorkflowSetup = null }) {
               referenceFilenames.push(null)
               continue
             }
-            const uploadResult = await comfyui.uploadFile(file)
+            const uploadResult = await uploadGenerationFile(file)
             referenceFilenames.push(uploadResult?.name || file.name)
           } catch (_) {
             referenceFilenames.push(null)
@@ -16441,6 +16950,7 @@ function GenerateWorkspace({ onOpenWorkflowSetup = null }) {
         modifyLTX23I2VWorkflow,
         modifyLTX23IA2VWorkflow,
         modifyLTX23IdLoraWorkflow,
+        modifyLTX23LatentSyncWorkflow,
         modifyMultipleAnglesWorkflow,
         modifyQwenImageEdit2509Workflow,
         modifyCustomKeyframeWorkflow,
@@ -16460,6 +16970,7 @@ function GenerateWorkspace({ onOpenWorkflowSetup = null }) {
         modifyMusicVideoShotWorkflow,
         modifyElevenLabsTextToSpeechWorkflow,
         modifyIrodoriTextToSpeechWorkflow,
+        modifyIrodoriVoiceCloneWorkflow,
         modifyLocalApiWorkflow,
         modifyFrameInterpolationWorkflow,
         modifyTopazVideoUpscaleWorkflow,
@@ -16885,6 +17396,20 @@ function GenerateWorkspace({ onOpenWorkflowSetup = null }) {
             filenamePrefix: outputPrefix || 'audio/short_film_voice',
           })
           break
+        case UGC_EXACT_LIPSYNC_WORKFLOW_ID:
+          modifiedWorkflow = modifyLTX23LatentSyncWorkflow(workflowJson, {
+            prompt: job.prompt,
+            negativePrompt: job.negativePrompt,
+            inputImage: uploadedFilename,
+            inputAudio: uploadedAudioFilename,
+            width: job.resolution?.width,
+            height: job.resolution?.height,
+            duration: job.duration,
+            fps: job.fps,
+            seed: job.seed,
+            filenamePrefix: outputPrefix || 'video/ltx23_latentsync',
+          })
+          break
         case IRODORI_TTS_WORKFLOW_ID:
           modifiedWorkflow = modifyIrodoriTextToSpeechWorkflow(workflowJson, {
             ...(job.irodoriTts || {}),
@@ -16892,6 +17417,16 @@ function GenerateWorkspace({ onOpenWorkflowSetup = null }) {
             model: job.irodoriTts?.model || IRODORI_TTS_MODEL_FILENAME,
             seed: job.seed,
             filenamePrefix: outputPrefix || 'audio/short_film_irodori',
+          })
+          break
+        case IRODORI_VOICE_CLONE_WORKFLOW_ID:
+          modifiedWorkflow = modifyIrodoriVoiceCloneWorkflow(workflowJson, {
+            ...(job.irodoriVoiceClone || {}),
+            text: job.irodoriVoiceClone?.text || job.prompt,
+            inputAudio: uploadedAudioFilename,
+            model: job.irodoriVoiceClone?.model || IRODORI_TTS_MODEL_FILENAME,
+            seed: job.seed,
+            filenamePrefix: outputPrefix || 'audio/irodori_voice_studio',
           })
           break
         default:
@@ -16917,24 +17452,30 @@ function GenerateWorkspace({ onOpenWorkflowSetup = null }) {
       setJobWorkflowSnapshots((current) => ({ ...current, [job.id]: modifiedWorkflow }))
       updateJob(job.id, { status: 'queuing', progress: 40 })
       executedWorkflowByJobIdRef.current.set(job.id, modifiedWorkflow)
-      const promptId = await comfyui.queuePrompt(modifiedWorkflow)
-      if (!promptId) throw new Error('Failed to queue prompt')
+      const queuedRun = isCloudRuntimeJob
+        ? await createCloudRuntimeRun(executionRuntimeId, modifiedWorkflow, { name: `Lumeweft · ${job.workflowLabel || job.workflowId}` })
+        : null
+      const promptId = isCloudRuntimeJob ? queuedRun?.id : await comfyui.queuePrompt(modifiedWorkflow)
+      if (!promptId) throw new Error(isCloudRuntimeJob ? `${executionRuntimeId} did not return a run ID.` : 'Failed to queue prompt')
 
       // Claim this prompt ID so the ComfyUI-tab auto-import bridge
       // doesn't also try to import the same outputs into
       // `Imported from ComfyUI/` (we're already importing them into
       // `Generated/` via saveGenerationResult below).
-      markPromptHandledByApp(promptId)
+      if (!isCloudRuntimeJob) markPromptHandledByApp(promptId)
 
       updateJob(job.id, { status: 'running', progress: 45, promptId })
 
       // Poll for completion
-      const result = await pollForResult(promptId, job.workflowId, (p) => {
+      const updateRunProgress = (p) => {
         updateJob(job.id, (prev) => ({
           ...prev,
           progress: Math.max(prev.progress || 0, p)
         }))
-      }, outputPrefix)
+      }
+      const result = isCloudRuntimeJob
+        ? cloudRuntimeRunToGenerationResult(await pollCloudRuntimeRun(executionRuntimeId, promptId, { onProgress: updateRunProgress }))
+        : await pollForResult(promptId, job.workflowId, updateRunProgress, outputPrefix)
 
       // Save result to assets
       if (result) {
@@ -16980,11 +17521,12 @@ function GenerateWorkspace({ onOpenWorkflowSetup = null }) {
   const processQueue = useCallback(async () => {
     if (processingRef.current) return
     if (queuePausedRef.current) return
-    if (!isConnected) return
     const nextJob = queueRef.current.find((job) => (
       job.status === 'queued' && !startedJobIdsRef.current.has(job.id)
     ))
     if (!nextJob) return
+    const nextJobUsesCloudRuntime = nextJob.executionRuntimeId && nextJob.executionRuntimeId !== LOCAL_COMFY_RUNTIME_ID
+    if (!isConnected && !nextJobUsesCloudRuntime) return
 
     startedJobIdsRef.current.add(nextJob.id)
     processingRef.current = true
@@ -17189,10 +17731,19 @@ function GenerateWorkspace({ onOpenWorkflowSetup = null }) {
   // Render
   // ============================================
   const queuedJobCount = generationQueue.filter((job) => job.status === 'queued').length
-  const showLauncherBanner = showComfyGatingBanner
+  const showLauncherBanner = !selectedCloudRuntime && showComfyGatingBanner
 
   return (
     <div className="flex-1 flex flex-col min-w-0 min-h-0 bg-sf-dark-950">
+      {selectedCloudRuntime && (
+        <div className="flex items-center gap-3 border-b border-violet-500/30 bg-violet-500/10 px-4 py-2.5">
+          <Cloud className="h-4 w-4 text-violet-300" />
+          <div className="min-w-0 flex-1">
+            <div className="text-xs font-medium text-violet-100">{t('settings.cloudRuntimes.runBannerTitle', { provider: selectedCloudRuntime.name })}</div>
+            <div className="truncate text-[10px] text-violet-200/70">{t('settings.cloudRuntimes.runBannerHelp')}</div>
+          </div>
+        </div>
+      )}
       {showLauncherBanner && (
         <div className="px-4 py-2.5 border-b border-sky-500/30 bg-sky-500/10 flex items-center gap-3">
           <Loader2 className={`w-4 h-4 text-sky-300 ${launcherIsBooting || launcherWaitingForExternal ? 'animate-spin' : ''}`} />
@@ -17256,6 +17807,15 @@ function GenerateWorkspace({ onOpenWorkflowSetup = null }) {
             </button>
             <button
               onClick={() => {
+                setGenerationMode('backstage')
+                setWorkflowDetailOpen(false)
+              }}
+              className={`px-3 py-1 rounded text-xs transition-colors ${isBackstageSurface ? 'bg-sf-accent text-white' : 'text-sf-text-muted hover:text-sf-text-primary'}`}
+            >
+              {t('generate.mode.backstage', {}, 'Backstage')}
+            </button>
+            <button
+              onClick={() => {
                 setGenerationMode('history')
                 setWorkflowDetailOpen(false)
               }}
@@ -17311,8 +17871,8 @@ function GenerateWorkspace({ onOpenWorkflowSetup = null }) {
         )}
 
         {/* Center: Settings - extra left padding in yolo mode when sidebar visible to center content with header tabs */}
-        <div className={`flex-1 min-w-0 overflow-auto px-5 py-4 ${generationMode === 'yolo' && !rightSidebarCollapsed ? 'pl-40' : ''}`}>
-          <div className={`mx-auto w-full space-y-4 ${generationMode === 'yolo' ? 'max-w-6xl' : 'max-w-5xl'}`}>
+        <div className={`flex-1 min-w-0 overflow-auto px-5 py-4 ${!isBackstageSurface && generationMode === 'yolo' && !rightSidebarCollapsed ? 'pl-40' : ''}`}>
+          <div className={`mx-auto w-full space-y-4 ${generationMode === 'yolo' || isBackstageSurface ? 'max-w-6xl' : 'max-w-5xl'}`}>
             {/* Timeline frame from editor (Extend with AI / Starting keyframe for AI) */}
             {frameForAI && generationMode === 'single' && (
               <div className="p-3 rounded-lg border border-sf-accent/40 bg-sf-accent/5">
@@ -17378,6 +17938,7 @@ function GenerateWorkspace({ onOpenWorkflowSetup = null }) {
 
             {generationMode === 'history' && (
               <GenerationLibrary
+                onDeletedAssets={handleGenerationHistoryAssetsDeleted}
                 onUseInQueue={({ positive, negative }) => {
                   setPrompt(positive)
                   setNegativePrompt(negative)
@@ -17777,14 +18338,14 @@ function GenerateWorkspace({ onOpenWorkflowSetup = null }) {
               </>
             )}
 
-            {generationMode === 'yolo' && (
+            {(generationMode === 'yolo' || isBackstageSurface) && (
               <>
                 {!workflowDetailOpen ? (
                   <WorkflowBrowser
                     workflows={visibleWorkflowManifests}
                     selectedWorkflowId={selectedWorkflowManifest?.id || ''}
                     route={workflowRoute}
-                    variant="create-launcher"
+                    variant={isBackstageSurface ? 'backstage-launcher' : 'create-launcher'}
                     onRouteChange={handleWorkflowRouteChange}
                     onSelectWorkflow={handleWorkflowManifestSelect}
                   />
@@ -17796,10 +18357,28 @@ function GenerateWorkspace({ onOpenWorkflowSetup = null }) {
                       className="sticky top-0 z-20 inline-flex items-center gap-2 self-start rounded-lg border border-sf-dark-700 bg-sf-dark-950/90 px-3 py-1.5 text-xs text-sf-text-secondary shadow-sm backdrop-blur transition-colors hover:border-sf-dark-500 hover:text-sf-text-primary"
                     >
                       <ChevronLeft className="h-3.5 w-3.5" />
-                      {t('generate.director.common.backToWorkflows', {}, 'Back to create workflows')}
+                      {isBackstageSurface
+                        ? t('generate.backstage.backToWorkflows', {}, 'Back to backstage workflows')
+                        : t('generate.director.common.backToWorkflows', {}, 'Back to create workflows')}
                     </button>
 
-                {(isAdEasyMode || isBusinessAdCreator || isUgcAdCreator) ? (
+                {isIrodoriVoiceCloneCreator ? (
+                  <IrodoriVoiceCloneCreator
+                    assets={assets}
+                    generationQueue={generationQueue}
+                    onQueue={handleQueueIrodoriVoiceClone}
+                    onImportReferenceAudio={handleImportIrodoriReferenceAudio}
+                    onOpenAssetBrowser={() => setIrodoriAssetBrowserOpen(true)}
+                    referenceAudioAssetId={selectedAudioAssetId || ''}
+                    onReferenceAudioAssetChange={(asset) => {
+                      setSelectedAudioAsset(asset || null)
+                      setSelectedAudioAssetId(asset?.id || null)
+                    }}
+                    onVoiceModeChange={setIrodoriVoiceMode}
+                    referenceAudioImporting={irodoriReferenceAudioImporting}
+                    dependencyChecking={yoloDependencyCheckInProgress}
+                  />
+                ) : (isAdEasyMode || isBusinessAdCreator || isUgcAdCreator) ? (
                   <ActiveAdEasyComponent
                     assets={assets}
                     generationQueue={generationQueue}
@@ -20114,7 +20693,7 @@ function GenerateWorkspace({ onOpenWorkflowSetup = null }) {
         </div>
 
         {/* Right: Progress + Generate (collapsible) */}
-        <div className={`${generationMode === 'history' ? 'hidden' : (rightSidebarCollapsed ? 'w-12' : 'w-80')} flex-shrink-0 min-h-0 border-l border-sf-dark-700 bg-sf-dark-900 flex flex-col overflow-hidden transition-all duration-200`}>
+        <div className={`${isBackstageSurface || generationMode === 'history' ? 'hidden' : (rightSidebarCollapsed ? 'w-12' : 'w-80')} flex-shrink-0 min-h-0 border-l border-sf-dark-700 bg-sf-dark-900 flex flex-col overflow-hidden transition-all duration-200`}>
           {rightSidebarCollapsed ? (
             <button
               type="button"
@@ -20387,7 +20966,7 @@ function GenerateWorkspace({ onOpenWorkflowSetup = null }) {
                     {typeof onOpenWorkflowSetup === 'function' && (
                       <button
                         type="button"
-                        onClick={() => onOpenWorkflowSetup()}
+                        onClick={() => onOpenWorkflowSetup({ workflowIds: [workflowId] })}
                         className="px-2 py-1 rounded border border-sf-dark-500 text-[10px] text-sf-text-secondary hover:text-sf-text-primary hover:border-sf-dark-400 transition-colors"
                       >
                         {t('generate.dependencies.workflowSetup')}
@@ -20417,7 +20996,7 @@ function GenerateWorkspace({ onOpenWorkflowSetup = null }) {
               <div className="mt-2 text-[10px] text-yellow-500 text-center">{t('generate.assets.selectInput')}</div>
             )}
             {generationMode === 'yolo' && yoloQueueVariants.length === 0 && (
-              <div className="mt-2 text-[10px] text-yellow-500 text-center">Build a plan first before queueing.</div>
+              <div className="mt-2 text-[10px] text-yellow-500 text-center">{t('generate.director.info.buildPlanFirst', {}, 'Build a plan first before queueing.')}</div>
             )}
 
             {formError && (
@@ -20444,6 +21023,16 @@ function GenerateWorkspace({ onOpenWorkflowSetup = null }) {
                       <div key={hint}>{hint}</div>
                     ))}
                   </div>
+                )}
+                {formErrorHasDependencySetup && (
+                  <button
+                    type="button"
+                    onClick={() => onOpenWorkflowSetup?.({ workflowIds: formErrorWorkflowIds })}
+                    className="mt-2 inline-flex w-full items-center justify-center gap-2 rounded-md border border-amber-400/40 bg-amber-400/10 px-3 py-2 text-[10px] font-semibold text-amber-100 transition-colors hover:border-amber-300/70 hover:bg-amber-400/15"
+                  >
+                    <Settings className="h-3.5 w-3.5" />
+                    Open missing dependencies in Workflow Setup
+                  </button>
                 )}
               </div>
             )}
@@ -20497,13 +21086,29 @@ function GenerateWorkspace({ onOpenWorkflowSetup = null }) {
                   && Array.isArray(job.resultAssetIds)
                   && job.resultAssetIds.length > 1
                 )
+                const canDeleteResult = ['done', 'error', 'cancelled', 'canceled'].includes(String(job.status || '').toLowerCase())
+                const isDeletingResult = deletingGenerationJobIds.has(job.id)
                 return (
                   <div key={job.id} className="bg-sf-dark-800 rounded-lg p-3 border border-sf-dark-700">
                     <div className="flex items-center justify-between text-[10px] text-sf-text-muted mb-1">
                       <span className="text-sf-text-primary truncate" title={title}>
                         {job.workflowLabel || job.workflowId}
                       </span>
-                      <span className="tabular-nums">{percent}%</span>
+                      <span className="flex shrink-0 items-center gap-1.5 tabular-nums">
+                        {canDeleteResult && (
+                          <button
+                            type="button"
+                            onClick={() => { void handleDeleteGenerationResult(job) }}
+                            disabled={isDeletingResult}
+                            className="inline-flex h-6 w-6 items-center justify-center rounded border border-red-500/30 bg-red-500/10 text-red-300 transition-colors hover:bg-red-500/20 disabled:cursor-wait disabled:opacity-50"
+                            title={t('generate.queue.deleteResult', {}, '結果を削除')}
+                            aria-label={t('generate.queue.deleteResult', {}, '結果を削除')}
+                          >
+                            {isDeletingResult ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Trash2 className="h-3.5 w-3.5" />}
+                          </button>
+                        )}
+                        {percent}%
+                      </span>
                     </div>
                     <div className="h-1.5 bg-sf-dark-900 rounded-full overflow-hidden">
                       <div className="h-full bg-sf-accent transition-all duration-300" style={{ width: `${percent}%` }} />
@@ -20651,12 +21256,12 @@ function GenerateWorkspace({ onOpenWorkflowSetup = null }) {
                 </>
               ) : (
                 <>
-                  <div><span className="text-sf-text-muted">Mode:</span> {DIRECTOR_MODE_BETA_LABEL}</div>
-                  <div><span className="text-sf-text-muted">Creation:</span> {yoloModeLabel}</div>
+                  <div><span className="text-sf-text-muted">{t('generate.director.info.mode', {}, 'Mode')}:</span> {t('generate.director.info.directorBeta', {}, DIRECTOR_MODE_BETA_LABEL)}</div>
+                  <div><span className="text-sf-text-muted">{t('generate.director.info.creation', {}, 'Creation')}:</span> {isYoloMusicMode ? t('generate.director.info.musicVideo', {}, yoloModeLabel) : isYoloShortFilmMode ? t('generate.director.info.shortFilm', {}, yoloModeLabel) : yoloModeLabel}</div>
                   {!isYoloMusicMode && (
                     <>
                       <div>
-                        <span className="text-sf-text-muted">Keyframe source:</span> {yoloStoryboardProfileRuntimeMeta?.label || yoloStoryboardProfileRuntime}
+                        <span className="text-sf-text-muted">{t('generate.director.info.keyframeSource', {}, 'Keyframe source')}:</span> {yoloStoryboardProfileRuntimeMeta?.label || yoloStoryboardProfileRuntime}
                       </div>
                       {yoloStoryboardUsesCloudTier ? (
                         <div>
@@ -20668,7 +21273,7 @@ function GenerateWorkspace({ onOpenWorkflowSetup = null }) {
                         </div>
                       )}
                       <div>
-                        <span className="text-sf-text-muted">Video source:</span> {yoloVideoProfileRuntimeMeta?.label || yoloVideoProfileRuntime}
+                          <span className="text-sf-text-muted">{t('generate.director.info.videoSource', {}, 'Video source')}:</span> {yoloVideoProfileRuntimeMeta?.label || yoloVideoProfileRuntime}
                       </div>
                       {yoloVideoUsesCloudTier ? (
                         <div>
@@ -20680,7 +21285,7 @@ function GenerateWorkspace({ onOpenWorkflowSetup = null }) {
                         </div>
                       )}
                       <div>
-                        <span className="text-sf-text-muted">Requested video FPS:</span> {yoloVideoFps}
+                        <span className="text-sf-text-muted">{t('generate.director.info.requestedFps', {}, 'Requested video FPS')}:</span> {yoloVideoFps}
                         {!yoloSelectedVideoWorkflowSupportsCustomFps ? ' (provider-dependent)' : ''}
                       </div>
                     </>
@@ -20688,16 +21293,16 @@ function GenerateWorkspace({ onOpenWorkflowSetup = null }) {
                   {isYoloMusicMode && (
                     <div><span className="text-sf-text-muted">Profile:</span> {yoloMusicQualityProfile}</div>
                   )}
-                  <div><span className="text-sf-text-muted">Keyframe workflow:</span> {yoloStoryboardWorkflowId}</div>
-                  <div><span className="text-sf-text-muted">Keyframe runtime:</span> {formatWorkflowHardwareRuntime(yoloStoryboardWorkflowId)}</div>
-                  <div><span className="text-sf-text-muted">Video default:</span> {getWorkflowDisplayLabel(yoloDefaultVideoWorkflowId)}</div>
-                  <div><span className="text-sf-text-muted">Video runtime:</span> {formatWorkflowHardwareRuntime(yoloDefaultVideoWorkflowId)}</div>
-                  <div><span className="text-sf-text-muted">Video queue target:</span> {yoloSelectedVideoWorkflowLabel}</div>
-                  <div><span className="text-sf-text-muted">Video target tier:</span> {yoloVideoTargetTierSummary}</div>
-                  <div><span className="text-sf-text-muted">Scenes:</span> {yoloSceneCount}</div>
-                  <div><span className="text-sf-text-muted">Planned variants:</span> {yoloVariants.length}</div>
-                  <div><span className="text-sf-text-muted">Queue variants:</span> {yoloQueueVariants.length}</div>
-                  <div><span className="text-sf-text-muted">Keyframes ready:</span> {yoloStoryboardReadyCount}/{yoloQueueVariants.length}</div>
+                  <div><span className="text-sf-text-muted">{t('generate.director.info.keyframeWorkflow', {}, 'Keyframe workflow')}:</span> {yoloStoryboardWorkflowId}</div>
+                  <div><span className="text-sf-text-muted">{t('generate.director.info.keyframeRuntime', {}, 'Keyframe runtime')}:</span> {formatWorkflowHardwareRuntime(yoloStoryboardWorkflowId)}</div>
+                  <div><span className="text-sf-text-muted">{t('generate.director.info.videoDefault', {}, 'Video default')}:</span> {getWorkflowDisplayLabel(yoloDefaultVideoWorkflowId)}</div>
+                  <div><span className="text-sf-text-muted">{t('generate.director.info.videoRuntime', {}, 'Video runtime')}:</span> {formatWorkflowHardwareRuntime(yoloDefaultVideoWorkflowId)}</div>
+                  <div><span className="text-sf-text-muted">{t('generate.director.info.videoQueueTarget', {}, 'Video queue target')}:</span> {yoloSelectedVideoWorkflowLabel}</div>
+                  <div><span className="text-sf-text-muted">{t('generate.director.info.videoTargetTier', {}, 'Video target tier')}:</span> {yoloVideoTargetTierSummary}</div>
+                  <div><span className="text-sf-text-muted">{t('generate.director.info.scenes', {}, 'Scenes')}:</span> {yoloSceneCount}</div>
+                  <div><span className="text-sf-text-muted">{t('generate.director.info.plannedVariants', {}, 'Planned variants')}:</span> {yoloVariants.length}</div>
+                  <div><span className="text-sf-text-muted">{t('generate.director.info.queueVariants', {}, 'Queue variants')}:</span> {yoloQueueVariants.length}</div>
+                  <div><span className="text-sf-text-muted">{t('generate.director.info.keyframesReady', {}, 'Keyframes ready')}:</span> {yoloStoryboardReadyCount}/{yoloQueueVariants.length}</div>
                 </>
               )}
             </div>
@@ -20744,6 +21349,152 @@ function GenerateWorkspace({ onOpenWorkflowSetup = null }) {
           </div>
         )}
       </div>
+
+      {irodoriAssetBrowserOpen && (
+        <div
+          className="fixed inset-0 z-[70] flex items-center justify-center bg-black/75 p-5 backdrop-blur-sm"
+          role="presentation"
+          onMouseDown={() => setIrodoriAssetBrowserOpen(false)}
+        >
+          <section
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="irodori-asset-browser-title"
+            onMouseDown={(event) => event.stopPropagation()}
+            className="flex h-[min(760px,calc(100vh-3rem))] w-full max-w-4xl flex-col overflow-hidden rounded-2xl border border-sf-dark-600 bg-sf-dark-950 shadow-[0_28px_90px_rgba(0,0,0,0.7)]"
+          >
+            <header className="flex items-start gap-3 border-b border-sf-dark-700 px-4 py-3">
+              <FolderOpen className="mt-0.5 h-5 w-5 text-fuchsia-300" />
+              <div className="min-w-0 flex-1">
+                <h2 id="irodori-asset-browser-title" className="text-sm font-semibold text-sf-text-primary">
+                  {t('generate.director.irodoriClone.reference.browserTitle', {}, 'アセットブラウザ')}
+                </h2>
+                <p className="mt-1 text-[11px] text-sf-text-muted">
+                  {t('generate.director.irodoriClone.reference.browserHelp', {}, '既存のプロジェクト音声を選択すると、リファレンスオーディオへ設定します。')}
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setIrodoriAssetBrowserOpen(false)}
+                className="rounded-lg border border-sf-dark-700 p-2 text-sf-text-muted hover:bg-sf-dark-800 hover:text-sf-text-primary"
+                aria-label={t('generate.director.irodoriClone.reference.closeBrowser', {}, 'アセットブラウザを閉じる')}
+              >
+                <X className="h-4 w-4" />
+              </button>
+            </header>
+            <div className="flex items-center gap-1 border-b border-sf-dark-700 bg-sf-dark-900/70 px-4 py-2">
+              {[
+                ['project', t('generate.director.irodoriClone.reference.projectAssetsTab', {}, 'プロジェクト素材')],
+                ['comfy-input', t('generate.director.irodoriClone.reference.comfyInputTab', {}, 'ComfyUI Input')],
+              ].map(([sourceId, label]) => (
+                <button
+                  key={sourceId}
+                  type="button"
+                  onClick={() => setIrodoriAssetBrowserSource(sourceId)}
+                  className={`rounded-lg px-3 py-2 text-xs font-semibold transition-colors ${
+                    irodoriAssetBrowserSource === sourceId
+                      ? 'bg-fuchsia-500/20 text-fuchsia-100 ring-1 ring-fuchsia-400/40'
+                      : 'text-sf-text-muted hover:bg-sf-dark-800 hover:text-sf-text-primary'
+                  }`}
+                >
+                  {label}
+                </button>
+              ))}
+            </div>
+            <div className="min-h-0 flex-1">
+              {irodoriAssetBrowserSource === 'project' ? (
+                <AssetInputBrowser
+                  selectedAsset={selectedAudioAsset}
+                  onSelectAsset={(asset) => {
+                    setSelectedAudioAsset(asset || null)
+                    setSelectedAudioAssetId(asset?.id || null)
+                    if (asset?.id) setIrodoriAssetBrowserOpen(false)
+                  }}
+                  filterType="audio"
+                  frameTime={0}
+                  onFrameTimeChange={() => {}}
+                />
+              ) : (
+                <div className="flex h-full min-h-0 flex-col">
+                  <div className="space-y-2 border-b border-sf-dark-700 p-3">
+                    <div className="flex flex-wrap items-center gap-2">
+                      <label className="relative min-w-56 flex-1">
+                        <Search className="pointer-events-none absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-sf-text-muted" />
+                        <input
+                          value={irodoriComfyInputSearch}
+                          onChange={(event) => setIrodoriComfyInputSearch(event.target.value)}
+                          placeholder={t('generate.director.irodoriClone.reference.searchComfyInput', {}, 'ComfyUI Inputの音声を検索…')}
+                          className="w-full rounded-lg border border-sf-dark-700 bg-sf-dark-900 py-2 pl-8 pr-3 text-xs text-sf-text-primary outline-none focus:border-fuchsia-400"
+                        />
+                      </label>
+                      <button
+                        type="button"
+                        onClick={() => { void scanIrodoriComfyInputAudio() }}
+                        disabled={irodoriComfyInputLoading}
+                        className="inline-flex items-center gap-2 rounded-lg border border-sf-dark-700 bg-sf-dark-900 px-3 py-2 text-xs text-sf-text-secondary hover:text-sf-text-primary disabled:opacity-50"
+                      >
+                        <RefreshCw className={`h-3.5 w-3.5 ${irodoriComfyInputLoading ? 'animate-spin' : ''}`} />
+                        {t('generate.director.irodoriClone.reference.refreshComfyInput', {}, '再読み込み')}
+                      </button>
+                    </div>
+                    {irodoriComfyInputRoot && <div className="break-all text-[10px] text-sf-text-muted">{irodoriComfyInputRoot}</div>}
+                  </div>
+
+                  <div className="min-h-0 flex-1 overflow-y-auto p-3">
+                    {irodoriComfyInputLoading && (
+                      <div className="flex h-full min-h-40 items-center justify-center gap-2 text-xs text-sf-text-muted">
+                        <Loader2 className="h-4 w-4 animate-spin" />
+                        {t('generate.director.irodoriClone.reference.scanningComfyInput', {}, 'ComfyUI Inputを走査しています…')}
+                      </div>
+                    )}
+                    {!irodoriComfyInputLoading && irodoriComfyInputError && (
+                      <div className="rounded-xl border border-red-500/35 bg-red-500/10 p-4 text-xs leading-5 text-red-100">{irodoriComfyInputError}</div>
+                    )}
+                    {!irodoriComfyInputLoading && !irodoriComfyInputError && filteredIrodoriComfyInputFiles.length > 0 && (
+                      <div className="grid gap-3 sm:grid-cols-2">
+                        {filteredIrodoriComfyInputFiles.map((file) => {
+                          const isImporting = irodoriComfyInputImportingPath === file.path
+                          return (
+                            <article key={file.path} className="rounded-xl border border-sf-dark-700 bg-sf-dark-900/80 p-3">
+                              <div className="flex items-start gap-2">
+                                <Music className="mt-0.5 h-4 w-4 shrink-0 text-fuchsia-300" />
+                                <div className="min-w-0 flex-1">
+                                  <div className="truncate text-xs font-semibold text-sf-text-primary" title={file.relativePath}>{file.name}</div>
+                                  <div className="mt-1 truncate text-[10px] text-sf-text-muted" title={file.relativePath}>{file.relativePath}</div>
+                                </div>
+                                <span className="shrink-0 text-[9px] text-sf-text-muted">{file.size ? `${Math.max(1, Math.round(file.size / 1024))} KB` : ''}</span>
+                              </div>
+                              {file.url && <audio src={file.url} controls preload="metadata" className="mt-3 h-8 w-full" />}
+                              <button
+                                type="button"
+                                onClick={() => { void handleChooseIrodoriComfyInputAudio(file) }}
+                                disabled={Boolean(irodoriComfyInputImportingPath)}
+                                className="mt-3 inline-flex w-full items-center justify-center gap-2 rounded-lg border border-fuchsia-500/40 bg-fuchsia-500/10 px-3 py-2 text-[11px] font-semibold text-fuchsia-100 hover:bg-fuchsia-500/20 disabled:cursor-wait disabled:opacity-50"
+                              >
+                                {isImporting ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Download className="h-3.5 w-3.5" />}
+                                {isImporting
+                                  ? t('generate.director.irodoriClone.reference.importingComfyInput', {}, 'プロジェクトへ取り込み中…')
+                                  : t('generate.director.irodoriClone.reference.useComfyInput', {}, 'プロジェクトへ取り込んで使用')}
+                              </button>
+                            </article>
+                          )
+                        })}
+                      </div>
+                    )}
+                    {!irodoriComfyInputLoading && !irodoriComfyInputError && filteredIrodoriComfyInputFiles.length === 0 && (
+                      <div className="flex h-full min-h-40 items-center justify-center rounded-xl border border-dashed border-sf-dark-700 px-5 text-center text-xs text-sf-text-muted">
+                        {irodoriComfyInputFiles.length === 0
+                          ? t('generate.director.irodoriClone.reference.noComfyInputAudio', {}, 'ComfyUI Inputに対応音声がありません。')
+                          : t('generate.director.irodoriClone.reference.noComfyInputMatches', {}, '一致する音声がありません。')}
+                      </div>
+                    )}
+                  </div>
+                </div>
+              )}
+            </div>
+          </section>
+        </div>
+      )}
 
       <ImageAnnotationModal
         isOpen={annotationModalOpen}

@@ -443,6 +443,25 @@ contextBridge.exposeInMainWorld('electronAPI', {
    */
   deleteSetting: (key) => ipcRenderer.invoke('settings:delete', key),
 
+  cloudRuntimes: {
+    getSettings: () => ipcRenderer.invoke('cloudRuntime:getSettings'),
+    saveCredential: (payload = {}) => ipcRenderer.invoke('cloudRuntime:saveCredential', payload),
+    setRouting: (payload = {}) => ipcRenderer.invoke('cloudRuntime:setRouting', payload),
+    testConnection: (payload = {}) => ipcRenderer.invoke('cloudRuntime:testConnection', payload),
+    testCredential: (payload = {}) => ipcRenderer.invoke('cloudRuntime:testCredential', payload),
+    getBalance: (payload = {}) => ipcRenderer.invoke('cloudRuntime:getBalance', payload),
+    createRun: (payload = {}) => ipcRenderer.invoke('cloudRuntime:createRun', payload),
+    getRun: (payload = {}) => ipcRenderer.invoke('cloudRuntime:getRun', payload),
+    cancelRun: (payload = {}) => ipcRenderer.invoke('cloudRuntime:cancelRun', payload),
+    uploadFile: async (providerId, file, options = {}) => ipcRenderer.invoke('cloudRuntime:uploadFile', {
+      providerId,
+      bytes: new Uint8Array(await file.arrayBuffer()),
+      filename: file.name,
+      mimeType: file.type || 'application/octet-stream',
+      ...options,
+    }),
+  },
+
   /**
    * Fetch public metadata for one Civitai model through the main process.
    * Keeping this request native avoids renderer CORS differences and gives
@@ -485,7 +504,16 @@ contextBridge.exposeInMainWorld('electronAPI', {
   focusRendererWindow: () => ipcRenderer.invoke('window:focusRenderer'),
   openExternalUrl: (url) => ipcRenderer.invoke('shell:openExternal', url),
   showItemInFolder: (targetPath) => ipcRenderer.invoke('shell:showItemInFolder', targetPath),
+  discoverLoraFactoryBaseModels: (payload = {}) => ipcRenderer.invoke('loraFactory:discoverBaseModels', payload),
+  validateLoraFactoryRoot: (rootPath) => ipcRenderer.invoke('loraFactory:validateRoot', rootPath),
+  launchLoraFactory: (payload = {}) => ipcRenderer.invoke('loraFactory:launch', payload),
+  onLoraFactoryProcessEvent: (cb) => {
+    const handler = (_, data) => cb(data)
+    ipcRenderer.on('loraFactory:processEvent', handler)
+    return () => ipcRenderer.removeListener('loraFactory:processEvent', handler)
+  },
   installWorkflowSetup: (payload = {}) => ipcRenderer.invoke('workflowSetup:install', payload),
+  cancelWorkflowSetupInstall: () => ipcRenderer.invoke('workflowSetup:cancelInstall'),
   translatePrompt: (payload) => ipcRenderer.invoke('prompt:translate', payload),
   onWorkflowSetupProgress: (cb) => {
     const handler = (_, data) => cb(data)

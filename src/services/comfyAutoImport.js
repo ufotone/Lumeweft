@@ -86,7 +86,7 @@ function summarizeApiWorkflow(apiWorkflow = {}) {
   }
 }
 
-async function saveAutoImportedGenerationHistory({ promptId, apiWorkflow, importedAssets = [] }) {
+async function saveAutoImportedGenerationHistory({ promptId, apiWorkflow, uiWorkflow, importedAssets = [] }) {
   const outputAssetIds = importedAssets.map((asset) => asset?.id).filter(Boolean)
   if (!apiWorkflow || outputAssetIds.length === 0) return
   const summary = summarizeApiWorkflow(apiWorkflow)
@@ -97,12 +97,14 @@ async function saveAutoImportedGenerationHistory({ promptId, apiWorkflow, import
   const version = history.appendVersion(record.id, {
     workflowId: 'comfyui-auto-import',
     workflowLabel: 'ComfyUI',
+    promptId,
     prompt: summary.prompt,
     seed: summary.seed,
     settings: { negativePrompt: summary.negativePrompt },
     modelRefs: summary.modelRefs,
     outputAssetIds,
     apiWorkflow,
+    uiWorkflow,
   })
   if (!version) return
 
@@ -346,6 +348,16 @@ function extractApiWorkflow(historyEntry) {
   return null
 }
 
+// ComfyUI stores the exact canvas graph beside the API prompt. Keeping this
+// preserves layout, groups, bypass modes and widget state when a generation is
+// reopened later.
+function extractUiWorkflow(historyEntry) {
+  const p = historyEntry?.prompt
+  if (!Array.isArray(p)) return null
+  const workflow = p?.[3]?.extra_pnginfo?.workflow
+  return workflow && typeof workflow === 'object' ? workflow : null
+}
+
 // ─────────────────────────────────────────────────────────────────────
 // Sequence stitching
 // ─────────────────────────────────────────────────────────────────────
@@ -557,6 +569,7 @@ async function runImportPipeline(promptId, preFetchedEntry, projectDir) {
   rememberSeenPrompt(promptId)
 
   const apiWorkflow = extractApiWorkflow(historyEntry)
+  const uiWorkflow = extractUiWorkflow(historyEntry)
   const allOutputFiles = collectOutputFiles(historyEntry)
   if (allOutputFiles.length === 0) return
 
@@ -654,7 +667,7 @@ async function runImportPipeline(promptId, preFetchedEntry, projectDir) {
     }
   }
 
-  await saveAutoImportedGenerationHistory({ promptId, apiWorkflow, importedAssets })
+  await saveAutoImportedGenerationHistory({ promptId, apiWorkflow, uiWorkflow, importedAssets })
 }
 
 async function importSingleFile({ file, kind, apiWorkflow, promptId, projectDir }) {

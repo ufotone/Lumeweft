@@ -31,12 +31,12 @@ import { useI18n } from '../i18n/I18nContext'
 const EXPORT_SETTINGS_STORAGE_PREFIX = 'comfystudio-export-settings-v1'
 
 const EXPORT_FORMATS = [
-  { id: 'mp4', label: 'MP4 (H.264/H.265)' },
-  { id: 'webm', label: 'WebM (VP9)' },
-  { id: 'prores', label: 'MOV (ProRes)' },
-  { id: 'audio', label: 'Audio Only (WAV/MP3/M4A)' },
-  { id: 'png-seq', label: 'PNG Image Sequence' },
-  { id: 'gif', label: 'GIF (Preview - Soon)', disabled: true },
+  { id: 'mp4', label: 'MP4 (H.264/H.265)', translationKey: 'export.formatOptions.mp4' },
+  { id: 'webm', label: 'WebM (VP9)', translationKey: 'export.formatOptions.webm' },
+  { id: 'prores', label: 'MOV (ProRes)', translationKey: 'export.formatOptions.prores' },
+  { id: 'audio', label: 'Audio Only (WAV/MP3/M4A)', translationKey: 'export.formatOptions.audio' },
+  { id: 'png-seq', label: 'PNG Image Sequence', translationKey: 'export.formatOptions.pngSequence' },
+  { id: 'gif', label: 'GIF (Preview - Soon)', translationKey: 'export.formatOptions.gifSoon', disabled: true },
 ]
 
 const XML_EXPORT_FORMATS = [
@@ -63,8 +63,8 @@ const XML_EXPORT_FORMATS = [
 ]
 
 const RANGE_PRESETS = [
-  { id: 'full', label: 'Full Timeline' },
-  { id: 'inout', label: 'In/Out Range' },
+  { id: 'full', label: 'Full Timeline', translationKey: 'export.rangeOptions.full' },
+  { id: 'inout', label: 'In/Out Range', translationKey: 'export.rangeOptions.inout' },
 ]
 
 const VIDEO_CODECS = {
@@ -103,25 +103,25 @@ const AUDIO_CODECS = {
 }
 
 const ENCODER_PRESETS = [
-  { id: 'ultrafast', label: 'Ultra Fast' },
-  { id: 'superfast', label: 'Super Fast' },
-  { id: 'veryfast', label: 'Very Fast' },
-  { id: 'faster', label: 'Faster' },
-  { id: 'fast', label: 'Fast' },
-  { id: 'medium', label: 'Medium' },
-  { id: 'slow', label: 'Slow' },
-  { id: 'slower', label: 'Slower' },
-  { id: 'veryslow', label: 'Very Slow' },
+  { id: 'ultrafast', label: 'Ultra Fast', translationKey: 'export.encoderPresetOptions.ultrafast' },
+  { id: 'superfast', label: 'Super Fast', translationKey: 'export.encoderPresetOptions.superfast' },
+  { id: 'veryfast', label: 'Very Fast', translationKey: 'export.encoderPresetOptions.veryfast' },
+  { id: 'faster', label: 'Faster', translationKey: 'export.encoderPresetOptions.faster' },
+  { id: 'fast', label: 'Fast', translationKey: 'export.encoderPresetOptions.fast' },
+  { id: 'medium', label: 'Medium', translationKey: 'export.encoderPresetOptions.medium' },
+  { id: 'slow', label: 'Slow', translationKey: 'export.encoderPresetOptions.slow' },
+  { id: 'slower', label: 'Slower', translationKey: 'export.encoderPresetOptions.slower' },
+  { id: 'veryslow', label: 'Very Slow', translationKey: 'export.encoderPresetOptions.veryslow' },
 ]
 
 const QUALITY_MODES = [
-  { id: 'crf', label: 'Automatic (CRF)' },
-  { id: 'bitrate', label: 'Restrict to bitrate' },
+  { id: 'crf', label: 'Automatic (CRF)', translationKey: 'export.qualityModeOptions.crf' },
+  { id: 'bitrate', label: 'Restrict to bitrate', translationKey: 'export.qualityModeOptions.bitrate' },
 ]
 
 const KEYFRAME_MODES = [
-  { id: 'auto', label: 'Automatic' },
-  { id: 'manual', label: 'Every' },
+  { id: 'auto', label: 'Automatic', translationKey: 'export.keyframeOptions.auto' },
+  { id: 'manual', label: 'Every', translationKey: 'export.keyframeOptions.manual' },
 ]
 
 const NVENC_PRESETS = [
@@ -145,9 +145,9 @@ const AUDIO_CHANNELS = [
 ]
 
 const EXPORT_RESOLUTION_SCALE_OPTIONS = [
-  { id: 'timeline-half', label: 'Half Timeline Resolution', scale: 0.5 },
-  { id: 'timeline-third', label: 'Third Timeline Resolution', scale: 1 / 3 },
-  { id: 'timeline-quarter', label: 'Quarter Timeline Resolution', scale: 0.25 },
+  { id: 'timeline-half', label: 'Half Timeline Resolution', translationKey: 'export.resolutionOptions.timelineHalf', scale: 0.5 },
+  { id: 'timeline-third', label: 'Third Timeline Resolution', translationKey: 'export.resolutionOptions.timelineThird', scale: 1 / 3 },
+  { id: 'timeline-quarter', label: 'Quarter Timeline Resolution', translationKey: 'export.resolutionOptions.timelineQuarter', scale: 0.25 },
 ]
 
 const DEFAULT_CRF = {
@@ -192,6 +192,7 @@ const EXPORT_PRESETS = [
   {
     id: 'balanced-mp4',
     label: 'Balanced MP4',
+    translationKey: 'export.presetNames.balanced-mp4',
     summary: 'Clean everyday export, project size, H.264.',
     settings: {
       format: 'mp4',
@@ -212,6 +213,7 @@ const EXPORT_PRESETS = [
   {
     id: 'fast-nvenc',
     label: 'Fast NVENC',
+    translationKey: 'export.presetNames.fast-nvenc',
     summary: 'Fast H.264 delivery for NVIDIA systems.',
     settings: {
       format: 'mp4',
@@ -233,6 +235,7 @@ const EXPORT_PRESETS = [
   {
     id: 'proxy-review',
     label: 'Proxy Review',
+    translationKey: 'export.presetNames.proxy-review',
     summary: 'Quick review file using proxies and half-res.',
     settings: {
       format: 'mp4',
@@ -254,6 +257,7 @@ const EXPORT_PRESETS = [
   {
     id: 'small-h265',
     label: 'Small H.265',
+    translationKey: 'export.presetNames.small-h265',
     summary: 'Smaller MP4 for sharing, slower decode.',
     settings: {
       format: 'mp4',
@@ -275,6 +279,7 @@ const EXPORT_PRESETS = [
   {
     id: 'prores-hq',
     label: 'ProRes HQ',
+    translationKey: 'export.presetNames.prores-hq',
     summary: 'Large editor-friendly MOV master.',
     settings: {
       format: 'prores',
@@ -1007,14 +1012,14 @@ function ExportPanel() {
         : null
 
   const rtxReadinessText = rtxReadiness.status === 'checking'
-    ? 'Checking the direct NVIDIA RTX runtime...'
+    ? t('export.rtxChecking')
     : rtxReadiness.status === 'installing'
-      ? (rtxInstallProgress?.message || 'Installing the optional NVIDIA RTX runtime...')
+      ? (rtxInstallProgress?.message || t('export.rtxInstalling'))
       : rtxReadiness.status === 'ready'
-        ? `Direct RTX engine ready${rtxReadiness.gpu ? ` on ${rtxReadiness.gpu}` : ''}.`
+        ? t('export.rtxReady', { gpu: rtxReadiness.gpu ? ` (${rtxReadiness.gpu})` : '' })
         : rtxReadiness.status === 'error'
           ? rtxReadiness.error
-          : 'Runs directly on NVIDIA RTX. ComfyUI is not required. Optional runtime is about 1 GB.'
+          : t('export.rtxRuntimeHelp')
 
   const resolveRange = (exportSettings = settings) => {
     if (exportSettings.range === 'inout' && inPoint !== null && outPoint !== null) {
@@ -1521,7 +1526,7 @@ function ExportPanel() {
                     }`}
                     title={t(`export.presetSummaries.${exportPreset.id}`)}
                   >
-                    <div className="text-[11px] font-semibold">{exportPreset.label.split('NVENC').join(hardwareLabel)}</div>
+                    <div className="text-[11px] font-semibold">{t(exportPreset.translationKey, { hardware: hardwareLabel }, exportPreset.label).split('NVENC').join(hardwareLabel)}</div>
                     <div className="mt-1 text-[9px] leading-snug text-sf-text-muted">
                       {t(`export.presetSummaries.${exportPreset.id}`, { hardware: hardwareLabel })}
                     </div>
@@ -1552,7 +1557,7 @@ function ExportPanel() {
                 className="mt-1 w-full bg-sf-dark-800 border border-sf-dark-600 rounded px-2 py-1 text-xs text-sf-text-primary focus:outline-none focus:border-sf-accent"
               >
                 {EXPORT_FORMATS.map((format) => (
-                  <option key={format.id} value={format.id} disabled={format.disabled}>{format.label}</option>
+                  <option key={format.id} value={format.id} disabled={format.disabled}>{t(format.translationKey, {}, format.label)}</option>
                 ))}
               </select>
             </div>
@@ -1565,7 +1570,7 @@ function ExportPanel() {
                 className="mt-1 w-full bg-sf-dark-800 border border-sf-dark-600 rounded px-2 py-1 text-xs text-sf-text-primary focus:outline-none focus:border-sf-accent"
               >
                 {RANGE_PRESETS.map((preset) => (
-                  <option key={preset.id} value={preset.id}>{preset.label}</option>
+                  <option key={preset.id} value={preset.id}>{t(preset.translationKey, {}, preset.label)}</option>
                 ))}
               </select>
             </div>
@@ -1807,7 +1812,7 @@ function ExportPanel() {
                     className="mt-1 w-full bg-sf-dark-800 border border-sf-dark-600 rounded px-2 py-1 text-xs text-sf-text-primary focus:outline-none focus:border-sf-accent"
                   >
                     {ENCODER_PRESETS.map((preset) => (
-                      <option key={preset.id} value={preset.id}>{preset.label}</option>
+                      <option key={preset.id} value={preset.id}>{t(preset.translationKey, {}, preset.label)}</option>
                     ))}
                   </select>
                 </div>
@@ -1837,7 +1842,7 @@ function ExportPanel() {
                     className="mt-1 w-full bg-sf-dark-800 border border-sf-dark-600 rounded px-2 py-1 text-xs text-sf-text-primary focus:outline-none focus:border-sf-accent"
                   >
                     {QUALITY_MODES.map((mode) => (
-                      <option key={mode.id} value={mode.id}>{mode.label}</option>
+                      <option key={mode.id} value={mode.id}>{t(mode.translationKey, {}, mode.label)}</option>
                     ))}
                   </select>
                 </div>
@@ -1872,7 +1877,7 @@ function ExportPanel() {
                       className="mt-1 w-full bg-sf-dark-800 border border-sf-dark-600 rounded px-2 py-1 text-xs text-sf-text-primary focus:outline-none focus:border-sf-accent"
                     >
                       {KEYFRAME_MODES.map((mode) => (
-                        <option key={mode.id} value={mode.id}>{mode.label}</option>
+                        <option key={mode.id} value={mode.id}>{t(mode.translationKey, {}, mode.label)}</option>
                       ))}
                     </select>
                   </div>
@@ -1899,11 +1904,11 @@ function ExportPanel() {
                     onChange={(e) => handleSettingChange('resolution', e.target.value)}
                     className="mt-1 w-full bg-sf-dark-800 border border-sf-dark-600 rounded px-2 py-1 text-xs text-sf-text-primary focus:outline-none focus:border-sf-accent"
                   >
-                    <option value="project">Project Settings</option>
+                    <option value="project">{t('export.resolutionOptions.project')}</option>
                     {EXPORT_RESOLUTION_SCALE_OPTIONS.map((option) => (
-                      <option key={option.id} value={option.id}>{option.label}</option>
+                      <option key={option.id} value={option.id}>{t(option.translationKey, {}, option.label)}</option>
                     ))}
-                    <option value="custom">Custom...</option>
+                    <option value="custom">{t('export.resolutionOptions.custom')}</option>
                     {RESOLUTION_PRESETS.map((preset) => (
                       <option key={preset.name} value={preset.name}>{preset.name}</option>
                     ))}
@@ -1952,7 +1957,7 @@ function ExportPanel() {
                     onChange={(e) => handleSettingChange('fps', e.target.value)}
                     className="mt-1 w-full bg-sf-dark-800 border border-sf-dark-600 rounded px-2 py-1 text-xs text-sf-text-primary focus:outline-none focus:border-sf-accent"
                   >
-                    <option value="project">Project Settings</option>
+                    <option value="project">{t('export.resolutionOptions.project')}</option>
                     {FPS_PRESETS.map((preset) => (
                       <option key={preset.value} value={preset.value}>{preset.label}</option>
                     ))}

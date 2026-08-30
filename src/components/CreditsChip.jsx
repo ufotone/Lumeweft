@@ -10,6 +10,12 @@ import {
   CLOUD_CREDIT_DISPLAY_CHANGED_EVENT,
   getShowCloudCreditBalance,
 } from '../services/cloudCreditDisplaySettings'
+import {
+  CLOUD_RUNTIME_SETTINGS_CHANGED_EVENT,
+  LOCAL_COMFY_RUNTIME_ID,
+  getCloudRuntimeBalance,
+  getCloudRuntimeSettings,
+} from '../services/cloudRuntimes'
 
 /**
  * CreditsChip
@@ -29,9 +35,12 @@ import {
 function CreditsChip({ className = '', size = 'sm' }) {
   const [showCreditBalance, setShowCreditBalance] = useState(() => getShowCloudCreditBalance())
   const [hasKey, setHasKey] = useState(false)
+  const [runtimeSettings, setRuntimeSettings] = useState({ providers: [], routing: { importedApiWorkflows: LOCAL_COMFY_RUNTIME_ID } })
   const [balance, setBalance] = useState({
     status: 'idle', // 'idle' | 'loading' | 'ok' | 'unknown' | 'low'
     credits: null,
+    floTimeMs: null,
+    partnerNodesUsd: null,
   })
   const [isRefreshing, setIsRefreshing] = useState(false)
   const pollTimerRef = useRef(null)
@@ -39,6 +48,10 @@ function CreditsChip({ className = '', size = 'sm' }) {
   const refreshInFlightRef = useRef(false)
   const hasEmbeddedBalanceSupport = typeof window !== 'undefined'
     && typeof window?.electronAPI?.getComfyCloudCreditBalance === 'function'
+  const selectedRuntimeId = String(runtimeSettings.routing?.importedApiWorkflows || LOCAL_COMFY_RUNTIME_ID)
+  const selectedProvider = selectedRuntimeId === LOCAL_COMFY_RUNTIME_ID
+    ? null
+    : runtimeSettings.providers.find((provider) => provider.id === selectedRuntimeId) || null
 
   useEffect(() => {
     const onDisplayChanged = (event) => {
@@ -46,6 +59,25 @@ function CreditsChip({ className = '', size = 'sm' }) {
     }
     window.addEventListener(CLOUD_CREDIT_DISPLAY_CHANGED_EVENT, onDisplayChanged)
     return () => window.removeEventListener(CLOUD_CREDIT_DISPLAY_CHANGED_EVENT, onDisplayChanged)
+  }, [])
+
+  useEffect(() => {
+    let cancelled = false
+    const load = async () => {
+      try {
+        const settings = await getCloudRuntimeSettings()
+        if (!cancelled) {
+          setRuntimeSettings(settings)
+          setBalance({ status: 'idle', credits: null, floTimeMs: null, partnerNodesUsd: null })
+        }
+      } catch (_) { /* desktop bridge may not be available in browser previews */ }
+    }
+    void load()
+    window.addEventListener(CLOUD_RUNTIME_SETTINGS_CHANGED_EVENT, load)
+    return () => {
+      cancelled = true
+      window.removeEventListener(CLOUD_RUNTIME_SETTINGS_CHANGED_EVENT, load)
+    }
   }, [])
 
   const refreshBalance = useCallback(async () => {
@@ -60,6 +92,19 @@ function CreditsChip({ className = '', size = 'sm' }) {
         return { ...prev, status: 'loading' }
       })
 
+      if (selectedProvider?.hasCredential) {
+        const result = await getCloudRuntimeBalance(selectedProvider.id)
+        if (!mountedRef.current) return
+        const floTimeMs = firstFiniteNumber(result?.available_flotime_ms, result?.availableFloTimeMs)
+        const partnerNodesUsd = firstFiniteNumber(result?.partner_nodes_usd, result?.partnerNodesUsd)
+        if (floTimeMs !== null || partnerNodesUsd !== null) {
+          setBalance({ status: 'ok', credits: null, floTimeMs, partnerNodesUsd })
+        } else {
+          setBalance({ status: 'unknown', credits: null, floTimeMs: null, partnerNodesUsd: null })
+        }
+        return
+      }
+
       const embeddedLookup = typeof window !== 'undefined'
         ? window?.electronAPI?.getComfyCloudCreditBalance
         : null
@@ -67,7 +112,7 @@ function CreditsChip({ className = '', size = 'sm' }) {
         const embeddedResult = await embeddedLookup()
         if (!mountedRef.current) return
         if (embeddedResult?.status === 'ok' && Number.isFinite(embeddedResult.credits)) {
-          setBalance({ status: 'ok', credits: embeddedResult.credits })
+          setBalance({ status: 'ok', credits: embeddedResult.credits, floTimeMs: null, partnerNodesUsd: null })
           return
         }
       }
@@ -77,7 +122,7 @@ function CreditsChip({ className = '', size = 'sm' }) {
         if (!mountedRef.current) return
         setBalance((prev) => prev.status === 'low' || Number.isFinite(prev.credits)
           ? prev
-          : { status: 'unknown', credits: null })
+          : { status: 'unknown', credits: null, floTimeMs: null, partnerNodesUsd: null })
         return
       }
 
@@ -85,22 +130,22 @@ function CreditsChip({ className = '', size = 'sm' }) {
       if (!mountedRef.current) return
 
       if (result?.status === 'ok' && Number.isFinite(result.credits)) {
-        setBalance({ status: 'ok', credits: result.credits })
+        setBalance({ status: 'ok', credits: result.credits, floTimeMs: null, partnerNodesUsd: null })
       } else {
         setBalance((prev) => prev.status === 'low' || Number.isFinite(prev.credits)
           ? prev
-          : { status: 'unknown', credits: null })
+          : { status: 'unknown', credits: null, floTimeMs: null, partnerNodesUsd: null })
       }
     } catch (_) {
       if (!mountedRef.current) return
       setBalance((prev) => prev.status === 'low' || Number.isFinite(prev.credits)
         ? prev
-        : { status: 'unknown', credits: null })
+        : { status: 'unknown', credits: null, floTimeMs: null, partnerNodesUsd: null })
     } finally {
       refreshInFlightRef.current = false
       if (mountedRef.current) setIsRefreshing(false)
     }
-  }, [])
+  }, [selectedProvider?.hasCredential, selectedProvider?.id])
 
   // Track API-key presence for the legacy fallback; re-evaluate when the user
   // adds/removes a key.
@@ -134,10 +179,12 @@ function CreditsChip({ className = '', size = 'sm' }) {
   // Poll when either balance source is available. The embedded ComfyUI source
   // gracefully returns "not-authenticated" until the user logs in.
   useEffect(() => {
-    const canQueryBalance = showCreditBalance && (hasKey || hasEmbeddedBalanceSupport)
+    const canQueryBalance = showCreditBalance && (
+      selectedProvider?.hasCredential || (!selectedProvider && (hasKey || hasEmbeddedBalanceSupport))
+    )
 
     if (!canQueryBalance) {
-      setBalance({ status: 'idle', credits: null })
+      setBalance({ status: 'idle', credits: null, floTimeMs: null, partnerNodesUsd: null })
       if (pollTimerRef.current) {
         clearInterval(pollTimerRef.current)
         pollTimerRef.current = null
@@ -153,22 +200,33 @@ function CreditsChip({ className = '', size = 'sm' }) {
         pollTimerRef.current = null
       }
     }
-  }, [hasKey, hasEmbeddedBalanceSupport, refreshBalance, showCreditBalance])
+  }, [hasKey, hasEmbeddedBalanceSupport, refreshBalance, selectedProvider?.hasCredential, selectedProvider?.id, showCreditBalance])
 
   // Flip into "low" state the moment any surface dispatches the event.
   useEffect(() => {
     const onLow = () => {
-      setBalance({ status: 'low', credits: null })
+      if (!selectedProvider) setBalance({ status: 'low', credits: null, floTimeMs: null, partnerNodesUsd: null })
     }
     window.addEventListener(COMFY_PARTNER_CREDITS_LOW_EVENT, onLow)
     return () => window.removeEventListener(COMFY_PARTNER_CREDITS_LOW_EVENT, onLow)
-  }, [])
+  }, [selectedProvider])
 
   const labelPieces = useMemo(() => {
     if (balance.status === 'low') {
       return {
         label: 'Out of credits',
         tooltip: 'A recent job failed because your Comfy.org credit balance is exhausted.',
+      }
+    }
+    if (balance.status === 'ok' && selectedProvider) {
+      const values = []
+      if (Number.isFinite(balance.floTimeMs)) values.push(`${formatFloTime(balance.floTimeMs)} FloTime`)
+      if (Number.isFinite(balance.partnerNodesUsd)) values.push(formatUsd(balance.partnerNodesUsd))
+      return {
+        label: `${selectedProvider.name} · ${values.join(' · ') || 'Balance'}`,
+        tooltip: isRefreshing
+          ? `Refreshing your ${selectedProvider.name} balance...`
+          : `${selectedProvider.name} available FloTime and Partner Nodes balance. Click to refresh.`,
       }
     }
     if (balance.status === 'ok' && Number.isFinite(balance.credits)) {
@@ -189,9 +247,9 @@ function CreditsChip({ className = '', size = 'sm' }) {
       label: 'Credits',
       tooltip: 'Log in through the embedded ComfyUI account settings to show your live balance.',
     }
-  }, [balance, isRefreshing])
+  }, [balance, isRefreshing, selectedProvider])
 
-  if (!showCreditBalance || (!hasKey && !hasEmbeddedBalanceSupport)) return null
+  if (!showCreditBalance || (selectedProvider ? !selectedProvider.hasCredential : (!hasKey && !hasEmbeddedBalanceSupport))) return null
 
   const isLow = balance.status === 'low'
   const isLive = balance.status === 'ok'
@@ -234,6 +292,31 @@ function formatCreditCount(n) {
   if (!Number.isFinite(n)) return '-'
   // Match the dashboard's display style: 3,004.00
   return n.toLocaleString(undefined, {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  })
+}
+
+function firstFiniteNumber(...values) {
+  for (const value of values) {
+    if (value === null || value === undefined || value === '') continue
+    const numeric = Number(value)
+    if (Number.isFinite(numeric)) return numeric
+  }
+  return null
+}
+
+function formatFloTime(milliseconds) {
+  const totalMinutes = Math.max(0, Math.floor(Number(milliseconds) / 60000))
+  const hours = Math.floor(totalMinutes / 60)
+  const minutes = totalMinutes % 60
+  return hours > 0 ? `${hours}h ${minutes}m` : `${minutes}m`
+}
+
+function formatUsd(value) {
+  return Number(value).toLocaleString(undefined, {
+    style: 'currency',
+    currency: 'USD',
     minimumFractionDigits: 2,
     maximumFractionDigits: 2,
   })

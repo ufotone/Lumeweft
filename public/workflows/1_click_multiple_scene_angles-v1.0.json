@@ -115,7 +115,7 @@
   },
   "66": {
     "inputs": {
-      "value": "Turn the camera to a close-up.\n"
+      "value": "<sks> front view eye-level shot close-up\n"
     },
     "class_type": "PrimitiveStringMultiline",
     "_meta": {
@@ -124,7 +124,7 @@
   },
   "67": {
     "inputs": {
-      "value": "Turn the camera to a wide-angle lens.\n"
+      "value": "<sks> front view eye-level shot wide shot\n"
     },
     "class_type": "PrimitiveStringMultiline",
     "_meta": {
@@ -133,7 +133,7 @@
   },
   "68": {
     "inputs": {
-      "value": "Rotate the camera 90 degrees to the right.\n"
+      "value": "<sks> right side view eye-level shot medium shot\n"
     },
     "class_type": "PrimitiveStringMultiline",
     "_meta": {
@@ -142,7 +142,7 @@
   },
   "69": {
     "inputs": {
-      "value": "Rotate the camera 45 degrees to the right.\n"
+      "value": "<sks> front-right quarter view eye-level shot medium shot\n"
     },
     "class_type": "PrimitiveStringMultiline",
     "_meta": {
@@ -151,7 +151,7 @@
   },
   "70": {
     "inputs": {
-      "value": "Turn the camera to an aerial view."
+      "value": "<sks> front view high-angle shot medium shot"
     },
     "class_type": "PrimitiveStringMultiline",
     "_meta": {
@@ -160,7 +160,7 @@
   },
   "71": {
     "inputs": {
-      "value": "Turn the camera to a low-angle view."
+      "value": "<sks> front view low-angle shot medium shot"
     },
     "class_type": "PrimitiveStringMultiline",
     "_meta": {
@@ -169,7 +169,7 @@
   },
   "72": {
     "inputs": {
-      "value": "Rotate the camera 90 degrees to the left."
+      "value": "<sks> left side view eye-level shot medium shot"
     },
     "class_type": "PrimitiveStringMultiline",
     "_meta": {
@@ -178,7 +178,7 @@
   },
   "73": {
     "inputs": {
-      "value": "Rotate the camera 45 degrees to the left."
+      "value": "<sks> front-left quarter view eye-level shot medium shot"
     },
     "class_type": "PrimitiveStringMultiline",
     "_meta": {
@@ -207,17 +207,16 @@
   },
   "48:12": {
     "inputs": {
-      "unet_name": "qwen_image_edit_2509_fp8_e4m3fn.safetensors",
-      "weight_dtype": "default"
+      "unet_name": "qwen-image-edit-2511-Q5_K_M.gguf"
     },
-    "class_type": "UNETLoader",
+    "class_type": "UnetLoaderGGUF",
     "_meta": {
       "title": "Load Diffusion Model"
     }
   },
   "48:20": {
     "inputs": {
-      "lora_name": "Qwen-Edit-2509-Multiple-angles.safetensors",
+      "lora_name": "qwen-image-edit-2511-multiple-angles-lora.safetensors",
       "strength_model": 1,
       "model": [
         "48:26",
@@ -231,7 +230,7 @@
   },
   "48:26": {
     "inputs": {
-      "lora_name": "Qwen-Image-Edit-2509-Lightning-4steps-V1.0-bf16.safetensors",
+      "lora_name": "Qwen-Image-Edit-2511-Lightning-4steps-V1.0-bf16.safetensors",
       "strength_model": 1,
       "model": [
         "48:12",

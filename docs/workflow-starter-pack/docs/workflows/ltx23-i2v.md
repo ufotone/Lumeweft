@@ -19,6 +19,12 @@ Animate an image with local LTX 2.3
 - `CheckpointLoaderSimple` - Built into newer ComfyUI builds
   - Core checkpoint loader. Missing this usually means the ComfyUI install is incomplete or very outdated.
   - Docs: https://registry.comfy.org
+- `ComfyMathExpression` - Manual setup
+  - Install the helper/custom-node pack that provides ComfyMathExpression through the Comfy Registry or ComfyUI Manager.
+  - Docs: https://registry.comfy.org
+- `ComfySwitchNode` - Manual setup
+  - Install the helper/custom-node pack that provides ComfySwitchNode through the Comfy Registry or ComfyUI Manager.
+  - Docs: https://registry.comfy.org
 - `CreateVideo` - Built into newer ComfyUI builds
   - CreateVideo is part of newer ComfyUI builds.
   - Docs: https://docs.comfy.org/built-in-nodes/CreateVideo
@@ -28,6 +34,9 @@ Animate an image with local LTX 2.3
 - `LatentUpscaleModelLoader` - Built into newer ComfyUI builds
   - This loader is built into ComfyUI. Missing it usually means the install is outdated.
   - Docs: https://docs.comfy.org/built-in-nodes/LatentUpscaleModelLoader
+- `LoraLoader` - Manual setup
+  - No curated install recipe is available yet for this node class.
+  - Docs: https://registry.comfy.org
 - `LoraLoaderModelOnly` - Built into newer ComfyUI builds
   - Core LoRA loader. Missing this usually means the ComfyUI install is incomplete or very outdated.
   - Docs: https://registry.comfy.org
@@ -73,6 +82,9 @@ Animate an image with local LTX 2.3
 - `SaveVideo` - Built into newer ComfyUI builds
   - Core video output support ships with newer ComfyUI builds.
   - Docs: https://docs.comfy.org/built-in-nodes/CreateVideo
+- `TextGenerateLTX2Prompt` - Manual setup
+  - No curated install recipe is available yet for this node class.
+  - Docs: https://registry.comfy.org
 - `VAEDecodeTiled` - Built into newer ComfyUI builds
   - Tiled VAE decode is part of current ComfyUI core.
   - Docs: https://docs.comfy.org/built-in-nodes/VAEDecodeTiled
@@ -81,11 +93,12 @@ Animate an image with local LTX 2.3
 | Filename | ComfyUI Folder | Loader | Input Key | Download |
 |---|---|---|---|---|
 | `gemma_3_12B_it_fp4_mixed.safetensors` | `models/text_encoders` | `LTXAVTextEncoderLoader` | `text_encoder` | [Download](https://huggingface.co/Comfy-Org/ltx-2/resolve/main/split_files/text_encoders/gemma_3_12B_it_fp4_mixed.safetensors) |
+| `gemma-3-12b-it-abliterated_lora_rank64_bf16.safetensors` | `models/loras` | `LoraLoader` | `lora_name` | Manual |
+| `ltx_2.3_22b_distilled_1.1_lora_dynamic_fro09_avg_rank_111_bf16.safetensors` | `models/loras` | `LoraLoaderModelOnly` | `lora_name` | [Download](https://huggingface.co/Lightricks/LTX-2.3/resolve/main/ltx-2.3-22b-distilled-lora-384-1.1.safetensors) |
 | `ltx-2.3-22b-dev-fp8.safetensors` | `models/checkpoints` | `CheckpointLoaderSimple` | `ckpt_name` | [Download](https://huggingface.co/Lightricks/LTX-2.3-fp8/resolve/main/ltx-2.3-22b-dev-fp8.safetensors) |
 | `ltx-2.3-22b-dev-fp8.safetensors` | `models/checkpoints` | `LTXVAudioVAELoader` | `ckpt_name` | [Download](https://huggingface.co/Lightricks/LTX-2.3-fp8/resolve/main/ltx-2.3-22b-dev-fp8.safetensors) |
 | `ltx-2.3-22b-dev-fp8.safetensors` | `models/checkpoints` | `LTXAVTextEncoderLoader` | `ckpt_name` | [Download](https://huggingface.co/Lightricks/LTX-2.3-fp8/resolve/main/ltx-2.3-22b-dev-fp8.safetensors) |
-| `ltx-2.3-22b-distilled-lora-384.safetensors` | `models/loras` | `LoraLoaderModelOnly` | `lora_name` | [Download](https://huggingface.co/Lightricks/LTX-2.3/resolve/main/ltx-2.3-22b-distilled-lora-384-1.1.safetensors) |
-| `ltx-2.3-spatial-upscaler-x2-1.1.safetensors` | `models/upscale_models` | `LatentUpscaleModelLoader` | `model_name` | [Download](https://huggingface.co/Lightricks/LTX-2.3/resolve/main/ltx-2.3-spatial-upscaler-x2-1.1.safetensors) |
+| `ltx-2.3-spatial-upscaler-x2-1.1.safetensors` | `models/latent_upscale_models` | `LatentUpscaleModelLoader` | `model_name` | [Download](https://huggingface.co/Lightricks/LTX-2.3/resolve/main/ltx-2.3-spatial-upscaler-x2-1.1.safetensors) |
 
 ## API Key
 - Not required for this workflow.

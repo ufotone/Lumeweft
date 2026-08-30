@@ -1,6 +1,6 @@
 # Multiple Angles (Scenes)
 
-Generate 8 camera angles from one scene image
+Generate 8 controlled scene views with Qwen Image Edit 2511 GGUF
 
 - **Workflow ID:** `multi-angles-scene`
 - **Category:** `image`
@@ -22,15 +22,18 @@ Generate 8 camera angles from one scene image
 - `TextEncodeQwenImageEditPlus` - Built into newer ComfyUI builds
   - Native Qwen image edit support ships with newer ComfyUI builds.
   - Docs: https://docs.comfy.org/built-in-nodes/TextEncodeQwenImageEditPlus
+- `UnetLoaderGGUF` - Auto-install supported
+  - Loads supported diffusion models and text encoders in GGUF format.
+  - Repo: https://github.com/city96/ComfyUI-GGUF
 
 ## Required Models
 | Filename | ComfyUI Folder | Loader | Input Key | Download |
 |---|---|---|---|---|
 | `qwen_2.5_vl_7b_fp8_scaled.safetensors` | `models/text_encoders` | `CLIPLoader` | `clip_name` | [Download](https://huggingface.co/Comfy-Org/Qwen-Image_ComfyUI/resolve/main/split_files/text_encoders/qwen_2.5_vl_7b_fp8_scaled.safetensors) |
-| `qwen_image_edit_2509_fp8_e4m3fn.safetensors` | `models/diffusion_models` | `UNETLoader` | `unet_name` | [Download](https://huggingface.co/Comfy-Org/Qwen-Image-Edit_ComfyUI/resolve/main/split_files/diffusion_models/qwen_image_edit_2509_fp8_e4m3fn.safetensors) |
 | `qwen_image_vae.safetensors` | `models/vae` | `VAELoader` | `vae_name` | [Download](https://huggingface.co/Comfy-Org/Qwen-Image_ComfyUI/resolve/main/split_files/vae/qwen_image_vae.safetensors) |
-| `Qwen-Edit-2509-Multiple-angles.safetensors` | `models/loras` | `LoraLoaderModelOnly` | `lora_name` | [Download](https://huggingface.co/Comfy-Org/Qwen-Image-Edit_ComfyUI/resolve/main/split_files/loras/Qwen-Edit-2509-Multiple-angles.safetensors) |
-| `Qwen-Image-Edit-2509-Lightning-4steps-V1.0-bf16.safetensors` | `models/loras` | `LoraLoaderModelOnly` | `lora_name` | [Download](https://huggingface.co/lightx2v/Qwen-Image-Lightning/resolve/main/Qwen-Image-Edit-2509/Qwen-Image-Edit-2509-Lightning-4steps-V1.0-bf16.safetensors) |
+| `Qwen-Image-Edit-2511-Lightning-4steps-V1.0-bf16.safetensors` | `models/loras` | `LoraLoaderModelOnly` | `lora_name` | [Download](https://huggingface.co/lightx2v/Qwen-Image-Edit-2511-Lightning/resolve/main/Qwen-Image-Edit-2511-Lightning-4steps-V1.0-bf16.safetensors) |
+| `qwen-image-edit-2511-multiple-angles-lora.safetensors` | `models/loras` | `LoraLoaderModelOnly` | `lora_name` | [Download](https://huggingface.co/fal/Qwen-Image-Edit-2511-Multiple-Angles-LoRA/resolve/main/qwen-image-edit-2511-multiple-angles-lora.safetensors) |
+| `qwen-image-edit-2511-Q5_K_M.gguf` | `models/diffusion_models` | `UnetLoaderGGUF` | `unet_name` | [Download](https://huggingface.co/unsloth/Qwen-Image-Edit-2511-GGUF/resolve/main/qwen-image-edit-2511-Q5_K_M.gguf) |
 
 ## API Key
 - Not required for this workflow.

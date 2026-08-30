@@ -1,10 +1,65 @@
 {
-  "generatedAt": "2026-04-14T18:11:21.080Z",
-  "totalNodes": 40,
+  "generatedAt": "2026-08-30T04:29:06.603Z",
+  "totalNodes": 128,
   "nodes": [
+    {
+      "classType": "ASRPunctuationTruecaseNode",
+      "workflows": [
+        "caption-qwen-asr"
+      ],
+      "runtimes": [
+        "local"
+      ],
+      "installDocs": "https://github.com/diodiogod/TTS-Audio-Suite",
+      "installKind": "auto",
+      "repoUrl": "https://github.com/diodiogod/TTS-Audio-Suite",
+      "installDirName": "TTS-Audio-Suite",
+      "requirementsStrategy": "requirements-txt",
+      "fallbackRepoUrl": null,
+      "notes": "Provides Qwen ASR transcription, punctuation/truecase cleanup, and SRT builder nodes used by caption generation and Music Video timed lyrics.",
+      "searchTerm": "ASRPunctuationTruecaseNode"
+    },
+    {
+      "classType": "BasicGuider",
+      "workflows": [
+        "flux2-text-to-image",
+        "minimax-h3-character-sheet",
+        "minimax-h3-gguf-i2v"
+      ],
+      "runtimes": [
+        "local"
+      ],
+      "installDocs": "https://registry.comfy.org",
+      "installKind": "core",
+      "repoUrl": null,
+      "installDirName": null,
+      "requirementsStrategy": null,
+      "fallbackRepoUrl": null,
+      "notes": "Core guider node used by modern sampler graphs. Missing this usually means ComfyUI is outdated.",
+      "searchTerm": "BasicGuider"
+    },
+    {
+      "classType": "BasicScheduler",
+      "workflows": [
+        "minimax-h3-character-sheet",
+        "minimax-h3-gguf-i2v"
+      ],
+      "runtimes": [
+        "local"
+      ],
+      "installDocs": "https://registry.comfy.org",
+      "installKind": "manual",
+      "repoUrl": null,
+      "installDirName": null,
+      "requirementsStrategy": null,
+      "fallbackRepoUrl": null,
+      "notes": "No curated install recipe is available yet for this node class.",
+      "searchTerm": "BasicScheduler"
+    },
     {
       "classType": "BatchImagesNode",
       "workflows": [
+        "gpt-image-2-ugc-keyframe",
         "seedream-5-lite-image-edit"
       ],
       "runtimes": [
@@ -18,6 +73,59 @@
       "fallbackRepoUrl": null,
       "notes": "This ships with modern ComfyUI builds. If it is missing, update ComfyUI first.",
       "searchTerm": "BatchImagesNode"
+    },
+    {
+      "classType": "ByteDance2FirstLastFrameNode",
+      "workflows": [
+        "seedance2-flf2v"
+      ],
+      "runtimes": [
+        "cloud"
+      ],
+      "installDocs": "https://registry.comfy.org",
+      "installKind": "manual",
+      "repoUrl": null,
+      "installDirName": null,
+      "requirementsStrategy": null,
+      "fallbackRepoUrl": null,
+      "notes": "This Seedance 2.0 cloud partner node is not mapped to a stable unattended install recipe yet. Use the registry or ComfyUI Manager.",
+      "searchTerm": "ByteDance2FirstLastFrameNode"
+    },
+    {
+      "classType": "ByteDance2ReferenceNode",
+      "workflows": [
+        "seedance2-mini-r2v",
+        "seedance2-r2v"
+      ],
+      "runtimes": [
+        "cloud"
+      ],
+      "installDocs": "https://registry.comfy.org",
+      "installKind": "manual",
+      "repoUrl": null,
+      "installDirName": null,
+      "requirementsStrategy": null,
+      "fallbackRepoUrl": null,
+      "notes": "This Seedance 2.0 cloud partner node is not mapped to a stable unattended install recipe yet. Use the registry or ComfyUI Manager.",
+      "searchTerm": "ByteDance2ReferenceNode"
+    },
+    {
+      "classType": "ByteDance2TextToVideoNode",
+      "workflows": [
+        "seedance2-mini-t2v",
+        "seedance2-t2v"
+      ],
+      "runtimes": [
+        "cloud"
+      ],
+      "installDocs": "https://registry.comfy.org",
+      "installKind": "manual",
+      "repoUrl": null,
+      "installDirName": null,
+      "requirementsStrategy": null,
+      "fallbackRepoUrl": null,
+      "notes": "This Seedance 2.0 cloud partner node is not mapped to a stable unattended install recipe yet. Use the registry or ComfyUI Manager.",
+      "searchTerm": "ByteDance2TextToVideoNode"
     },
     {
       "classType": "ByteDanceSeedreamNode",
@@ -37,9 +145,49 @@
       "searchTerm": "ByteDanceSeedreamNode"
     },
     {
+      "classType": "CFGGuider",
+      "workflows": [
+        "ltx23-ia2v",
+        "ltx23-t2v",
+        "short-film-dialogue-ltx23-ia2v"
+      ],
+      "runtimes": [
+        "local"
+      ],
+      "installDocs": "https://registry.comfy.org",
+      "installKind": "core",
+      "repoUrl": null,
+      "installDirName": null,
+      "requirementsStrategy": null,
+      "fallbackRepoUrl": null,
+      "notes": "Core guider node used by advanced sampler graphs. Missing this usually means ComfyUI is outdated.",
+      "searchTerm": "CFGGuider"
+    },
+    {
+      "classType": "CFGNorm",
+      "workflows": [
+        "longcat-text-to-image"
+      ],
+      "runtimes": [
+        "local"
+      ],
+      "installDocs": "https://registry.comfy.org",
+      "installKind": "manual",
+      "repoUrl": null,
+      "installDirName": null,
+      "requirementsStrategy": null,
+      "fallbackRepoUrl": null,
+      "notes": "Install the LongCat/Flux helper nodes through the Comfy Registry or ComfyUI Manager if this is missing.",
+      "searchTerm": "CFGNorm LongCat ComfyUI"
+    },
+    {
       "classType": "CheckpointLoaderSimple",
       "workflows": [
-        "ltx23-i2v"
+        "ltx23-i2v",
+        "ltx23-ia2v",
+        "ltx23-latentsync",
+        "ltx23-t2v",
+        "short-film-dialogue-ltx23-ia2v"
       ],
       "runtimes": [
         "local"
@@ -56,8 +204,10 @@
     {
       "classType": "CLIPLoader",
       "workflows": [
-        "wan22-i2v",
-        "z-image-turbo"
+        "ernie-image-turbo",
+        "flux2-text-to-image",
+        "longcat-image-edit",
+        "longcat-text-to-image"
       ],
       "runtimes": [
         "local"
@@ -72,9 +222,119 @@
       "searchTerm": "CLIPLoader"
     },
     {
+      "classType": "CLIPLoaderGGUF",
+      "workflows": [
+        "image-edit",
+        "image-edit-model-product",
+        "minimax-h3-character-sheet",
+        "minimax-h3-gguf-i2v",
+        "wan22-i2v",
+        "wan22-t2v",
+        "z-image-turbo"
+      ],
+      "runtimes": [
+        "local"
+      ],
+      "installDocs": "https://github.com/city96/ComfyUI-GGUF",
+      "installKind": "auto",
+      "repoUrl": "https://github.com/city96/ComfyUI-GGUF",
+      "installDirName": "ComfyUI-GGUF",
+      "requirementsStrategy": "requirements-txt",
+      "fallbackRepoUrl": null,
+      "notes": "Loads supported diffusion models and text encoders in GGUF format.",
+      "searchTerm": "CLIPLoaderGGUF"
+    },
+    {
+      "classType": "CLIPTextEncode",
+      "workflows": [
+        "ernie-image-turbo",
+        "flux2-text-to-image",
+        "longcat-text-to-image"
+      ],
+      "runtimes": [
+        "local"
+      ],
+      "installDocs": "https://registry.comfy.org",
+      "installKind": "core",
+      "repoUrl": null,
+      "installDirName": null,
+      "requirementsStrategy": null,
+      "fallbackRepoUrl": null,
+      "notes": "Core text encoding node. Missing this usually means the ComfyUI install is incomplete or very outdated.",
+      "searchTerm": "CLIPTextEncode"
+    },
+    {
+      "classType": "ComfyMathExpression",
+      "workflows": [
+        "frame-interpolation",
+        "ltx23-i2v",
+        "ltx23-latentsync",
+        "wan22-t2v"
+      ],
+      "runtimes": [
+        "local"
+      ],
+      "installDocs": "https://registry.comfy.org",
+      "installKind": "manual",
+      "repoUrl": null,
+      "installDirName": null,
+      "requirementsStrategy": null,
+      "fallbackRepoUrl": null,
+      "notes": "Install the helper/custom-node pack that provides ComfyMathExpression through the Comfy Registry or ComfyUI Manager.",
+      "searchTerm": "ComfyMathExpression"
+    },
+    {
+      "classType": "ComfySwitchNode",
+      "workflows": [
+        "ernie-image-turbo",
+        "flux2-text-to-image",
+        "frame-interpolation",
+        "ltx23-i2v",
+        "ltx23-latentsync",
+        "music-video-shot-ltx23",
+        "wan22-t2v"
+      ],
+      "runtimes": [
+        "local"
+      ],
+      "installDocs": "https://registry.comfy.org",
+      "installKind": "manual",
+      "repoUrl": null,
+      "installDirName": null,
+      "requirementsStrategy": null,
+      "fallbackRepoUrl": null,
+      "notes": "Install the helper/custom-node pack that provides ComfySwitchNode through the Comfy Registry or ComfyUI Manager.",
+      "searchTerm": "ComfySwitchNode"
+    },
+    {
+      "classType": "ConditioningZeroOut",
+      "workflows": [
+        "ernie-image-turbo"
+      ],
+      "runtimes": [
+        "local"
+      ],
+      "installDocs": "https://registry.comfy.org",
+      "installKind": "core",
+      "repoUrl": null,
+      "installDirName": null,
+      "requirementsStrategy": null,
+      "fallbackRepoUrl": null,
+      "notes": "Core conditioning utility. Missing this usually means ComfyUI is outdated.",
+      "searchTerm": "ConditioningZeroOut"
+    },
+    {
       "classType": "CreateVideo",
       "workflows": [
-        "ltx23-i2v"
+        "frame-interpolation",
+        "ltx23-i2v",
+        "ltx23-ia2v",
+        "ltx23-latentsync",
+        "ltx23-t2v",
+        "minimax-h3-gguf-i2v",
+        "music-video-shot-ltx23",
+        "short-film-dialogue-ltx23-ia2v",
+        "wan22-t2v"
       ],
       "runtimes": [
         "local"
@@ -89,9 +349,99 @@
       "searchTerm": "CreateVideo"
     },
     {
+      "classType": "DualCLIPLoader",
+      "workflows": [
+        "music-video-shot-ltx23"
+      ],
+      "runtimes": [
+        "local"
+      ],
+      "installDocs": "https://registry.comfy.org",
+      "installKind": "manual",
+      "repoUrl": null,
+      "installDirName": null,
+      "requirementsStrategy": null,
+      "fallbackRepoUrl": null,
+      "notes": "No curated install recipe is available yet for this node class.",
+      "searchTerm": "DualCLIPLoader"
+    },
+    {
+      "classType": "ElevenLabsTextToSpeech",
+      "workflows": [
+        "elevenlabs-tts"
+      ],
+      "runtimes": [
+        "cloud"
+      ],
+      "installDocs": "https://registry.comfy.org",
+      "installKind": "manual",
+      "repoUrl": null,
+      "installDirName": null,
+      "requirementsStrategy": null,
+      "fallbackRepoUrl": null,
+      "notes": "No curated install recipe is available yet for this node class.",
+      "searchTerm": "ElevenLabsTextToSpeech"
+    },
+    {
+      "classType": "ElevenLabsVoiceSelector",
+      "workflows": [
+        "elevenlabs-tts"
+      ],
+      "runtimes": [
+        "cloud"
+      ],
+      "installDocs": "https://registry.comfy.org",
+      "installKind": "manual",
+      "repoUrl": null,
+      "installDirName": null,
+      "requirementsStrategy": null,
+      "fallbackRepoUrl": null,
+      "notes": "No curated install recipe is available yet for this node class.",
+      "searchTerm": "ElevenLabsVoiceSelector"
+    },
+    {
+      "classType": "EmptyFlux2LatentImage",
+      "workflows": [
+        "ernie-image-turbo",
+        "flux2-text-to-image"
+      ],
+      "runtimes": [
+        "local"
+      ],
+      "installDocs": "https://registry.comfy.org",
+      "installKind": "core",
+      "repoUrl": null,
+      "installDirName": null,
+      "requirementsStrategy": null,
+      "fallbackRepoUrl": null,
+      "notes": "Flux 2 latent support ships with newer ComfyUI builds.",
+      "searchTerm": "EmptyFlux2LatentImage"
+    },
+    {
+      "classType": "EmptyHunyuanLatentVideo",
+      "workflows": [
+        "wan22-t2v"
+      ],
+      "runtimes": [
+        "local"
+      ],
+      "installDocs": "https://registry.comfy.org",
+      "installKind": "core",
+      "repoUrl": null,
+      "installDirName": null,
+      "requirementsStrategy": null,
+      "fallbackRepoUrl": null,
+      "notes": "Core latent-video node used by WAN text-to-video graphs. Update ComfyUI if this is missing.",
+      "searchTerm": "EmptyHunyuanLatentVideo"
+    },
+    {
       "classType": "EmptyLTXVLatentVideo",
       "workflows": [
-        "ltx23-i2v"
+        "ltx23-i2v",
+        "ltx23-ia2v",
+        "ltx23-latentsync",
+        "ltx23-t2v",
+        "short-film-dialogue-ltx23-ia2v"
       ],
       "runtimes": [
         "local"
@@ -104,6 +454,59 @@
       "fallbackRepoUrl": null,
       "notes": "LTX 2.3 workflow support is built into newer ComfyUI builds.",
       "searchTerm": "EmptyLTXVLatentVideo"
+    },
+    {
+      "classType": "EmptySD3LatentImage",
+      "workflows": [
+        "longcat-text-to-image"
+      ],
+      "runtimes": [
+        "local"
+      ],
+      "installDocs": "https://registry.comfy.org",
+      "installKind": "core",
+      "repoUrl": null,
+      "installDirName": null,
+      "requirementsStrategy": null,
+      "fallbackRepoUrl": null,
+      "notes": "Core SD3-style latent node used by Flux/LongCat graphs. Update ComfyUI if this is missing.",
+      "searchTerm": "EmptySD3LatentImage"
+    },
+    {
+      "classType": "Flux2Scheduler",
+      "workflows": [
+        "flux2-text-to-image"
+      ],
+      "runtimes": [
+        "local"
+      ],
+      "installDocs": "https://registry.comfy.org",
+      "installKind": "core",
+      "repoUrl": null,
+      "installDirName": null,
+      "requirementsStrategy": null,
+      "fallbackRepoUrl": null,
+      "notes": "Flux 2 scheduler support ships with newer ComfyUI builds.",
+      "searchTerm": "Flux2Scheduler"
+    },
+    {
+      "classType": "FluxGuidance",
+      "workflows": [
+        "flux2-text-to-image",
+        "longcat-image-edit",
+        "longcat-text-to-image"
+      ],
+      "runtimes": [
+        "local"
+      ],
+      "installDocs": "https://registry.comfy.org",
+      "installKind": "core",
+      "repoUrl": null,
+      "installDirName": null,
+      "requirementsStrategy": null,
+      "fallbackRepoUrl": null,
+      "notes": "Flux guidance support ships with newer ComfyUI builds.",
+      "searchTerm": "FluxGuidance"
     },
     {
       "classType": "FluxKontextImageScale",
@@ -124,6 +527,57 @@
       "searchTerm": "FluxKontextImageScale"
     },
     {
+      "classType": "FluxKontextMultiReferenceLatentMethod",
+      "workflows": [
+        "longcat-image-edit"
+      ],
+      "runtimes": [
+        "local"
+      ],
+      "installDocs": "https://registry.comfy.org",
+      "installKind": "manual",
+      "repoUrl": null,
+      "installDirName": null,
+      "requirementsStrategy": null,
+      "fallbackRepoUrl": null,
+      "notes": "Install the Flux Kontext/LongCat helper nodes through the Comfy Registry or ComfyUI Manager if this is missing.",
+      "searchTerm": "FluxKontextMultiReferenceLatentMethod"
+    },
+    {
+      "classType": "FrameInterpolate",
+      "workflows": [
+        "frame-interpolation"
+      ],
+      "runtimes": [
+        "local"
+      ],
+      "installDocs": "https://github.com/Fannovel16/ComfyUI-Frame-Interpolation",
+      "installKind": "manual",
+      "repoUrl": null,
+      "installDirName": null,
+      "requirementsStrategy": null,
+      "fallbackRepoUrl": null,
+      "notes": "Install ComfyUI-Frame-Interpolation or an equivalent frame interpolation node pack.",
+      "searchTerm": "ComfyUI-Frame-Interpolation"
+    },
+    {
+      "classType": "FrameInterpolationModelLoader",
+      "workflows": [
+        "frame-interpolation"
+      ],
+      "runtimes": [
+        "local"
+      ],
+      "installDocs": "https://github.com/Fannovel16/ComfyUI-Frame-Interpolation",
+      "installKind": "manual",
+      "repoUrl": null,
+      "installDirName": null,
+      "requirementsStrategy": null,
+      "fallbackRepoUrl": null,
+      "notes": "Install ComfyUI-Frame-Interpolation or an equivalent frame interpolation node pack.",
+      "searchTerm": "ComfyUI-Frame-Interpolation"
+    },
+    {
       "classType": "GeminiNanoBanana2",
       "workflows": [
         "nano-banana-2"
@@ -139,6 +593,57 @@
       "fallbackRepoUrl": null,
       "notes": "This cloud partner node is not mapped to a stable unattended install recipe yet. Use the registry or ComfyUI Manager.",
       "searchTerm": "GeminiNanoBanana2"
+    },
+    {
+      "classType": "GeminiNode",
+      "workflows": [
+        "google-gemini-flash-lite"
+      ],
+      "runtimes": [
+        "cloud"
+      ],
+      "installDocs": "https://registry.comfy.org",
+      "installKind": "manual",
+      "repoUrl": null,
+      "installDirName": null,
+      "requirementsStrategy": null,
+      "fallbackRepoUrl": null,
+      "notes": "This cloud partner node is not mapped to a stable unattended install recipe yet. Use the registry or ComfyUI Manager.",
+      "searchTerm": "GeminiNode"
+    },
+    {
+      "classType": "GetImageSizeAndCount",
+      "workflows": [
+        "music-video-shot-ltx23"
+      ],
+      "runtimes": [
+        "local"
+      ],
+      "installDocs": "https://registry.comfy.org",
+      "installKind": "manual",
+      "repoUrl": null,
+      "installDirName": null,
+      "requirementsStrategy": null,
+      "fallbackRepoUrl": null,
+      "notes": "No curated install recipe is available yet for this node class.",
+      "searchTerm": "GetImageSizeAndCount"
+    },
+    {
+      "classType": "GetVideoComponents",
+      "workflows": [
+        "frame-interpolation"
+      ],
+      "runtimes": [
+        "local"
+      ],
+      "installDocs": "https://registry.comfy.org",
+      "installKind": "manual",
+      "repoUrl": null,
+      "installDirName": null,
+      "requirementsStrategy": null,
+      "fallbackRepoUrl": null,
+      "notes": "Install the video helper/custom-node pack that provides GetVideoComponents through the Comfy Registry or ComfyUI Manager.",
+      "searchTerm": "GetVideoComponents"
     },
     {
       "classType": "GrokImageNode",
@@ -175,9 +680,115 @@
       "searchTerm": "GrokVideoNode"
     },
     {
+      "classType": "H3_Promptor",
+      "workflows": [
+        "minimax-h3-media-promptor"
+      ],
+      "runtimes": [
+        "local"
+      ],
+      "installDocs": "https://github.com/1038lab/ComfyUI-MiniMax-H3-Promptor",
+      "installKind": "auto",
+      "repoUrl": "https://github.com/1038lab/ComfyUI-MiniMax-H3-Promptor",
+      "installDirName": "ComfyUI-MiniMax-H3-Promptor",
+      "requirementsStrategy": "requirements-txt",
+      "fallbackRepoUrl": null,
+      "notes": "Analyzes image and video references and generates structured MiniMax H3 prompts for CANVAS.",
+      "searchTerm": "H3_Promptor"
+    },
+    {
+      "classType": "H3_Vision_Analyzer",
+      "workflows": [
+        "minimax-h3-media-promptor"
+      ],
+      "runtimes": [
+        "local"
+      ],
+      "installDocs": "https://github.com/1038lab/ComfyUI-MiniMax-H3-Promptor",
+      "installKind": "auto",
+      "repoUrl": "https://github.com/1038lab/ComfyUI-MiniMax-H3-Promptor",
+      "installDirName": "ComfyUI-MiniMax-H3-Promptor",
+      "requirementsStrategy": "requirements-txt",
+      "fallbackRepoUrl": null,
+      "notes": "Analyzes image and video references and generates structured MiniMax H3 prompts for CANVAS.",
+      "searchTerm": "H3_Vision_Analyzer"
+    },
+    {
+      "classType": "H3ClipLoaderAny",
+      "workflows": [
+        "minimax-h3-character-sheet",
+        "minimax-h3-gguf-i2v"
+      ],
+      "runtimes": [
+        "local"
+      ],
+      "installDocs": "https://github.com/jlucasmcrell/ComfyUI-H3-Multishot",
+      "installKind": "auto",
+      "repoUrl": "https://github.com/jlucasmcrell/ComfyUI-H3-Multishot",
+      "installDirName": "ComfyUI-H3-Multishot",
+      "requirementsStrategy": "requirements-txt",
+      "fallbackRepoUrl": null,
+      "notes": "Provides MiniMax H3 GGUF-aware model/encoder loaders and the in-memory architecture compatibility patch.",
+      "searchTerm": "H3ClipLoaderAny"
+    },
+    {
+      "classType": "H3ModelLoaderAny",
+      "workflows": [
+        "minimax-h3-character-sheet",
+        "minimax-h3-gguf-i2v"
+      ],
+      "runtimes": [
+        "local"
+      ],
+      "installDocs": "https://github.com/jlucasmcrell/ComfyUI-H3-Multishot",
+      "installKind": "auto",
+      "repoUrl": "https://github.com/jlucasmcrell/ComfyUI-H3-Multishot",
+      "installDirName": "ComfyUI-H3-Multishot",
+      "requirementsStrategy": "requirements-txt",
+      "fallbackRepoUrl": null,
+      "notes": "Provides MiniMax H3 GGUF-aware model/encoder loaders and the in-memory architecture compatibility patch.",
+      "searchTerm": "H3ModelLoaderAny"
+    },
+    {
+      "classType": "ImageCompositeMasked",
+      "workflows": [
+        "image-edit",
+        "image-edit-model-product"
+      ],
+      "runtimes": [
+        "local"
+      ],
+      "installDocs": "https://registry.comfy.org",
+      "installKind": "core",
+      "repoUrl": null,
+      "installDirName": null,
+      "requirementsStrategy": null,
+      "fallbackRepoUrl": null,
+      "notes": "Core masked image compositing node. Update ComfyUI if this is missing.",
+      "searchTerm": "ImageCompositeMasked"
+    },
+    {
+      "classType": "ImageFromBatch",
+      "workflows": [
+        "minimax-h3-character-sheet"
+      ],
+      "runtimes": [
+        "local"
+      ],
+      "installDocs": "https://registry.comfy.org",
+      "installKind": "core",
+      "repoUrl": null,
+      "installDirName": null,
+      "requirementsStrategy": null,
+      "fallbackRepoUrl": null,
+      "notes": "Core batch-image extraction node. Update ComfyUI if it is missing.",
+      "searchTerm": "ImageFromBatch"
+    },
+    {
       "classType": "ImageResizeKJv2",
       "workflows": [
-        "image-edit-model-product"
+        "image-edit-model-product",
+        "music-video-shot-ltx23"
       ],
       "runtimes": [
         "local"
@@ -188,8 +799,147 @@
       "installDirName": "ComfyUI-KJNodes",
       "requirementsStrategy": "requirements-txt",
       "fallbackRepoUrl": null,
-      "notes": "Provides ImageResizeKJv2 for the model + product keyframe helper workflow.",
+      "notes": "Provides ImageResizeKJv2 and GetImagesFromBatchIndexed for bundled helper workflows.",
       "searchTerm": "ImageResizeKJv2"
+    },
+    {
+      "classType": "ImageScaleToTotalPixels",
+      "workflows": [
+        "longcat-image-edit"
+      ],
+      "runtimes": [
+        "local"
+      ],
+      "installDocs": "https://registry.comfy.org",
+      "installKind": "core",
+      "repoUrl": null,
+      "installDirName": null,
+      "requirementsStrategy": null,
+      "fallbackRepoUrl": null,
+      "notes": "Core image sizing utility. Update ComfyUI if this is missing.",
+      "searchTerm": "ImageScaleToTotalPixels"
+    },
+    {
+      "classType": "ImageStitch",
+      "workflows": [
+        "minimax-h3-character-sheet"
+      ],
+      "runtimes": [
+        "local"
+      ],
+      "installDocs": "https://registry.comfy.org",
+      "installKind": "core",
+      "repoUrl": null,
+      "installDirName": null,
+      "requirementsStrategy": null,
+      "fallbackRepoUrl": null,
+      "notes": "Core image-stitching node used to assemble the final character sheet. Update ComfyUI if it is missing.",
+      "searchTerm": "ImageStitch"
+    },
+    {
+      "classType": "ImageToMask",
+      "workflows": [
+        "image-edit",
+        "image-edit-model-product"
+      ],
+      "runtimes": [
+        "local"
+      ],
+      "installDocs": "https://registry.comfy.org",
+      "installKind": "core",
+      "repoUrl": null,
+      "installDirName": null,
+      "requirementsStrategy": null,
+      "fallbackRepoUrl": null,
+      "notes": "Core mask conversion node. Missing this usually means the ComfyUI install is incomplete or very outdated.",
+      "searchTerm": "ImageToMask"
+    },
+    {
+      "classType": "jupo.IrodoriTTS.CFGConfig",
+      "workflows": [
+        "irodori-voice-clone"
+      ],
+      "runtimes": [
+        "local"
+      ],
+      "installDocs": "https://github.com/jupo-ai/comfy-Irodori-TTS",
+      "installKind": "auto",
+      "repoUrl": "https://github.com/jupo-ai/comfy-Irodori-TTS",
+      "installDirName": "comfy-Irodori-TTS",
+      "requirementsStrategy": "requirements-txt",
+      "fallbackRepoUrl": null,
+      "notes": "Provides the local Irodori-TTS nodes used by Short Film Creation.",
+      "searchTerm": "jupo.IrodoriTTS.CFGConfig"
+    },
+    {
+      "classType": "jupo.IrodoriTTS.ModelLoader",
+      "workflows": [
+        "irodori-tts",
+        "irodori-voice-clone"
+      ],
+      "runtimes": [
+        "local"
+      ],
+      "installDocs": "https://github.com/jupo-ai/comfy-Irodori-TTS",
+      "installKind": "auto",
+      "repoUrl": "https://github.com/jupo-ai/comfy-Irodori-TTS",
+      "installDirName": "comfy-Irodori-TTS",
+      "requirementsStrategy": "requirements-txt",
+      "fallbackRepoUrl": null,
+      "notes": "Provides the local Irodori-TTS nodes used by Short Film Creation.",
+      "searchTerm": "jupo.IrodoriTTS.ModelLoader"
+    },
+    {
+      "classType": "jupo.IrodoriTTS.ReferenceAudio",
+      "workflows": [
+        "irodori-voice-clone"
+      ],
+      "runtimes": [
+        "local"
+      ],
+      "installDocs": "https://github.com/jupo-ai/comfy-Irodori-TTS",
+      "installKind": "auto",
+      "repoUrl": "https://github.com/jupo-ai/comfy-Irodori-TTS",
+      "installDirName": "comfy-Irodori-TTS",
+      "requirementsStrategy": "requirements-txt",
+      "fallbackRepoUrl": null,
+      "notes": "Provides the local Irodori-TTS nodes used by Short Film Creation.",
+      "searchTerm": "jupo.IrodoriTTS.ReferenceAudio"
+    },
+    {
+      "classType": "jupo.IrodoriTTS.Sampler",
+      "workflows": [
+        "irodori-tts",
+        "irodori-voice-clone"
+      ],
+      "runtimes": [
+        "local"
+      ],
+      "installDocs": "https://github.com/jupo-ai/comfy-Irodori-TTS",
+      "installKind": "auto",
+      "repoUrl": "https://github.com/jupo-ai/comfy-Irodori-TTS",
+      "installDirName": "comfy-Irodori-TTS",
+      "requirementsStrategy": "requirements-txt",
+      "fallbackRepoUrl": null,
+      "notes": "Provides the local Irodori-TTS nodes used by Short Film Creation.",
+      "searchTerm": "jupo.IrodoriTTS.Sampler"
+    },
+    {
+      "classType": "jupo.IrodoriTTS.VoiceDesignConfig",
+      "workflows": [
+        "irodori-voice-clone"
+      ],
+      "runtimes": [
+        "local"
+      ],
+      "installDocs": "https://github.com/jupo-ai/comfy-Irodori-TTS",
+      "installKind": "auto",
+      "repoUrl": "https://github.com/jupo-ai/comfy-Irodori-TTS",
+      "installDirName": "comfy-Irodori-TTS",
+      "requirementsStrategy": "requirements-txt",
+      "fallbackRepoUrl": null,
+      "notes": "Provides the local Irodori-TTS nodes used by Short Film Creation.",
+      "searchTerm": "jupo.IrodoriTTS.VoiceDesignConfig"
     },
     {
       "classType": "KlingOmniProImageToVideoNode",
@@ -211,8 +961,11 @@
     {
       "classType": "KSampler",
       "workflows": [
+        "ernie-image-turbo",
         "image-edit",
         "image-edit-model-product",
+        "longcat-image-edit",
+        "longcat-text-to-image",
         "z-image-turbo"
       ],
       "runtimes": [
@@ -228,9 +981,70 @@
       "searchTerm": "KSampler"
     },
     {
+      "classType": "KSamplerAdvanced",
+      "workflows": [
+        "wan22-t2v"
+      ],
+      "runtimes": [
+        "local"
+      ],
+      "installDocs": "https://registry.comfy.org",
+      "installKind": "core",
+      "repoUrl": null,
+      "installDirName": null,
+      "requirementsStrategy": null,
+      "fallbackRepoUrl": null,
+      "notes": "Core advanced sampler node. Missing this usually means the ComfyUI install is incomplete or very outdated.",
+      "searchTerm": "KSamplerAdvanced"
+    },
+    {
+      "classType": "KSamplerSelect",
+      "workflows": [
+        "flux2-text-to-image",
+        "ltx23-ia2v",
+        "ltx23-t2v",
+        "minimax-h3-character-sheet",
+        "minimax-h3-gguf-i2v",
+        "short-film-dialogue-ltx23-ia2v"
+      ],
+      "runtimes": [
+        "local"
+      ],
+      "installDocs": "https://registry.comfy.org",
+      "installKind": "core",
+      "repoUrl": null,
+      "installDirName": null,
+      "requirementsStrategy": null,
+      "fallbackRepoUrl": null,
+      "notes": "Core sampler selection node used by advanced sampler graphs. Update ComfyUI if this is missing.",
+      "searchTerm": "KSamplerSelect"
+    },
+    {
+      "classType": "LatentSyncNode",
+      "workflows": [
+        "ltx23-latentsync"
+      ],
+      "runtimes": [
+        "local"
+      ],
+      "installDocs": "https://registry.comfy.org",
+      "installKind": "manual",
+      "repoUrl": null,
+      "installDirName": null,
+      "requirementsStrategy": null,
+      "fallbackRepoUrl": null,
+      "notes": "No curated install recipe is available yet for this node class.",
+      "searchTerm": "LatentSyncNode"
+    },
+    {
       "classType": "LatentUpscaleModelLoader",
       "workflows": [
-        "ltx23-i2v"
+        "ltx23-i2v",
+        "ltx23-ia2v",
+        "ltx23-latentsync",
+        "ltx23-t2v",
+        "music-video-shot-ltx23",
+        "short-film-dialogue-ltx23-ia2v"
       ],
       "runtimes": [
         "local"
@@ -245,10 +1059,117 @@
       "searchTerm": "LatentUpscaleModelLoader"
     },
     {
-      "classType": "LoraLoaderModelOnly",
+      "classType": "LazySwitchKJ",
+      "workflows": [
+        "music-video-shot-ltx23"
+      ],
+      "runtimes": [
+        "local"
+      ],
+      "installDocs": "https://registry.comfy.org",
+      "installKind": "manual",
+      "repoUrl": null,
+      "installDirName": null,
+      "requirementsStrategy": null,
+      "fallbackRepoUrl": null,
+      "notes": "No curated install recipe is available yet for this node class.",
+      "searchTerm": "LazySwitchKJ"
+    },
+    {
+      "classType": "LoadAudio",
+      "workflows": [
+        "ltx23-ia2v",
+        "ltx23-latentsync",
+        "music-video-shot-ltx23",
+        "short-film-dialogue-ltx23-ia2v",
+        "vocal-extract-melband"
+      ],
+      "runtimes": [
+        "local"
+      ],
+      "installDocs": "https://registry.comfy.org",
+      "installKind": "core",
+      "repoUrl": null,
+      "installDirName": null,
+      "requirementsStrategy": null,
+      "fallbackRepoUrl": null,
+      "notes": "Core audio input node. Update ComfyUI if this is missing.",
+      "searchTerm": "LoadAudio"
+    },
+    {
+      "classType": "LoadImage",
+      "workflows": [
+        "gpt-image-2-edit",
+        "gpt-image-2-ugc-keyframe",
+        "minimax-h3-character-sheet",
+        "seedance2-flf2v",
+        "seedance2-mini-r2v",
+        "seedance2-r2v"
+      ],
+      "runtimes": [
+        "cloud",
+        "local"
+      ],
+      "installDocs": "https://registry.comfy.org",
+      "installKind": "core",
+      "repoUrl": null,
+      "installDirName": null,
+      "requirementsStrategy": null,
+      "fallbackRepoUrl": null,
+      "notes": "Core image input node. Missing this usually means the ComfyUI install is incomplete or very outdated.",
+      "searchTerm": "LoadImage"
+    },
+    {
+      "classType": "LoadVideo",
+      "workflows": [
+        "frame-interpolation",
+        "seedance2-mini-r2v",
+        "sonilo-v2m",
+        "topaz-video-upscale"
+      ],
+      "runtimes": [
+        "cloud",
+        "local"
+      ],
+      "installDocs": "https://registry.comfy.org",
+      "installKind": "core",
+      "repoUrl": null,
+      "installDirName": null,
+      "requirementsStrategy": null,
+      "fallbackRepoUrl": null,
+      "notes": "Core video input node. Update ComfyUI if this is missing.",
+      "searchTerm": "LoadVideo"
+    },
+    {
+      "classType": "LoraLoader",
       "workflows": [
         "ltx23-i2v",
-        "wan22-i2v"
+        "ltx23-latentsync"
+      ],
+      "runtimes": [
+        "local"
+      ],
+      "installDocs": "https://registry.comfy.org",
+      "installKind": "manual",
+      "repoUrl": null,
+      "installDirName": null,
+      "requirementsStrategy": null,
+      "fallbackRepoUrl": null,
+      "notes": "No curated install recipe is available yet for this node class.",
+      "searchTerm": "LoraLoader"
+    },
+    {
+      "classType": "LoraLoaderModelOnly",
+      "workflows": [
+        "flux2-text-to-image",
+        "ltx23-i2v",
+        "ltx23-ia2v",
+        "ltx23-latentsync",
+        "ltx23-t2v",
+        "minimax-h3-gguf-i2v",
+        "short-film-dialogue-ltx23-ia2v",
+        "wan22-i2v",
+        "wan22-t2v"
       ],
       "runtimes": [
         "local"
@@ -263,9 +1184,64 @@
       "searchTerm": "LoraLoaderModelOnly"
     },
     {
+      "classType": "LTX2_NAG",
+      "workflows": [
+        "music-video-shot-ltx23"
+      ],
+      "runtimes": [
+        "local"
+      ],
+      "installDocs": "https://registry.comfy.org",
+      "installKind": "manual",
+      "repoUrl": null,
+      "installDirName": null,
+      "requirementsStrategy": null,
+      "fallbackRepoUrl": null,
+      "notes": "No curated install recipe is available yet for this node class.",
+      "searchTerm": "LTX2_NAG"
+    },
+    {
+      "classType": "LTX2AttentionTunerPatch",
+      "workflows": [
+        "music-video-shot-ltx23"
+      ],
+      "runtimes": [
+        "local"
+      ],
+      "installDocs": "https://registry.comfy.org",
+      "installKind": "manual",
+      "repoUrl": null,
+      "installDirName": null,
+      "requirementsStrategy": null,
+      "fallbackRepoUrl": null,
+      "notes": "No curated install recipe is available yet for this node class.",
+      "searchTerm": "LTX2AttentionTunerPatch"
+    },
+    {
+      "classType": "LTX2SamplingPreviewOverride",
+      "workflows": [
+        "music-video-shot-ltx23"
+      ],
+      "runtimes": [
+        "local"
+      ],
+      "installDocs": "https://registry.comfy.org",
+      "installKind": "manual",
+      "repoUrl": null,
+      "installDirName": null,
+      "requirementsStrategy": null,
+      "fallbackRepoUrl": null,
+      "notes": "No curated install recipe is available yet for this node class.",
+      "searchTerm": "LTX2SamplingPreviewOverride"
+    },
+    {
       "classType": "LTXAVTextEncoderLoader",
       "workflows": [
-        "ltx23-i2v"
+        "ltx23-i2v",
+        "ltx23-ia2v",
+        "ltx23-latentsync",
+        "ltx23-t2v",
+        "short-film-dialogue-ltx23-ia2v"
       ],
       "runtimes": [
         "local"
@@ -282,7 +1258,11 @@
     {
       "classType": "LTXVAudioVAEDecode",
       "workflows": [
-        "ltx23-i2v"
+        "ltx23-i2v",
+        "ltx23-ia2v",
+        "ltx23-latentsync",
+        "ltx23-t2v",
+        "short-film-dialogue-ltx23-ia2v"
       ],
       "runtimes": [
         "local"
@@ -297,9 +1277,32 @@
       "searchTerm": "LTXVAudioVAEDecode"
     },
     {
+      "classType": "LTXVAudioVAEEncode",
+      "workflows": [
+        "ltx23-ia2v",
+        "music-video-shot-ltx23",
+        "short-film-dialogue-ltx23-ia2v"
+      ],
+      "runtimes": [
+        "local"
+      ],
+      "installDocs": "https://registry.comfy.org",
+      "installKind": "manual",
+      "repoUrl": null,
+      "installDirName": null,
+      "requirementsStrategy": null,
+      "fallbackRepoUrl": null,
+      "notes": "No curated install recipe is available yet for this node class.",
+      "searchTerm": "LTXVAudioVAEEncode"
+    },
+    {
       "classType": "LTXVAudioVAELoader",
       "workflows": [
-        "ltx23-i2v"
+        "ltx23-i2v",
+        "ltx23-ia2v",
+        "ltx23-latentsync",
+        "ltx23-t2v",
+        "short-film-dialogue-ltx23-ia2v"
       ],
       "runtimes": [
         "local"
@@ -314,9 +1317,31 @@
       "searchTerm": "LTXVAudioVAELoader"
     },
     {
+      "classType": "LTXVChunkFeedForward",
+      "workflows": [
+        "music-video-shot-ltx23"
+      ],
+      "runtimes": [
+        "local"
+      ],
+      "installDocs": "https://registry.comfy.org",
+      "installKind": "manual",
+      "repoUrl": null,
+      "installDirName": null,
+      "requirementsStrategy": null,
+      "fallbackRepoUrl": null,
+      "notes": "No curated install recipe is available yet for this node class.",
+      "searchTerm": "LTXVChunkFeedForward"
+    },
+    {
       "classType": "LTXVConcatAVLatent",
       "workflows": [
-        "ltx23-i2v"
+        "ltx23-i2v",
+        "ltx23-ia2v",
+        "ltx23-latentsync",
+        "ltx23-t2v",
+        "music-video-shot-ltx23",
+        "short-film-dialogue-ltx23-ia2v"
       ],
       "runtimes": [
         "local"
@@ -333,7 +1358,12 @@
     {
       "classType": "LTXVConditioning",
       "workflows": [
-        "ltx23-i2v"
+        "ltx23-i2v",
+        "ltx23-ia2v",
+        "ltx23-latentsync",
+        "ltx23-t2v",
+        "music-video-shot-ltx23",
+        "short-film-dialogue-ltx23-ia2v"
       ],
       "runtimes": [
         "local"
@@ -350,7 +1380,11 @@
     {
       "classType": "LTXVCropGuides",
       "workflows": [
-        "ltx23-i2v"
+        "ltx23-i2v",
+        "ltx23-ia2v",
+        "ltx23-latentsync",
+        "ltx23-t2v",
+        "short-film-dialogue-ltx23-ia2v"
       ],
       "runtimes": [
         "local"
@@ -367,7 +1401,9 @@
     {
       "classType": "LTXVEmptyLatentAudio",
       "workflows": [
-        "ltx23-i2v"
+        "ltx23-i2v",
+        "ltx23-latentsync",
+        "ltx23-t2v"
       ],
       "runtimes": [
         "local"
@@ -384,7 +1420,12 @@
     {
       "classType": "LTXVImgToVideoInplace",
       "workflows": [
-        "ltx23-i2v"
+        "ltx23-i2v",
+        "ltx23-ia2v",
+        "ltx23-latentsync",
+        "ltx23-t2v",
+        "music-video-shot-ltx23",
+        "short-film-dialogue-ltx23-ia2v"
       ],
       "runtimes": [
         "local"
@@ -401,7 +1442,12 @@
     {
       "classType": "LTXVLatentUpsampler",
       "workflows": [
-        "ltx23-i2v"
+        "ltx23-i2v",
+        "ltx23-ia2v",
+        "ltx23-latentsync",
+        "ltx23-t2v",
+        "music-video-shot-ltx23",
+        "short-film-dialogue-ltx23-ia2v"
       ],
       "runtimes": [
         "local"
@@ -418,7 +1464,12 @@
     {
       "classType": "LTXVPreprocess",
       "workflows": [
-        "ltx23-i2v"
+        "ltx23-i2v",
+        "ltx23-ia2v",
+        "ltx23-latentsync",
+        "ltx23-t2v",
+        "music-video-shot-ltx23",
+        "short-film-dialogue-ltx23-ia2v"
       ],
       "runtimes": [
         "local"
@@ -435,7 +1486,12 @@
     {
       "classType": "LTXVSeparateAVLatent",
       "workflows": [
-        "ltx23-i2v"
+        "ltx23-i2v",
+        "ltx23-ia2v",
+        "ltx23-latentsync",
+        "ltx23-t2v",
+        "music-video-shot-ltx23",
+        "short-film-dialogue-ltx23-ia2v"
       ],
       "runtimes": [
         "local"
@@ -448,6 +1504,112 @@
       "fallbackRepoUrl": "https://github.com/Lightricks/ComfyUI-LTXVideo",
       "notes": "LTX workflow nodes are bundled into newer ComfyUI builds.",
       "searchTerm": "LTXVSeparateAVLatent"
+    },
+    {
+      "classType": "ManualSigmas",
+      "workflows": [
+        "ltx23-ia2v",
+        "ltx23-t2v",
+        "short-film-dialogue-ltx23-ia2v"
+      ],
+      "runtimes": [
+        "local"
+      ],
+      "installDocs": "https://registry.comfy.org",
+      "installKind": "core",
+      "repoUrl": null,
+      "installDirName": null,
+      "requirementsStrategy": null,
+      "fallbackRepoUrl": null,
+      "notes": "Core sigma schedule node used by advanced sampler graphs. Update ComfyUI if this is missing.",
+      "searchTerm": "ManualSigmas"
+    },
+    {
+      "classType": "MelBandRoFormerModelLoader",
+      "workflows": [
+        "music-video-shot-ltx23",
+        "vocal-extract-melband"
+      ],
+      "runtimes": [
+        "local"
+      ],
+      "installDocs": "https://registry.comfy.org",
+      "installKind": "manual",
+      "repoUrl": null,
+      "installDirName": null,
+      "requirementsStrategy": null,
+      "fallbackRepoUrl": null,
+      "notes": "No curated install recipe is available yet for this node class.",
+      "searchTerm": "MelBandRoFormerModelLoader"
+    },
+    {
+      "classType": "MelBandRoFormerSampler",
+      "workflows": [
+        "music-video-shot-ltx23",
+        "vocal-extract-melband"
+      ],
+      "runtimes": [
+        "local"
+      ],
+      "installDocs": "https://registry.comfy.org",
+      "installKind": "manual",
+      "repoUrl": null,
+      "installDirName": null,
+      "requirementsStrategy": null,
+      "fallbackRepoUrl": null,
+      "notes": "No curated install recipe is available yet for this node class.",
+      "searchTerm": "MelBandRoFormerSampler"
+    },
+    {
+      "classType": "MiniMaxH3ImageToVideo",
+      "workflows": [
+        "minimax-h3-gguf-i2v"
+      ],
+      "runtimes": [
+        "local"
+      ],
+      "installDocs": "https://docs.comfy.org/built-in-nodes/MiniMaxH3ImageToVideo",
+      "installKind": "core",
+      "repoUrl": null,
+      "installDirName": null,
+      "requirementsStrategy": null,
+      "fallbackRepoUrl": null,
+      "notes": "MiniMax H3 support requires ComfyUI 0.30.0 or newer. Update ComfyUI if this node is missing.",
+      "searchTerm": "MiniMaxH3ImageToVideo"
+    },
+    {
+      "classType": "MiniMaxH3ReferenceToVideo",
+      "workflows": [
+        "minimax-h3-character-sheet"
+      ],
+      "runtimes": [
+        "local"
+      ],
+      "installDocs": "https://huggingface.co/PoopMan333/H3_Character_Sheet_Generator",
+      "installKind": "core",
+      "repoUrl": null,
+      "installDirName": null,
+      "requirementsStrategy": null,
+      "fallbackRepoUrl": null,
+      "notes": "MiniMax H3 reference-to-video support ships with current ComfyUI builds. Update ComfyUI if this node is missing.",
+      "searchTerm": "MiniMaxH3ReferenceToVideo"
+    },
+    {
+      "classType": "MiniMaxH3SigmaShift",
+      "workflows": [
+        "minimax-h3-gguf-i2v"
+      ],
+      "runtimes": [
+        "local"
+      ],
+      "installDocs": "https://docs.comfy.org/built-in-nodes/MiniMaxH3SigmaShift",
+      "installKind": "core",
+      "repoUrl": null,
+      "installDirName": null,
+      "requirementsStrategy": null,
+      "fallbackRepoUrl": null,
+      "notes": "MiniMax H3 audio/video sigma scheduling ships with current ComfyUI builds.",
+      "searchTerm": "MiniMaxH3SigmaShift"
     },
     {
       "classType": "ModelSamplingAuraFlow",
@@ -467,9 +1629,143 @@
       "searchTerm": "ModelSamplingAuraFlow"
     },
     {
+      "classType": "ModelSamplingSD3",
+      "workflows": [
+        "wan22-t2v"
+      ],
+      "runtimes": [
+        "local"
+      ],
+      "installDocs": "https://registry.comfy.org",
+      "installKind": "core",
+      "repoUrl": null,
+      "installDirName": null,
+      "requirementsStrategy": null,
+      "fallbackRepoUrl": null,
+      "notes": "Core SD3-style model sampling node used by WAN text-to-video. Update ComfyUI if this is missing.",
+      "searchTerm": "ModelSamplingSD3"
+    },
+    {
+      "classType": "OpenAIGPTImage1",
+      "workflows": [
+        "gpt-image-2-edit",
+        "gpt-image-2-t2i",
+        "gpt-image-2-ugc-keyframe"
+      ],
+      "runtimes": [
+        "cloud"
+      ],
+      "installDocs": "https://registry.comfy.org",
+      "installKind": "manual",
+      "repoUrl": null,
+      "installDirName": null,
+      "requirementsStrategy": null,
+      "fallbackRepoUrl": null,
+      "notes": "This OpenAI cloud partner node is not mapped to a stable unattended install recipe yet. Use the registry or ComfyUI Manager.",
+      "searchTerm": "OpenAIGPTImage1"
+    },
+    {
+      "classType": "PathchSageAttentionKJ",
+      "workflows": [
+        "music-video-shot-ltx23"
+      ],
+      "runtimes": [
+        "local"
+      ],
+      "installDocs": "https://registry.comfy.org",
+      "installKind": "manual",
+      "repoUrl": null,
+      "installDirName": null,
+      "requirementsStrategy": null,
+      "fallbackRepoUrl": null,
+      "notes": "No curated install recipe is available yet for this node class.",
+      "searchTerm": "PathchSageAttentionKJ"
+    },
+    {
+      "classType": "Power Lora Loader (rgthree)",
+      "workflows": [
+        "music-video-shot-ltx23"
+      ],
+      "runtimes": [
+        "local"
+      ],
+      "installDocs": "https://registry.comfy.org",
+      "installKind": "manual",
+      "repoUrl": null,
+      "installDirName": null,
+      "requirementsStrategy": null,
+      "fallbackRepoUrl": null,
+      "notes": "No curated install recipe is available yet for this node class.",
+      "searchTerm": "Power Lora Loader (rgthree)"
+    },
+    {
+      "classType": "PreviewAny",
+      "workflows": [
+        "ernie-image-turbo",
+        "google-gemini-flash-lite",
+        "minimax-h3-media-promptor"
+      ],
+      "runtimes": [
+        "cloud",
+        "local"
+      ],
+      "installDocs": "https://registry.comfy.org",
+      "installKind": "manual",
+      "repoUrl": null,
+      "installDirName": null,
+      "requirementsStrategy": null,
+      "fallbackRepoUrl": null,
+      "notes": "Install the preview/helper custom-node pack that provides PreviewAny through the Comfy Registry or ComfyUI Manager.",
+      "searchTerm": "PreviewAny"
+    },
+    {
+      "classType": "Qwen3TTSEngineNode",
+      "workflows": [
+        "caption-qwen-asr"
+      ],
+      "runtimes": [
+        "local"
+      ],
+      "installDocs": "https://github.com/diodiogod/TTS-Audio-Suite",
+      "installKind": "auto",
+      "repoUrl": "https://github.com/diodiogod/TTS-Audio-Suite",
+      "installDirName": "TTS-Audio-Suite",
+      "requirementsStrategy": "requirements-txt",
+      "fallbackRepoUrl": null,
+      "notes": "Provides Qwen ASR transcription, punctuation/truecase cleanup, and SRT builder nodes used by caption generation and Music Video timed lyrics.",
+      "searchTerm": "Qwen3TTSEngineNode"
+    },
+    {
+      "classType": "RandomNoise",
+      "workflows": [
+        "flux2-text-to-image",
+        "ltx23-ia2v",
+        "ltx23-t2v",
+        "minimax-h3-character-sheet",
+        "minimax-h3-gguf-i2v",
+        "short-film-dialogue-ltx23-ia2v"
+      ],
+      "runtimes": [
+        "local"
+      ],
+      "installDocs": "https://registry.comfy.org",
+      "installKind": "core",
+      "repoUrl": null,
+      "installDirName": null,
+      "requirementsStrategy": null,
+      "fallbackRepoUrl": null,
+      "notes": "Core sampler noise node. Missing this usually means ComfyUI is outdated.",
+      "searchTerm": "RandomNoise"
+    },
+    {
       "classType": "ResizeImageMaskNode",
       "workflows": [
-        "ltx23-i2v"
+        "ltx23-i2v",
+        "ltx23-ia2v",
+        "ltx23-latentsync",
+        "ltx23-t2v",
+        "music-video-shot-ltx23",
+        "short-film-dialogue-ltx23-ia2v"
       ],
       "runtimes": [
         "local"
@@ -486,7 +1782,12 @@
     {
       "classType": "ResizeImagesByLongerEdge",
       "workflows": [
-        "ltx23-i2v"
+        "ltx23-i2v",
+        "ltx23-ia2v",
+        "ltx23-latentsync",
+        "ltx23-t2v",
+        "music-video-shot-ltx23",
+        "short-film-dialogue-ltx23-ia2v"
       ],
       "runtimes": [
         "local"
@@ -501,11 +1802,72 @@
       "searchTerm": "ResizeImagesByLongerEdge"
     },
     {
-      "classType": "SaveAudioMP3",
+      "classType": "ResolutionSelector",
       "workflows": [
-        "music-gen"
+        "longcat-text-to-image"
       ],
       "runtimes": [
+        "local"
+      ],
+      "installDocs": "https://registry.comfy.org",
+      "installKind": "manual",
+      "repoUrl": null,
+      "installDirName": null,
+      "requirementsStrategy": null,
+      "fallbackRepoUrl": null,
+      "notes": "Install the helper/custom-node pack that provides ResolutionSelector through the Comfy Registry or ComfyUI Manager.",
+      "searchTerm": "ResolutionSelector"
+    },
+    {
+      "classType": "SamplerCustomAdvanced",
+      "workflows": [
+        "flux2-text-to-image",
+        "ltx23-ia2v",
+        "ltx23-t2v",
+        "minimax-h3-character-sheet",
+        "minimax-h3-gguf-i2v",
+        "short-film-dialogue-ltx23-ia2v"
+      ],
+      "runtimes": [
+        "local"
+      ],
+      "installDocs": "https://registry.comfy.org",
+      "installKind": "core",
+      "repoUrl": null,
+      "installDirName": null,
+      "requirementsStrategy": null,
+      "fallbackRepoUrl": null,
+      "notes": "Core advanced sampler node. Missing this usually means ComfyUI is outdated.",
+      "searchTerm": "SamplerCustomAdvanced"
+    },
+    {
+      "classType": "SaveAudioAdvanced",
+      "workflows": [
+        "irodori-voice-clone"
+      ],
+      "runtimes": [
+        "local"
+      ],
+      "installDocs": "https://docs.comfy.org/tutorials/audio/ace-step/ace-step-v1",
+      "installKind": "core",
+      "repoUrl": null,
+      "installDirName": null,
+      "requirementsStrategy": null,
+      "fallbackRepoUrl": null,
+      "notes": "Advanced audio output is included in newer ComfyUI builds. Update ComfyUI if this node is missing.",
+      "searchTerm": "SaveAudioAdvanced"
+    },
+    {
+      "classType": "SaveAudioMP3",
+      "workflows": [
+        "elevenlabs-tts",
+        "irodori-tts",
+        "music-gen",
+        "sonilo-v2m",
+        "vocal-extract-melband"
+      ],
+      "runtimes": [
+        "cloud",
         "local"
       ],
       "installDocs": "https://docs.comfy.org/tutorials/audio/ace-step/ace-step-v1",
@@ -520,9 +1882,17 @@
     {
       "classType": "SaveImage",
       "workflows": [
+        "ernie-image-turbo",
+        "flux2-text-to-image",
+        "gpt-image-2-edit",
+        "gpt-image-2-t2i",
+        "gpt-image-2-ugc-keyframe",
         "grok-text-to-image",
         "image-edit",
         "image-edit-model-product",
+        "longcat-image-edit",
+        "longcat-text-to-image",
+        "minimax-h3-character-sheet",
         "multi-angles",
         "multi-angles-scene",
         "nano-banana-2",
@@ -545,11 +1915,25 @@
     {
       "classType": "SaveVideo",
       "workflows": [
+        "frame-interpolation",
         "grok-video-i2v",
         "kling-o3-i2v",
         "ltx23-i2v",
+        "ltx23-ia2v",
+        "ltx23-latentsync",
+        "ltx23-t2v",
+        "minimax-h3-gguf-i2v",
+        "music-video-shot-ltx23",
+        "seedance2-flf2v",
+        "seedance2-mini-r2v",
+        "seedance2-mini-t2v",
+        "seedance2-r2v",
+        "seedance2-t2v",
+        "short-film-dialogue-ltx23-ia2v",
+        "topaz-video-upscale",
         "vidu-q2-i2v",
-        "wan22-i2v"
+        "wan22-i2v",
+        "wan22-t2v"
       ],
       "runtimes": [
         "cloud",
@@ -563,6 +1947,111 @@
       "fallbackRepoUrl": null,
       "notes": "Core video output support ships with newer ComfyUI builds.",
       "searchTerm": "SaveVideo"
+    },
+    {
+      "classType": "SetLatentNoiseMask",
+      "workflows": [
+        "ltx23-ia2v",
+        "short-film-dialogue-ltx23-ia2v"
+      ],
+      "runtimes": [
+        "local"
+      ],
+      "installDocs": "https://registry.comfy.org",
+      "installKind": "core",
+      "repoUrl": null,
+      "installDirName": null,
+      "requirementsStrategy": null,
+      "fallbackRepoUrl": null,
+      "notes": "Core latent-mask utility. Missing this usually means ComfyUI is outdated.",
+      "searchTerm": "SetLatentNoiseMask"
+    },
+    {
+      "classType": "ShowText|pysssss",
+      "workflows": [
+        "caption-qwen-asr"
+      ],
+      "runtimes": [
+        "local"
+      ],
+      "installDocs": "https://github.com/pythongosssss/ComfyUI-Custom-Scripts",
+      "installKind": "auto",
+      "repoUrl": "https://github.com/pythongosssss/ComfyUI-Custom-Scripts",
+      "installDirName": "ComfyUI-Custom-Scripts",
+      "requirementsStrategy": "requirements-txt",
+      "fallbackRepoUrl": null,
+      "notes": "Provides Show Text, which the caption workflow uses to expose the generated SRT text back to Velorn.",
+      "searchTerm": "ShowText|pysssss"
+    },
+    {
+      "classType": "SimpleCalculatorKJ",
+      "workflows": [
+        "music-video-shot-ltx23"
+      ],
+      "runtimes": [
+        "local"
+      ],
+      "installDocs": "https://registry.comfy.org",
+      "installKind": "manual",
+      "repoUrl": null,
+      "installDirName": null,
+      "requirementsStrategy": null,
+      "fallbackRepoUrl": null,
+      "notes": "No curated install recipe is available yet for this node class.",
+      "searchTerm": "SimpleCalculatorKJ"
+    },
+    {
+      "classType": "SoniloVideoToMusic",
+      "workflows": [
+        "sonilo-v2m"
+      ],
+      "runtimes": [
+        "cloud"
+      ],
+      "installDocs": "https://registry.comfy.org",
+      "installKind": "manual",
+      "repoUrl": null,
+      "installDirName": null,
+      "requirementsStrategy": null,
+      "fallbackRepoUrl": null,
+      "notes": "This Sonilo cloud partner node is not mapped to a stable unattended install recipe yet. Use the registry or ComfyUI Manager.",
+      "searchTerm": "SoniloVideoToMusic"
+    },
+    {
+      "classType": "SRTAdvancedOptionsNode",
+      "workflows": [
+        "caption-qwen-asr"
+      ],
+      "runtimes": [
+        "local"
+      ],
+      "installDocs": "https://github.com/diodiogod/TTS-Audio-Suite",
+      "installKind": "auto",
+      "repoUrl": "https://github.com/diodiogod/TTS-Audio-Suite",
+      "installDirName": "TTS-Audio-Suite",
+      "requirementsStrategy": "requirements-txt",
+      "fallbackRepoUrl": null,
+      "notes": "Provides Qwen ASR transcription, punctuation/truecase cleanup, and SRT builder nodes used by caption generation and Music Video timed lyrics.",
+      "searchTerm": "SRTAdvancedOptionsNode"
+    },
+    {
+      "classType": "StringReplace",
+      "workflows": [
+        "ernie-image-turbo",
+        "gpt-image-2-edit"
+      ],
+      "runtimes": [
+        "cloud",
+        "local"
+      ],
+      "installDocs": "https://registry.comfy.org",
+      "installKind": "manual",
+      "repoUrl": null,
+      "installDirName": null,
+      "requirementsStrategy": null,
+      "fallbackRepoUrl": null,
+      "notes": "Install the text/helper custom-node pack that provides StringReplace through the Comfy Registry or ComfyUI Manager.",
+      "searchTerm": "StringReplace"
     },
     {
       "classType": "TextEncodeAceStepAudio1.5",
@@ -580,6 +2069,23 @@
       "fallbackRepoUrl": null,
       "notes": "Update ComfyUI to a build with Ace-Step 1.5 support if this node is missing.",
       "searchTerm": "TextEncodeAceStepAudio1.5"
+    },
+    {
+      "classType": "TextEncodeQwenImageEdit",
+      "workflows": [
+        "longcat-image-edit"
+      ],
+      "runtimes": [
+        "local"
+      ],
+      "installDocs": "https://registry.comfy.org",
+      "installKind": "core",
+      "repoUrl": null,
+      "installDirName": null,
+      "requirementsStrategy": null,
+      "fallbackRepoUrl": null,
+      "notes": "Native Qwen/LongCat image edit support ships with newer ComfyUI builds.",
+      "searchTerm": "TextEncodeQwenImageEdit"
     },
     {
       "classType": "TextEncodeQwenImageEditPlus",
@@ -602,10 +2108,102 @@
       "searchTerm": "TextEncodeQwenImageEditPlus"
     },
     {
+      "classType": "TextGenerate",
+      "workflows": [
+        "ernie-image-turbo"
+      ],
+      "runtimes": [
+        "local"
+      ],
+      "installDocs": "https://registry.comfy.org",
+      "installKind": "manual",
+      "repoUrl": null,
+      "installDirName": null,
+      "requirementsStrategy": null,
+      "fallbackRepoUrl": null,
+      "notes": "Install the text-generation helper nodes used by the Ernie prompt enhancer through the Comfy Registry or ComfyUI Manager.",
+      "searchTerm": "TextGenerate ComfyUI"
+    },
+    {
+      "classType": "TextGenerateLTX2Prompt",
+      "workflows": [
+        "ltx23-i2v",
+        "ltx23-latentsync",
+        "music-video-shot-ltx23"
+      ],
+      "runtimes": [
+        "local"
+      ],
+      "installDocs": "https://registry.comfy.org",
+      "installKind": "manual",
+      "repoUrl": null,
+      "installDirName": null,
+      "requirementsStrategy": null,
+      "fallbackRepoUrl": null,
+      "notes": "No curated install recipe is available yet for this node class.",
+      "searchTerm": "TextGenerateLTX2Prompt"
+    },
+    {
+      "classType": "TextToSRTBuilderNode",
+      "workflows": [
+        "caption-qwen-asr"
+      ],
+      "runtimes": [
+        "local"
+      ],
+      "installDocs": "https://github.com/diodiogod/TTS-Audio-Suite",
+      "installKind": "auto",
+      "repoUrl": "https://github.com/diodiogod/TTS-Audio-Suite",
+      "installDirName": "TTS-Audio-Suite",
+      "requirementsStrategy": "requirements-txt",
+      "fallbackRepoUrl": null,
+      "notes": "Provides Qwen ASR transcription, punctuation/truecase cleanup, and SRT builder nodes used by caption generation and Music Video timed lyrics.",
+      "searchTerm": "TextToSRTBuilderNode"
+    },
+    {
+      "classType": "TopazVideoEnhance",
+      "workflows": [
+        "topaz-video-upscale"
+      ],
+      "runtimes": [
+        "cloud"
+      ],
+      "installDocs": "https://registry.comfy.org",
+      "installKind": "manual",
+      "repoUrl": null,
+      "installDirName": null,
+      "requirementsStrategy": null,
+      "fallbackRepoUrl": null,
+      "notes": "This cloud partner node is not mapped to a stable unattended install recipe yet. Use the registry or ComfyUI Manager.",
+      "searchTerm": "TopazVideoEnhance"
+    },
+    {
+      "classType": "TrimAudioDuration",
+      "workflows": [
+        "ltx23-ia2v",
+        "music-video-shot-ltx23",
+        "short-film-dialogue-ltx23-ia2v"
+      ],
+      "runtimes": [
+        "local"
+      ],
+      "installDocs": "https://registry.comfy.org",
+      "installKind": "manual",
+      "repoUrl": null,
+      "installDirName": null,
+      "requirementsStrategy": null,
+      "fallbackRepoUrl": null,
+      "notes": "No curated install recipe is available yet for this node class.",
+      "searchTerm": "TrimAudioDuration"
+    },
+    {
       "classType": "UNETLoader",
       "workflows": [
-        "wan22-i2v",
-        "z-image-turbo"
+        "ernie-image-turbo",
+        "flux2-text-to-image",
+        "longcat-image-edit",
+        "longcat-text-to-image",
+        "music-video-shot-ltx23"
       ],
       "runtimes": [
         "local"
@@ -620,8 +2218,69 @@
       "searchTerm": "UNETLoader"
     },
     {
+      "classType": "UnetLoaderGGUF",
+      "workflows": [
+        "image-edit",
+        "image-edit-model-product",
+        "minimax-h3-character-sheet",
+        "minimax-h3-gguf-i2v",
+        "multi-angles",
+        "multi-angles-scene",
+        "wan22-i2v",
+        "wan22-t2v",
+        "z-image-turbo"
+      ],
+      "runtimes": [
+        "local"
+      ],
+      "installDocs": "https://github.com/city96/ComfyUI-GGUF",
+      "installKind": "auto",
+      "repoUrl": "https://github.com/city96/ComfyUI-GGUF",
+      "installDirName": "ComfyUI-GGUF",
+      "requirementsStrategy": "requirements-txt",
+      "fallbackRepoUrl": null,
+      "notes": "Loads supported diffusion models and text encoders in GGUF format.",
+      "searchTerm": "UnetLoaderGGUF"
+    },
+    {
+      "classType": "UnifiedASRTranscribeNode",
+      "workflows": [
+        "caption-qwen-asr"
+      ],
+      "runtimes": [
+        "local"
+      ],
+      "installDocs": "https://github.com/diodiogod/TTS-Audio-Suite",
+      "installKind": "auto",
+      "repoUrl": "https://github.com/diodiogod/TTS-Audio-Suite",
+      "installDirName": "TTS-Audio-Suite",
+      "requirementsStrategy": "requirements-txt",
+      "fallbackRepoUrl": null,
+      "notes": "Provides Qwen ASR transcription, punctuation/truecase cleanup, and SRT builder nodes used by caption generation and Music Video timed lyrics.",
+      "searchTerm": "UnifiedASRTranscribeNode"
+    },
+    {
+      "classType": "VAEDecode",
+      "workflows": [
+        "minimax-h3-character-sheet",
+        "minimax-h3-gguf-i2v"
+      ],
+      "runtimes": [
+        "local"
+      ],
+      "installDocs": "https://registry.comfy.org",
+      "installKind": "manual",
+      "repoUrl": null,
+      "installDirName": null,
+      "requirementsStrategy": null,
+      "fallbackRepoUrl": null,
+      "notes": "No curated install recipe is available yet for this node class.",
+      "searchTerm": "VAEDecode"
+    },
+    {
       "classType": "VAEDecodeAudio",
       "workflows": [
+        "minimax-h3-gguf-i2v",
         "music-gen"
       ],
       "runtimes": [
@@ -639,7 +2298,11 @@
     {
       "classType": "VAEDecodeTiled",
       "workflows": [
-        "ltx23-i2v"
+        "ltx23-i2v",
+        "ltx23-ia2v",
+        "ltx23-latentsync",
+        "ltx23-t2v",
+        "short-film-dialogue-ltx23-ia2v"
       ],
       "runtimes": [
         "local"
@@ -656,7 +2319,15 @@
     {
       "classType": "VAELoader",
       "workflows": [
+        "ernie-image-turbo",
+        "flux2-text-to-image",
+        "longcat-image-edit",
+        "longcat-text-to-image",
+        "minimax-h3-character-sheet",
+        "minimax-h3-gguf-i2v",
+        "music-video-shot-ltx23",
         "wan22-i2v",
+        "wan22-t2v",
         "z-image-turbo"
       ],
       "runtimes": [
@@ -670,6 +2341,57 @@
       "fallbackRepoUrl": null,
       "notes": "Core VAE loader. Missing this usually means the ComfyUI install is incomplete or very outdated.",
       "searchTerm": "VAELoader"
+    },
+    {
+      "classType": "VAELoaderKJ",
+      "workflows": [
+        "music-video-shot-ltx23"
+      ],
+      "runtimes": [
+        "local"
+      ],
+      "installDocs": "https://registry.comfy.org",
+      "installKind": "manual",
+      "repoUrl": null,
+      "installDirName": null,
+      "requirementsStrategy": null,
+      "fallbackRepoUrl": null,
+      "notes": "No curated install recipe is available yet for this node class.",
+      "searchTerm": "VAELoaderKJ"
+    },
+    {
+      "classType": "VHS_LoadAudioUpload",
+      "workflows": [
+        "caption-qwen-asr"
+      ],
+      "runtimes": [
+        "local"
+      ],
+      "installDocs": "https://github.com/Kosinkadink/ComfyUI-VideoHelperSuite",
+      "installKind": "auto",
+      "repoUrl": "https://github.com/Kosinkadink/ComfyUI-VideoHelperSuite",
+      "installDirName": "ComfyUI-VideoHelperSuite",
+      "requirementsStrategy": "requirements-txt",
+      "fallbackRepoUrl": null,
+      "notes": "Used by some advanced/hidden video workflows such as workflow import helpers and caption tooling.",
+      "searchTerm": "VHS_LoadAudioUpload"
+    },
+    {
+      "classType": "VHS_LoadVideo",
+      "workflows": [
+        "caption-qwen-asr"
+      ],
+      "runtimes": [
+        "local"
+      ],
+      "installDocs": "https://github.com/Kosinkadink/ComfyUI-VideoHelperSuite",
+      "installKind": "auto",
+      "repoUrl": "https://github.com/Kosinkadink/ComfyUI-VideoHelperSuite",
+      "installDirName": "ComfyUI-VideoHelperSuite",
+      "requirementsStrategy": "requirements-txt",
+      "fallbackRepoUrl": null,
+      "notes": "Used by some advanced/hidden video workflows such as workflow import helpers and caption tooling.",
+      "searchTerm": "VHS_LoadVideo"
     },
     {
       "classType": "Vidu2ImageToVideoNode",

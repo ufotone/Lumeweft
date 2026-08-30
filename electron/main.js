@@ -1,4 +1,4 @@
-const { app, BrowserWindow, ipcMain, dialog, protocol, net, shell, screen, session } = require('electron')
+const { app, BrowserWindow, ipcMain, dialog, protocol, net, shell, screen, session, safeStorage } = require('electron')
 const crypto = require('crypto')
 const path = require('path')
 const os = require('os')
@@ -40,6 +40,7 @@ const {
   createComfyStudioMcpServer,
 } = require('./mcpServer')
 const { loadMyWorkflowCatalog } = require('./myWorkflowCatalog')
+const { CLOUD_RUNTIME_PROVIDERS, createCloudRuntimeClient, getCloudRuntimeProvider } = require('./cloudRuntimes')
 
 const isDev = !app.isPackaged
 
@@ -108,6 +109,8 @@ const COMFY_CONNECTION_SETTING_KEY = 'comfyConnection'
 const DEFAULT_LOCAL_COMFY_PORT = 8188
 const COMFY_CLOUD_CREDITS_PER_USD = 211
 const MAIN_WINDOW_STATE_SETTING_KEY = 'mainWindowState'
+const CLOUD_RUNTIME_CREDENTIALS_SETTING_KEY = 'cloudRuntimeCredentialsEncrypted'
+const CLOUD_RUNTIME_ROUTING_SETTING_KEY = 'cloudRuntimeRouting'
 const DEFAULT_MAIN_WINDOW_BOUNDS = Object.freeze({ width: 1600, height: 1000 })
 const COMFYSTUDIO_BRIDGE_DIR_NAME = 'comfystudio_bridge'
 const COMFYSTUDIO_BRIDGE_VERSION = '0.1.0'
@@ -752,6 +755,8 @@ function emitWorkflowSetupProgress(payload = {}) {
     ...payload,
   })
 }
+
+let activeWorkflowSetupInstall = null
 
 function clampPercent(value) {
   const numeric = Number(value)
@@ -1596,6 +1601,13 @@ async function downloadFileWithProgress(task, targetPath, progressMeta = {}) {
         const fileStream = fsSync.createWriteStream(tempPath)
         activeFileStream = fileStream
         const sourceStream = Readable.fromWeb(response.body)
+        const abortSignal = task?.signal
+        const handleAbort = () => {
+          const abortError = new Error('Workflow setup download cancelled.')
+          abortError.name = 'AbortError'
+          sourceStream.destroy(abortError)
+        }
+        const removeAbortListener = () => abortSignal?.removeEventListener('abort', handleAbort)
 
         sourceStream.on('data', (chunk) => {
           bytesDownloaded += chunk.length
@@ -1628,10 +1640,24 @@ async function downloadFileWithProgress(task, targetPath, progressMeta = {}) {
           })
         })
 
-        sourceStream.on('error', reject)
-        fileStream.on('error', reject)
-        fileStream.on('finish', resolve)
-        sourceStream.pipe(fileStream)
+        sourceStream.on('error', (error) => {
+          removeAbortListener()
+          reject(error)
+        })
+        fileStream.on('error', (error) => {
+          removeAbortListener()
+          reject(error)
+        })
+        fileStream.on('finish', () => {
+          removeAbortListener()
+          resolve()
+        })
+        if (abortSignal?.aborted) {
+          handleAbort()
+        } else {
+          abortSignal?.addEventListener('abort', handleAbort, { once: true })
+          sourceStream.pipe(fileStream)
+        }
       })
     }
 
@@ -3459,6 +3485,38 @@ async function writeSettingsRaw(mutator) {
   return writeOperation
 }
 
+function serializeCloudRuntimeError(error, providerId = '') {
+  return {
+    success: false,
+    error: error?.message || 'Cloud runtime request failed.',
+    providerId: error?.providerId || providerId,
+    status: Number(error?.status) || 0,
+    type: error?.type || '',
+    code: error?.code || '',
+    details: error?.details || null,
+  }
+}
+
+async function getCloudRuntimeApiKey(providerId) {
+  const provider = getCloudRuntimeProvider(providerId)
+  if (!provider) return ''
+  const environmentKey = String(process.env[provider.environmentKey] || '').trim()
+  if (environmentKey) return environmentKey
+  const settings = await readSettingsRaw()
+  const encrypted = String(settings?.[CLOUD_RUNTIME_CREDENTIALS_SETTING_KEY]?.[providerId] || '').trim()
+  if (!encrypted || !safeStorage.isEncryptionAvailable()) return ''
+  try {
+    return safeStorage.decryptString(Buffer.from(encrypted, 'base64')).trim()
+  } catch {
+    return ''
+  }
+}
+
+async function createConfiguredCloudRuntimeClient(providerId) {
+  const apiKey = await getCloudRuntimeApiKey(providerId)
+  return createCloudRuntimeClient(providerId, { apiKey, fetchImpl: (...args) => net.fetch(...args) })
+}
+
 async function refreshSettingsDependentCaches() {
   try {
     await refreshLauncherConfigCache()
@@ -5069,6 +5127,99 @@ ipcMain.handle('settings:delete', async (event, key) => {
   }
 })
 
+// ============================================
+// Cloud execution runtimes
+// ============================================
+
+ipcMain.handle('cloudRuntime:getSettings', async () => {
+  const settings = await readSettingsRaw()
+  const providers = await Promise.all(CLOUD_RUNTIME_PROVIDERS.map(async (provider) => ({
+    ...provider,
+    hasCredential: Boolean(await getCloudRuntimeApiKey(provider.id)),
+    credentialFromEnvironment: Boolean(String(process.env[provider.environmentKey] || '').trim()),
+  })))
+  const requestedRuntime = String(settings?.[CLOUD_RUNTIME_ROUTING_SETTING_KEY]?.importedApiWorkflows || 'local-comfyui')
+  const importedApiWorkflows = requestedRuntime === 'local-comfyui' || getCloudRuntimeProvider(requestedRuntime)
+    ? requestedRuntime
+    : 'local-comfyui'
+  return { success: true, providers, routing: { importedApiWorkflows }, encryptionAvailable: safeStorage.isEncryptionAvailable() }
+})
+
+ipcMain.handle('cloudRuntime:saveCredential', async (_event, payload = {}) => {
+  const providerId = String(payload.providerId || '').trim()
+  try {
+    if (!getCloudRuntimeProvider(providerId)) throw new Error(`Unknown cloud runtime: ${providerId || '(missing)'}.`)
+    const apiKey = String(payload.apiKey || '').trim()
+    if (apiKey && !safeStorage.isEncryptionAvailable()) throw new Error('Secure credential storage is unavailable on this system.')
+    await writeSettingsRaw((settings) => {
+      const credentials = { ...(settings?.[CLOUD_RUNTIME_CREDENTIALS_SETTING_KEY] || {}) }
+      if (apiKey) credentials[providerId] = safeStorage.encryptString(apiKey).toString('base64')
+      else delete credentials[providerId]
+      return { ...settings, [CLOUD_RUNTIME_CREDENTIALS_SETTING_KEY]: credentials }
+    })
+    return { success: true, providerId, hasCredential: Boolean(await getCloudRuntimeApiKey(providerId)) }
+  } catch (error) {
+    return serializeCloudRuntimeError(error, providerId)
+  }
+})
+
+ipcMain.handle('cloudRuntime:setRouting', async (_event, payload = {}) => {
+  const runtimeId = String(payload.importedApiWorkflows || '').trim()
+  if (runtimeId !== 'local-comfyui' && !getCloudRuntimeProvider(runtimeId)) {
+    return { success: false, error: `Unknown cloud runtime: ${runtimeId || '(missing)'}.` }
+  }
+  await writeSettingsRaw((settings) => ({
+    ...settings,
+    [CLOUD_RUNTIME_ROUTING_SETTING_KEY]: {
+      ...(settings?.[CLOUD_RUNTIME_ROUTING_SETTING_KEY] || {}),
+      importedApiWorkflows: runtimeId,
+    },
+  }))
+  return { success: true, routing: { importedApiWorkflows: runtimeId } }
+})
+
+ipcMain.handle('cloudRuntime:testCredential', async (_event, payload = {}) => {
+  const providerId = String(payload.providerId || '').trim()
+  try {
+    const client = createCloudRuntimeClient(providerId, {
+      apiKey: String(payload.apiKey || '').trim(),
+      fetchImpl: (...args) => net.fetch(...args),
+    })
+    await client.testConnection()
+    return { success: true, providerId }
+  } catch (error) {
+    return serializeCloudRuntimeError(error, providerId)
+  }
+})
+
+for (const [channel, method, resultKey] of [
+  ['cloudRuntime:testConnection', 'testConnection', null],
+  ['cloudRuntime:getBalance', 'getBalance', 'balance'],
+  ['cloudRuntime:createRun', 'createRun', 'run'],
+  ['cloudRuntime:getRun', 'getRun', 'run'],
+  ['cloudRuntime:cancelRun', 'cancelRun', 'run'],
+  ['cloudRuntime:uploadFile', 'uploadFile', 'file'],
+]) {
+  ipcMain.handle(channel, async (_event, payload = {}) => {
+    const providerId = String(payload.providerId || '').trim()
+    try {
+      const client = await createConfiguredCloudRuntimeClient(providerId)
+      let result
+      if (method === 'createRun') result = await client.createRun(payload.workflow, { name: payload.name })
+      else if (method === 'getBalance') result = await client.getBalance()
+      else if (method === 'getRun') result = await client.getRun(payload.runId, payload)
+      else if (method === 'cancelRun') result = await client.cancelRun(payload.runId)
+      else if (method === 'uploadFile') {
+        const bytes = payload.bytes instanceof Uint8Array ? payload.bytes : new Uint8Array(payload.bytes || [])
+        result = await client.uploadFile({ ...payload, bytes })
+      } else result = await client.testConnection()
+      return resultKey ? { success: true, [resultKey]: result } : { success: true }
+    } catch (error) {
+      return serializeCloudRuntimeError(error, providerId)
+    }
+  })
+}
+
 ipcMain.handle('civitai:getModel', async (_event, modelId) => {
   const normalizedId = Number(modelId)
   if (!Number.isSafeInteger(normalizedId) || normalizedId <= 0) {
@@ -6026,6 +6177,365 @@ ipcMain.handle('workflowSetup:diskSpace', async (_event, payload = {}) => {
   }
 })
 
+const LORA_FACTORY_HANDOFF_SCRIPT_NAME = 'lumeweft-dataset-handoff.js'
+const LORA_FACTORY_HANDOFF_DATA_NAME = 'lumeweft-dataset-handoff.json'
+const LORA_FACTORY_HANDOFF_SCRIPT_TAG = `    <script src="${LORA_FACTORY_HANDOFF_SCRIPT_NAME}"></script>`
+const activeLoraFactoryProcesses = new Map()
+
+function emitLoraFactoryProcessEvent(target, payload = {}) {
+  if (!target || target.isDestroyed?.()) return
+  target.send('loraFactory:processEvent', {
+    timestamp: new Date().toISOString(),
+    ...payload,
+  })
+}
+
+const LORA_FACTORY_HANDOFF_SCRIPT = `(() => {
+  const applyLumeweftDataset = async () => {
+    try {
+      const response = await fetch('/${LORA_FACTORY_HANDOFF_DATA_NAME}?t=' + Date.now(), { cache: 'no-store' });
+      if (!response.ok) return;
+      const handoff = await response.json();
+      const datasetPath = String(handoff && handoff.datasetPath || '').trim();
+      const isSdxl = String(handoff.factoryType || '').toLowerCase() === 'sdxl';
+      const storagePrefix = isSdxl ? 'sdxl_factory_saved_' : 'anima_factory_';
+      const fieldValues = {
+        'dataset-path': datasetPath,
+        'model-path': String(handoff.modelPaths && handoff.modelPaths.modelPath || '').trim(),
+        'vae-path': String(handoff.modelPaths && handoff.modelPaths.vaePath || '').trim(),
+        'qwen-path': String(handoff.modelPaths && handoff.modelPaths.qwenPath || '').trim(),
+        'output-dir': String(handoff.outputDirectory || '').trim(),
+      };
+      Object.entries(fieldValues).forEach(([fieldId, value]) => {
+        const input = document.getElementById(fieldId);
+        if (!value || !input) return;
+        input.value = value;
+        input.dispatchEvent(new Event('change', { bubbles: true }));
+        localStorage.setItem(storagePrefix + fieldId, value);
+      });
+    } catch (error) {
+      console.warn('[Lumeweft] Could not apply the dataset handoff:', error);
+    }
+  };
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', applyLumeweftDataset);
+  } else {
+    applyLumeweftDataset();
+  }
+})();
+`
+
+async function prepareLoraFactoryDatasetHandoff(resolvedRoot, factoryType, datasetPath, modelPaths = {}, outputDirectory = '') {
+  const normalizedDatasetPath = String(datasetPath || '').trim()
+  if (normalizedDatasetPath && !path.isAbsolute(normalizedDatasetPath)) {
+    return { applied: false, reason: 'The dataset path must be absolute.' }
+  }
+  if (normalizedDatasetPath) {
+    try {
+      const datasetStat = await fs.stat(normalizedDatasetPath)
+      if (!datasetStat.isDirectory()) {
+        return { applied: false, reason: 'The exported dataset folder no longer exists.' }
+      }
+    } catch (_) {
+      return { applied: false, reason: 'The exported dataset folder no longer exists.' }
+    }
+  }
+
+  const normalizedModelPaths = {}
+  for (const key of ['modelPath', 'vaePath', 'qwenPath']) {
+    const candidatePath = String(modelPaths?.[key] || '').trim()
+    if (!candidatePath || !path.isAbsolute(candidatePath)) continue
+    try {
+      const modelStat = await fs.stat(candidatePath)
+      if (modelStat.isFile()) normalizedModelPaths[key] = path.resolve(candidatePath)
+    } catch (_) {
+      // Ignore stale model selections; the Factory keeps its existing field value.
+    }
+  }
+  let normalizedOutputDirectory = ''
+  const candidateOutputDirectory = String(outputDirectory || '').trim()
+  if (candidateOutputDirectory && path.isAbsolute(candidateOutputDirectory)) {
+    try {
+      const outputStat = await fs.stat(candidateOutputDirectory)
+      if (outputStat.isDirectory()) normalizedOutputDirectory = path.resolve(candidateOutputDirectory)
+    } catch (_) {
+      // Ignore a stale LoRA output folder; the Factory keeps its existing field value.
+    }
+  }
+  if (!normalizedDatasetPath && Object.keys(normalizedModelPaths).length === 0 && !normalizedOutputDirectory) {
+    return { applied: false, reason: 'No dataset, model, or output paths were provided.' }
+  }
+
+  const frontendPath = path.join(resolvedRoot, 'frontend')
+  const indexPath = path.join(frontendPath, 'index.html')
+  const indexBackupPath = path.join(frontendPath, 'index.html.lumeweft-backup')
+  const scriptPath = path.join(frontendPath, LORA_FACTORY_HANDOFF_SCRIPT_NAME)
+  const dataPath = path.join(frontendPath, LORA_FACTORY_HANDOFF_DATA_NAME)
+  try {
+    let indexSource = await fs.readFile(indexPath, 'utf8')
+    if (!indexSource.includes(LORA_FACTORY_HANDOFF_SCRIPT_NAME)) {
+      if (!/<\/body>/i.test(indexSource)) {
+        return { applied: false, reason: 'The Factory frontend index is not compatible with dataset handoff.' }
+      }
+      try {
+        await fs.access(indexBackupPath)
+      } catch (_) {
+        await fs.copyFile(indexPath, indexBackupPath)
+      }
+      indexSource = indexSource.replace(/<\/body>/i, `${LORA_FACTORY_HANDOFF_SCRIPT_TAG}\n</body>`)
+      await fs.writeFile(indexPath, indexSource, 'utf8')
+    }
+    await fs.writeFile(scriptPath, LORA_FACTORY_HANDOFF_SCRIPT, 'utf8')
+    await fs.writeFile(dataPath, JSON.stringify({
+      datasetPath: normalizedDatasetPath,
+      modelPaths: normalizedModelPaths,
+      outputDirectory: normalizedOutputDirectory,
+      factoryType,
+      updatedAt: new Date().toISOString(),
+    }, null, 2), 'utf8')
+    return {
+      applied: true,
+      datasetPath: normalizedDatasetPath,
+      modelPaths: normalizedModelPaths,
+      outputDirectory: normalizedOutputDirectory,
+    }
+  } catch (error) {
+    return { applied: false, reason: error?.message || 'Could not prepare the Factory dataset handoff.' }
+  }
+}
+
+ipcMain.handle('loraFactory:discoverBaseModels', async (_event, payload = {}) => {
+  try {
+    const factoryType = String(payload?.factoryType || '').trim().toLowerCase()
+    if (!['anima', 'sdxl'].includes(factoryType)) {
+      return { success: false, models: [], error: 'Unknown LoRA Factory type.' }
+    }
+    const validation = await validateWorkflowSetupRootInternal(payload?.comfyRootPath)
+    if (!validation.isValid || !validation.modelsPath) {
+      return { success: false, models: [], error: validation.error || 'ComfyUI root is not configured.' }
+    }
+
+    const searchKey = factoryType === 'anima' ? 'diffusion_models' : 'checkpoints'
+    const extraModelPaths = await loadExtraModelPathConfigForComfyRoot(validation.normalizedPath)
+    const configuredLoraDirs = extraModelPaths.pathsByKey.get(normalizeModelSearchKey('loras')) || []
+    const loraOutputCandidates = [...configuredLoraDirs, path.join(validation.modelsPath, 'loras')]
+    let loraOutputPath = ''
+    for (const candidateDir of loraOutputCandidates) {
+      try {
+        await fs.mkdir(candidateDir, { recursive: true })
+        const candidateStat = await fs.stat(candidateDir)
+        if (candidateStat.isDirectory()) {
+          loraOutputPath = path.normalize(candidateDir)
+          break
+        }
+      } catch (_) {
+        // Try the next configured or standard ComfyUI LoRA folder.
+      }
+    }
+    const candidateDirs = [
+      path.join(validation.modelsPath, searchKey),
+      ...(extraModelPaths.pathsByKey.get(normalizeModelSearchKey(searchKey)) || []),
+    ]
+    const models = []
+    const seenPaths = new Set()
+    const walk = async (directory, relativePrefix = '', depth = 0) => {
+      if (depth > 2 || models.length >= 5000) return
+      let entries = []
+      try {
+        entries = await fs.readdir(directory, { withFileTypes: true })
+      } catch (_) {
+        return
+      }
+      for (const entry of entries) {
+        const entryPath = path.join(directory, entry.name)
+        const relativePath = relativePrefix ? path.join(relativePrefix, entry.name) : entry.name
+        if (entry.isDirectory()) {
+          await walk(entryPath, relativePath, depth + 1)
+        } else if (/\.(?:safetensors|ckpt|pt)$/i.test(entry.name)) {
+          const normalizedPath = path.normalize(entryPath)
+          const key = normalizedPath.toLowerCase()
+          if (!seenPaths.has(key)) {
+            seenPaths.add(key)
+            models.push({ name: relativePath, path: normalizedPath })
+          }
+        }
+      }
+    }
+    for (const candidateDir of candidateDirs) await walk(candidateDir)
+    return { success: true, models, loraOutputPath }
+  } catch (error) {
+    return { success: false, models: [], error: error?.message || 'Could not inspect ComfyUI base models.' }
+  }
+})
+
+ipcMain.handle('loraFactory:validateRoot', async (_event, rootPath) => {
+  const selectedRoot = String(rootPath || '').trim()
+  if (!selectedRoot) {
+    return { success: true, isValid: false, rootPath: '', error: 'Choose the extracted LoRA Factory folder.' }
+  }
+  if (!path.isAbsolute(selectedRoot)) {
+    return { success: true, isValid: false, rootPath: selectedRoot, error: 'The LoRA Factory path must be absolute.' }
+  }
+  const resolvedRoot = path.resolve(selectedRoot)
+  try {
+    const [rootStat, scriptStat] = await Promise.all([
+      fs.stat(resolvedRoot),
+      fs.stat(path.join(resolvedRoot, 'start.bat')),
+    ])
+    if (!rootStat.isDirectory() || !scriptStat.isFile()) {
+      return { success: true, isValid: false, rootPath: resolvedRoot, error: 'The selected folder does not contain start.bat.' }
+    }
+    return { success: true, isValid: true, rootPath: resolvedRoot, error: '' }
+  } catch (_) {
+    return { success: true, isValid: false, rootPath: resolvedRoot, error: 'The selected folder does not contain start.bat.' }
+  }
+})
+
+ipcMain.handle('loraFactory:launch', async (event, payload = {}) => {
+  if (process.platform !== 'win32') {
+    return { success: false, error: 'The referenced LoRA Factory packages currently support Windows 10/11.' }
+  }
+
+  const factoryType = String(payload.factoryType || '').trim().toLowerCase()
+  if (!['anima', 'sdxl'].includes(factoryType)) {
+    return { success: false, error: 'Unknown LoRA Factory type.' }
+  }
+
+  const selectedRoot = String(payload.rootPath || '').trim()
+  if (!selectedRoot || !path.isAbsolute(selectedRoot)) {
+    return { success: false, error: 'Select the extracted LoRA Factory folder.' }
+  }
+
+  const resolvedRoot = path.resolve(selectedRoot)
+  const startScript = path.join(resolvedRoot, 'start.bat')
+  try {
+    const rootStat = await fs.stat(resolvedRoot)
+    const scriptStat = await fs.stat(startScript)
+    if (!rootStat.isDirectory() || !scriptStat.isFile()) {
+      return { success: false, error: 'The selected folder does not contain start.bat.' }
+    }
+  } catch (_) {
+    return { success: false, error: 'The selected folder does not contain start.bat. Extract the official Factory ZIP first.' }
+  }
+
+  const datasetHandoff = await prepareLoraFactoryDatasetHandoff(
+    resolvedRoot,
+    factoryType,
+    payload.datasetPath,
+    payload.modelPaths,
+    payload.outputDirectory
+  )
+
+  try {
+    const runId = crypto.randomUUID()
+    const child = spawn('cmd.exe', ['/d', '/s', '/c', startScript], {
+      cwd: resolvedRoot,
+      windowsHide: true,
+      detached: false,
+      stdio: ['ignore', 'pipe', 'pipe'],
+    })
+    const processInfo = {
+      child,
+      runId,
+      factoryType,
+      rootPath: resolvedRoot,
+      startedAt: Date.now(),
+    }
+    activeLoraFactoryProcesses.set(runId, processInfo)
+
+    child.stdout?.on('data', (chunk) => {
+      emitLoraFactoryProcessEvent(event.sender, {
+        runId,
+        factoryType,
+        kind: 'output',
+        stream: 'stdout',
+        text: chunk.toString(),
+      })
+    })
+    child.stderr?.on('data', (chunk) => {
+      emitLoraFactoryProcessEvent(event.sender, {
+        runId,
+        factoryType,
+        kind: 'output',
+        stream: 'stderr',
+        text: chunk.toString(),
+      })
+    })
+    child.on('error', (error) => {
+      emitLoraFactoryProcessEvent(event.sender, {
+        runId,
+        factoryType,
+        kind: 'error',
+        stream: 'system',
+        text: error?.message || 'The LoRA Factory process failed to start.',
+      })
+      activeLoraFactoryProcesses.delete(runId)
+    })
+    child.on('close', (exitCode, signal) => {
+      emitLoraFactoryProcessEvent(event.sender, {
+        runId,
+        factoryType,
+        kind: 'exit',
+        stream: 'system',
+        exitCode,
+        signal: signal || '',
+        text: exitCode === 0
+          ? 'LoRA Factory process finished.'
+          : `LoRA Factory process exited with code ${exitCode ?? 'unknown'}${signal ? ` (${signal})` : ''}.`,
+      })
+      activeLoraFactoryProcesses.delete(runId)
+    })
+    await new Promise((resolve, reject) => {
+      child.once('spawn', resolve)
+      child.once('error', reject)
+    })
+    emitLoraFactoryProcessEvent(event.sender, {
+      runId,
+      factoryType,
+      kind: 'started',
+      stream: 'system',
+      pid: child.pid,
+      text: `${factoryType === 'sdxl' ? 'SDXL' : 'Anima'} LoRA Factory started (PID ${child.pid}).`,
+    })
+    const selectedBaseLabel = datasetHandoff?.modelPaths?.modelPath
+      ? path.basename(datasetHandoff.modelPaths.modelPath)
+      : ''
+    return {
+      success: true,
+      factoryType,
+      runId,
+      pid: child.pid,
+      rootPath: resolvedRoot,
+      datasetHandoff,
+      message: datasetHandoff.applied
+        ? `${factoryType === 'sdxl' ? 'SDXL' : 'Anima'} LoRA Factory is starting with the exported dataset${selectedBaseLabel ? ` and ${selectedBaseLabel}` : ''} selected automatically. Its setup may take several minutes on the first launch.`
+        : `${factoryType === 'sdxl' ? 'SDXL' : 'Anima'} LoRA Factory is starting. ${datasetHandoff.reason || 'Select the dataset folder manually.'}`,
+    }
+  } catch (error) {
+    return { success: false, error: error?.message || 'Could not start the LoRA Factory.' }
+  }
+})
+
+ipcMain.handle('workflowSetup:cancelInstall', async () => {
+  const activeInstall = activeWorkflowSetupInstall
+  if (!activeInstall) {
+    return { success: true, cancelled: false, message: 'No workflow download is active.' }
+  }
+
+  if (!activeInstall.controller.signal.aborted) {
+    activeInstall.controller.abort()
+    emitWorkflowSetupProgress({
+      stage: 'download',
+      status: 'cancelling',
+      level: 'warning',
+      taskType: 'model',
+      message: 'Cancelling download and removing the unfinished file...',
+    })
+  }
+
+  return { success: true, cancelled: true }
+})
+
 ipcMain.handle('workflowSetup:install', async (event, payload = {}) => {
   const validation = await validateWorkflowSetupRootInternal(payload?.comfyRootPath)
   if (!validation.isValid) {
@@ -6039,6 +6549,23 @@ ipcMain.handle('workflowSetup:install', async (event, payload = {}) => {
       restartRecommended: false,
     }
   }
+
+  if (activeWorkflowSetupInstall) {
+    return {
+      success: false,
+      error: 'Another workflow setup install is already running.',
+      nodePacks: [],
+      models: [],
+      errors: [],
+      restartRecommended: false,
+    }
+  }
+
+  const installController = new AbortController()
+  const installToken = { controller: installController }
+  activeWorkflowSetupInstall = installToken
+
+  try {
 
   const plan = payload?.plan && typeof payload.plan === 'object' ? payload.plan : {}
   const nodePacks = Array.isArray(plan.nodePacks) ? plan.nodePacks : []
@@ -6089,6 +6616,7 @@ ipcMain.handle('workflowSetup:install', async (event, payload = {}) => {
   }
 
   for (const task of models) {
+    if (installController.signal.aborted) break
     const currentTaskIndex = completedTasks + 1
     const targetFolder = task?.targetSubdir
       ? path.join(validation.modelsPath, task.targetSubdir)
@@ -6096,13 +6624,29 @@ ipcMain.handle('workflowSetup:install', async (event, payload = {}) => {
     const targetPath = path.join(targetFolder, task.filename)
 
     try {
-      const result = await downloadFileWithProgress(task, targetPath, {
+      const result = await downloadFileWithProgress({ ...task, signal: installController.signal }, targetPath, {
         currentTaskIndex,
         totalTasks,
         completedTasks,
       })
       modelResults.push(result)
     } catch (error) {
+      if (installController.signal.aborted || error?.name === 'AbortError') {
+        emitWorkflowSetupProgress({
+          stage: 'download',
+          status: 'cancelled',
+          level: 'warning',
+          taskType: 'model',
+          currentLabel: task?.displayName || task?.filename || 'Model',
+          currentTaskIndex,
+          totalTasks,
+          completedTasks,
+          taskPercent: null,
+          overallPercent: getWorkflowSetupOverallPercent({ completedTasks, totalTasks }),
+          message: `${task?.filename || 'Model'}: download cancelled; unfinished file removed.`,
+        })
+        break
+      }
       const message = error?.message || `Failed to download ${task?.filename || 'model'}.`
       errors.push(message)
       emitWorkflowSetupProgress({
@@ -6122,25 +6666,33 @@ ipcMain.handle('workflowSetup:install', async (event, payload = {}) => {
     completedTasks += 1
   }
 
+  const cancelled = installController.signal.aborted
+
   emitWorkflowSetupProgress({
     stage: 'install',
-    status: 'finished',
-    level: errors.length === 0 ? 'success' : 'warning',
+    status: cancelled ? 'cancelled' : 'finished',
+    level: cancelled || errors.length > 0 ? 'warning' : 'success',
     totalTasks,
-    completedTasks: totalTasks,
-    overallPercent: 100,
-    message: errors.length === 0
+    completedTasks,
+    overallPercent: cancelled ? getWorkflowSetupOverallPercent({ completedTasks, totalTasks }) : 100,
+    message: cancelled
+      ? 'Workflow setup download cancelled. Completed files were kept; the unfinished file was removed.'
+      : errors.length === 0
       ? 'Workflow setup install finished.'
       : 'Workflow setup install finished with errors.',
   })
 
-  return {
-    success: errors.length === 0,
-    validation,
-    nodePacks: nodePackResults,
-    models: modelResults,
-    errors,
-    restartRecommended: nodePackResults.some((entry) => !entry?.skipped),
+    return {
+      success: !cancelled && errors.length === 0,
+      cancelled,
+      validation,
+      nodePacks: nodePackResults,
+      models: modelResults,
+      errors,
+      restartRecommended: nodePackResults.some((entry) => !entry?.skipped),
+    }
+  } finally {
+    if (activeWorkflowSetupInstall === installToken) activeWorkflowSetupInstall = null
   }
 })
 

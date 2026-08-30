@@ -1,10 +1,13 @@
-import { TOPAZ_VIDEO_UPSCALE_WORKFLOW_ID } from './topazVideoUpscaleConfig'
-import { MUSIC_VIDEO_SHOT_WORKFLOW_ID, VOCAL_EXTRACT_WORKFLOW_ID } from './musicVideoShotConfig'
+import { TOPAZ_VIDEO_UPSCALE_WORKFLOW_ID } from './topazVideoUpscaleConfig.js'
+import { MUSIC_VIDEO_SHOT_WORKFLOW_ID, VOCAL_EXTRACT_WORKFLOW_ID } from './musicVideoShotConfig.js'
 import {
   ELEVENLABS_TTS_WORKFLOW_ID,
   IRODORI_TTS_WORKFLOW_ID,
+  IRODORI_VOICE_CLONE_WORKFLOW_ID,
+  IRODORI_VOICE_DESIGN_DEPENDENCY_ID,
   SHORT_FILM_DIALOGUE_VIDEO_WORKFLOW_ID,
-} from './shortFilmConfig'
+} from './shortFilmConfig.js'
+import { UGC_EXACT_LIPSYNC_WORKFLOW_ID } from './generateWorkspaceConfig.js'
 
 /**
  * Central workflow registry - shared by GenerateWorkspace, Settings, and workflow store.
@@ -32,14 +35,16 @@ export function getBundledWorkflowPath(filename) {
 
 // Built-in workflows shipped with Velorn - always installed, cannot be deleted
 export const BUILTIN_WORKFLOWS = [
+  { id: 'minimax-h3-character-sheet', label: 'H3 Character Sheet', category: 'image', needsImage: true, description: 'Generate a four-panel character turnaround from up to three reference images with MiniMax H3 Ref2VA GGUF', file: 'image_minimax_h3_character_sheet.json' },
   { id: 'minimax-h3-gguf-i2v', label: 'Image to Video (MiniMax H3 GGUF)', category: 'video', needsImage: true, description: 'Local MiniMax H3 GGUF image-to-video with native audio and an 8-step Turbo LoRA', file: 'video_minimax_h3_gguf_i2v.json' },
-  { id: 'wan22-i2v', label: 'Image to Video (WAN 2.2)', category: 'video', needsImage: true, description: 'Animate an image into video', file: 'video_wan2_2_14B_i2v.json' },
+  { id: 'wan22-i2v', label: 'Image to Video (WAN 2.2 GGUF)', category: 'video', needsImage: true, description: 'Animate an image locally with WAN 2.2 Q4_K_M GGUF + Lightning', file: 'video_wan2_2_14B_i2v.json' },
   { id: 'ltx23-i2v', label: 'Image to Video (LTX 2.3)', category: 'video', needsImage: true, description: 'Animate an image with local LTX 2.3', file: 'video_ltx2_3_i2v.json' },
+  { id: UGC_EXACT_LIPSYNC_WORKFLOW_ID, label: 'Exact Audio Lip-Sync (LTX 2.3 + LatentSync)', category: 'video', needsImage: true, description: 'LTX 2.3 motion with LatentSync 1.6 mouth correction and the exact supplied audio', file: 'video_ltx2_3_i2v.json' },
   { id: 'ltx23-ia2v', label: 'Image + Audio to Video (LTX 2.3)', category: 'video', needsImage: true, description: 'Animate an image with local LTX 2.3 audio conditioning', file: 'video_ltx2_3_ia2v.json' },
   { id: 'ltx23-id-lora', label: 'Lip-Sync Talking Video (LTX 2.3 ID-LoRA)', category: 'video', needsImage: true, description: 'Image + reference audio to talking video with real lip-sync via the LTX 2.3 talkvid ID LoRA', file: 'video_ltx2_3_id_lora.json' },
   { id: 'ltx23-t2v', label: 'Text to Video (LTX 2.3)', category: 'video', needsImage: false, description: 'Generate video from text with local LTX 2.3', file: 'video_ltx2_3_t2v.json' },
   { id: MUSIC_VIDEO_SHOT_WORKFLOW_ID, label: 'LTX 2.3 Music Video (Image + Audio)', category: 'video', needsImage: true, description: 'Per-shot LTX 2.3 music-video workflow with audio conditioning and lip-sync for Director Mode music videos', file: 'music_video_shot_ltx2_3_i2v_audio.json' },
-  { id: 'wan22-t2v', label: 'Text to Video (WAN 2.2)', category: 'video', needsImage: false, description: 'Generate video from text with local WAN 2.2', file: 'video_wan2_2_14B_t2v.json' },
+  { id: 'wan22-t2v', label: 'Text to Video (WAN 2.2 GGUF)', category: 'video', needsImage: false, description: 'Generate video locally with WAN 2.2 Q4_K_M GGUF + Lightning', file: 'video_wan2_2_14B_t2v.json' },
   { id: 'kling-o3-i2v', label: 'Image to Video (Kling O3 Omni)', category: 'video', needsImage: true, description: 'Premium image-to-video with Kling 3.0 Omni', file: 'api_kling_o3_i2v.json' },
   { id: 'grok-video-i2v', label: 'Image to Video (Grok Imagine Video)', category: 'video', needsImage: true, description: 'Cloud image-to-video with Grok Imagine Video Beta', file: 'api_grok_video.json' },
   { id: 'vidu-q2-i2v', label: 'Image to Video (Vidu Q2)', category: 'video', needsImage: true, description: 'Cloud image-to-video with Vidu Q2 Pro Fast', file: 'api_vidu_q2_i2v.json' },
@@ -55,11 +60,12 @@ export const BUILTIN_WORKFLOWS = [
   { id: 'caption-qwen-asr', label: 'Caption Transcription (Qwen ASR)', category: 'audio', needsImage: false, description: 'Transcribe timeline audio, video audio, or music-video songs into timed SRT captions using Qwen ASR.', file: 'caption_qwen_asr_transcription.json' },
   { id: ELEVENLABS_TTS_WORKFLOW_ID, label: 'ElevenLabs Text to Speech', category: 'audio', needsImage: false, description: 'Generate one dialogue audio clip from text using an ElevenLabs voice profile. Used by Short Film Creation.', file: 'api_elevenlabs_text_to_speech.json' },
   { id: IRODORI_TTS_WORKFLOW_ID, label: 'Irodori-TTS v3', category: 'audio', needsImage: false, description: 'Generate local Japanese dialogue clips with Irodori-TTS v3. Used by Short Film Creation.', file: 'irodori_tts.json' },
-  { id: 'multi-angles', label: 'Multiple Angles (Characters)', category: 'image', needsImage: true, description: 'Generate 8 camera angles from one character image', file: '1_click_multiple_angles.json' },
-  { id: 'multi-angles-scene', label: 'Multiple Angles (Scenes)', category: 'image', needsImage: true, description: 'Generate 8 camera angles from one scene image', file: '1_click_multiple_scene_angles-v1.0.json' },
-  { id: 'image-edit', label: 'Image Edit', category: 'image', needsImage: true, description: 'Edit image with text prompt', file: 'image_qwen_image_edit_2509.json' },
+  { id: IRODORI_VOICE_CLONE_WORKFLOW_ID, label: 'Irodori Voice Studio', category: 'audio', needsImage: false, description: 'Design a Japanese voice without a reference or clone one from reference audio, with emoji delivery cues.', file: 'irodori_tts_voice_clone.json', starterPackDependencyIds: [IRODORI_VOICE_DESIGN_DEPENDENCY_ID] },
+  { id: 'multi-angles', label: 'Multiple Angles (Characters)', category: 'image', needsImage: true, description: 'Generate 8 controlled views with Qwen Image Edit 2511 GGUF', file: '1_click_multiple_angles.json' },
+  { id: 'multi-angles-scene', label: 'Multiple Angles (Scenes)', category: 'image', needsImage: true, description: 'Generate 8 controlled scene views with Qwen Image Edit 2511 GGUF', file: '1_click_multiple_scene_angles-v1.0.json' },
+  { id: 'image-edit', label: 'Image Edit', category: 'image', needsImage: true, description: 'Edit an image locally with Qwen Image Edit 2509 GGUF + Lightning', file: 'image_qwen_image_edit_2509.json' },
   { id: 'longcat-image-edit', label: 'LongCat Image Edit', category: 'image', needsImage: true, description: 'Edit image with the local LongCat workflow', file: 'image_longcat_image_edit.json' },
-  { id: 'z-image-turbo', label: 'Text to Image (Z Image Turbo)', category: 'image', needsImage: false, description: 'Generate image from text prompt using Z Image Turbo', file: 'image_z_image_turbo.json' },
+  { id: 'z-image-turbo', label: 'Text to Image (Z Image Turbo GGUF)', category: 'image', needsImage: false, description: 'Generate images locally with Z Image Turbo Q4_K_M GGUF', file: 'image_z_image_turbo.json' },
   { id: 'longcat-text-to-image', label: 'Text to Image (LongCat)', category: 'image', needsImage: false, description: 'Generate image with local LongCat', file: 'image_longcat_text_to_image.json' },
   { id: 'ernie-image-turbo', label: 'Text to Image (Ernie Turbo)', category: 'image', needsImage: false, description: 'Generate image with local Ernie Image Turbo', file: 'image_ernie_image_turbo.json' },
   { id: 'flux2-text-to-image', label: 'Text to Image (Flux 2)', category: 'image', needsImage: false, description: 'Generate image with local Flux 2', file: 'image_flux2_text_to_image.json' },
@@ -78,9 +84,11 @@ export const BUILTIN_WORKFLOWS = [
 
 // Map workflow id -> public path (for loading JSON)
 export const BUILTIN_WORKFLOW_PATHS = {
+  'minimax-h3-character-sheet': getBundledWorkflowPath('image_minimax_h3_character_sheet.json'),
   'minimax-h3-gguf-i2v': getBundledWorkflowPath('video_minimax_h3_gguf_i2v.json'),
   'wan22-i2v': getBundledWorkflowPath('video_wan2_2_14B_i2v.json'),
   'ltx23-i2v': getBundledWorkflowPath('video_ltx2_3_i2v.json'),
+  [UGC_EXACT_LIPSYNC_WORKFLOW_ID]: getBundledWorkflowPath('video_ltx2_3_i2v.json'),
   'ltx23-ia2v': getBundledWorkflowPath('video_ltx2_3_ia2v.json'),
   'ltx23-id-lora': getBundledWorkflowPath('video_ltx2_3_id_lora.json'),
   'ltx23-t2v': getBundledWorkflowPath('video_ltx2_3_t2v.json'),
@@ -100,6 +108,8 @@ export const BUILTIN_WORKFLOW_PATHS = {
   [VOCAL_EXTRACT_WORKFLOW_ID]: getBundledWorkflowPath('vocal_extract_melband.json'),
   [ELEVENLABS_TTS_WORKFLOW_ID]: getBundledWorkflowPath('api_elevenlabs_text_to_speech.json'),
   [IRODORI_TTS_WORKFLOW_ID]: getBundledWorkflowPath('irodori_tts.json'),
+  [IRODORI_VOICE_CLONE_WORKFLOW_ID]: getBundledWorkflowPath('irodori_tts_voice_clone.json'),
+  [IRODORI_VOICE_DESIGN_DEPENDENCY_ID]: getBundledWorkflowPath('irodori_tts_voice_clone.json'),
   'multi-angles': getBundledWorkflowPath('1_click_multiple_angles.json'),
   'multi-angles-scene': getBundledWorkflowPath('1_click_multiple_scene_angles-v1.0.json'),
   'image-edit': getBundledWorkflowPath('image_qwen_image_edit_2509.json'),

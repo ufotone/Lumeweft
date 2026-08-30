@@ -3,15 +3,18 @@
  * Phase 1 intentionally focuses on required dependencies only.
  */
 
-import { TOPAZ_VIDEO_UPSCALE_WORKFLOW_ID } from './topazVideoUpscaleConfig'
-import { MUSIC_VIDEO_SHOT_WORKFLOW_ID, VOCAL_EXTRACT_WORKFLOW_ID } from './musicVideoShotConfig'
+import { TOPAZ_VIDEO_UPSCALE_WORKFLOW_ID } from './topazVideoUpscaleConfig.js'
+import { MUSIC_VIDEO_SHOT_WORKFLOW_ID, VOCAL_EXTRACT_WORKFLOW_ID } from './musicVideoShotConfig.js'
 import {
   ELEVENLABS_TTS_WORKFLOW_ID,
   IRODORI_TTS_MODEL_FILENAME,
   IRODORI_TTS_WORKFLOW_ID,
+  IRODORI_VOICE_CLONE_WORKFLOW_ID,
+  IRODORI_VOICE_DESIGN_DEPENDENCY_ID,
+  IRODORI_VOICE_DESIGN_MODEL_FILENAME,
   SHORT_FILM_DIALOGUE_VIDEO_WORKFLOW_ID,
-} from './shortFilmConfig'
-import { getImportedDependencyPack } from './importedWorkflowRegistry'
+} from './shortFilmConfig.js'
+import { getImportedDependencyPack } from './importedWorkflowRegistry.js'
 
 const COMFY_REGISTRY_URL = 'https://registry.comfy.org'
 const NANO_BANANA_2_FALLBACK_ESTIMATED_CREDITS = Object.freeze({
@@ -29,15 +32,23 @@ const QWEN_IMAGE_EDIT_SHARED_MODELS = Object.freeze([
     targetSubdir: 'vae',
   },
   {
-    classType: 'CLIPLoader',
+    classType: 'CLIPLoaderGGUF',
     inputKey: 'clip_name',
-    filename: 'qwen_2.5_vl_7b_fp8_scaled.safetensors',
+    filename: 'Qwen2.5-VL-7B-Instruct-Q4_K_M.gguf',
     targetSubdir: 'text_encoders',
   },
   {
-    classType: 'UNETLoader',
+    // ComfyUI-GGUF discovers the matching mmproj beside the selected encoder.
+    // Keep it as an explicit dependency even though it is not a node widget.
+    classType: 'CLIPLoaderGGUF',
+    inputKey: 'clip_name',
+    filename: 'Qwen2.5-VL-7B-Instruct-mmproj-BF16.gguf',
+    targetSubdir: 'text_encoders',
+  },
+  {
+    classType: 'UnetLoaderGGUF',
     inputKey: 'unet_name',
-    filename: 'qwen_image_edit_2509_fp8_e4m3fn.safetensors',
+    filename: 'Qwen-Image-Edit-2509-Q4_K_M.gguf',
     targetSubdir: 'diffusion_models',
   },
   {
@@ -48,14 +59,81 @@ const QWEN_IMAGE_EDIT_SHARED_MODELS = Object.freeze([
   },
 ])
 
+const QWEN_MULTI_ANGLE_2511_MODELS = Object.freeze([
+  {
+    classType: 'VAELoader',
+    inputKey: 'vae_name',
+    filename: 'qwen_image_vae.safetensors',
+    targetSubdir: 'vae',
+  },
+  {
+    classType: 'CLIPLoader',
+    inputKey: 'clip_name',
+    filename: 'qwen_2.5_vl_7b_fp8_scaled.safetensors',
+    targetSubdir: 'text_encoders',
+  },
+  {
+    classType: 'UnetLoaderGGUF',
+    inputKey: 'unet_name',
+    filename: 'qwen-image-edit-2511-Q5_K_M.gguf',
+    targetSubdir: 'diffusion_models',
+  },
+  {
+    classType: 'LoraLoaderModelOnly',
+    inputKey: 'lora_name',
+    filename: 'Qwen-Image-Edit-2511-Lightning-4steps-V1.0-bf16.safetensors',
+    targetSubdir: 'loras',
+  },
+  {
+    classType: 'LoraLoaderModelOnly',
+    inputKey: 'lora_name',
+    filename: 'qwen-image-edit-2511-multiple-angles-lora.safetensors',
+    targetSubdir: 'loras',
+  },
+])
+
 const QWEN_IMAGE_EDIT_REQUIRED_NODES = Object.freeze([
+  { classType: 'UnetLoaderGGUF' },
+  { classType: 'CLIPLoaderGGUF' },
   { classType: 'TextEncodeQwenImageEditPlus' },
   { classType: 'FluxKontextImageScale' },
+  { classType: 'ImageToMask' },
+  { classType: 'ImageCompositeMasked' },
   { classType: 'KSampler' },
   { classType: 'SaveImage' },
 ])
 
 export const WORKFLOW_DEPENDENCY_PACKS = Object.freeze({
+  'minimax-h3-character-sheet': Object.freeze({
+    id: 'minimax-h3-character-sheet',
+    displayName: 'MiniMax H3 Character Sheet (4 Panel)',
+    requiredNodes: Object.freeze([
+      { classType: 'LoadImage' },
+      { classType: 'H3ModelLoaderAny' },
+      { classType: 'H3ClipLoaderAny' },
+      { classType: 'UnetLoaderGGUF' },
+      { classType: 'CLIPLoaderGGUF' },
+      { classType: 'VAELoader' },
+      { classType: 'MiniMaxH3ReferenceToVideo' },
+      { classType: 'RandomNoise' },
+      { classType: 'BasicGuider' },
+      { classType: 'KSamplerSelect' },
+      { classType: 'BasicScheduler' },
+      { classType: 'SamplerCustomAdvanced' },
+      { classType: 'VAEDecode' },
+      { classType: 'ImageFromBatch' },
+      { classType: 'ImageStitch' },
+      { classType: 'SaveImage' },
+    ]),
+    requiredModels: Object.freeze([
+      { classType: 'H3ModelLoaderAny', inputKey: 'model_name', filename: 'minimax-h3-ref2va-Q4_0.gguf', targetSubdir: 'diffusion_models' },
+      { classType: 'H3ClipLoaderAny', inputKey: 'clip_name', filename: 'MiniMax-H3-encoder-Q4_K_M.gguf', targetSubdir: 'text_encoders' },
+      { classType: 'H3ClipLoaderAny', inputKey: 'mmproj_name', filename: 'MiniMax-H3-encoder-mmproj-F16.gguf', targetSubdir: 'text_encoders' },
+      { classType: 'VAELoader', inputKey: 'vae_name', filename: 'minimax_h3_video_vae_fp16.safetensors', targetSubdir: 'vae' },
+      { classType: 'VAELoader', inputKey: 'vae_name', filename: 'minimax_h3_audio_vae_fp32.safetensors', targetSubdir: 'vae' },
+    ]),
+    docsUrl: 'https://huggingface.co/PoopMan333/H3_Character_Sheet_Generator',
+  }),
   'minimax-h3-gguf-i2v': Object.freeze({
     id: 'minimax-h3-gguf-i2v',
     displayName: 'MiniMax H3 GGUF Image-to-Video',
@@ -132,18 +210,18 @@ export const WORKFLOW_DEPENDENCY_PACKS = Object.freeze({
     id: 'wan22-i2v',
     displayName: 'WAN 2.2 Image-to-Video',
     requiredNodes: Object.freeze([
-      { classType: 'CLIPLoader' },
+      { classType: 'CLIPLoaderGGUF' },
       { classType: 'VAELoader' },
-      { classType: 'UNETLoader' },
+      { classType: 'UnetLoaderGGUF' },
       { classType: 'LoraLoaderModelOnly' },
       { classType: 'WanImageToVideo' },
       { classType: 'SaveVideo' },
     ]),
     requiredModels: Object.freeze([
       {
-        classType: 'CLIPLoader',
+        classType: 'CLIPLoaderGGUF',
         inputKey: 'clip_name',
-        filename: 'umt5_xxl_fp8_e4m3fn_scaled.safetensors',
+        filename: 'umt5-xxl-encoder-Q4_K_M.gguf',
         targetSubdir: 'text_encoders',
       },
       {
@@ -153,15 +231,15 @@ export const WORKFLOW_DEPENDENCY_PACKS = Object.freeze({
         targetSubdir: 'vae',
       },
       {
-        classType: 'UNETLoader',
+        classType: 'UnetLoaderGGUF',
         inputKey: 'unet_name',
-        filename: 'wan2.2_i2v_high_noise_14B_fp8_scaled.safetensors',
+        filename: 'Wan2.2-I2V-A14B-HighNoise-Q4_K_M.gguf',
         targetSubdir: 'diffusion_models',
       },
       {
-        classType: 'UNETLoader',
+        classType: 'UnetLoaderGGUF',
         inputKey: 'unet_name',
-        filename: 'wan2.2_i2v_low_noise_14B_fp8_scaled.safetensors',
+        filename: 'Wan2.2-I2V-A14B-LowNoise-Q4_K_M.gguf',
         targetSubdir: 'diffusion_models',
       },
       {
@@ -184,9 +262,9 @@ export const WORKFLOW_DEPENDENCY_PACKS = Object.freeze({
     id: 'wan22-t2v',
     displayName: 'WAN 2.2 Text-to-Video',
     requiredNodes: Object.freeze([
-      { classType: 'CLIPLoader' },
+      { classType: 'CLIPLoaderGGUF' },
       { classType: 'VAELoader' },
-      { classType: 'UNETLoader' },
+      { classType: 'UnetLoaderGGUF' },
       { classType: 'LoraLoaderModelOnly' },
       { classType: 'ModelSamplingSD3' },
       { classType: 'EmptyHunyuanLatentVideo' },
@@ -198,9 +276,9 @@ export const WORKFLOW_DEPENDENCY_PACKS = Object.freeze({
     ]),
     requiredModels: Object.freeze([
       {
-        classType: 'CLIPLoader',
+        classType: 'CLIPLoaderGGUF',
         inputKey: 'clip_name',
-        filename: 'umt5_xxl_fp8_e4m3fn_scaled.safetensors',
+        filename: 'umt5-xxl-encoder-Q4_K_M.gguf',
         targetSubdir: 'text_encoders',
       },
       {
@@ -210,15 +288,15 @@ export const WORKFLOW_DEPENDENCY_PACKS = Object.freeze({
         targetSubdir: 'vae',
       },
       {
-        classType: 'UNETLoader',
+        classType: 'UnetLoaderGGUF',
         inputKey: 'unet_name',
-        filename: 'wan2.2_t2v_low_noise_14B_fp8_scaled.safetensors',
+        filename: 'Wan2.2-T2V-A14B-LowNoise-Q4_K_M.gguf',
         targetSubdir: 'diffusion_models',
       },
       {
-        classType: 'UNETLoader',
+        classType: 'UnetLoaderGGUF',
         inputKey: 'unet_name',
-        filename: 'wan2.2_t2v_high_noise_14B_fp8_scaled.safetensors',
+        filename: 'Wan2.2-T2V-A14B-HighNoise-Q4_K_M.gguf',
         targetSubdir: 'diffusion_models',
       },
       {
@@ -311,6 +389,49 @@ export const WORKFLOW_DEPENDENCY_PACKS = Object.freeze({
       },
     ]),
     docsUrl: COMFY_REGISTRY_URL,
+  }),
+
+  'ltx23-latentsync': Object.freeze({
+    id: 'ltx23-latentsync',
+    displayName: 'Exact Audio Lip-Sync (LTX 2.3 + LatentSync 1.6)',
+    requiredNodes: Object.freeze([
+      { classType: 'CheckpointLoaderSimple' },
+      { classType: 'LTXAVTextEncoderLoader' },
+      { classType: 'LTXVAudioVAELoader' },
+      { classType: 'LoraLoaderModelOnly' },
+      { classType: 'LoraLoader' },
+      { classType: 'ComfyMathExpression' },
+      { classType: 'ComfySwitchNode' },
+      { classType: 'TextGenerateLTX2Prompt' },
+      { classType: 'ResizeImageMaskNode' },
+      { classType: 'ResizeImagesByLongerEdge' },
+      { classType: 'LTXVPreprocess' },
+      { classType: 'EmptyLTXVLatentVideo' },
+      { classType: 'LTXVImgToVideoInplace' },
+      { classType: 'LTXVConditioning' },
+      { classType: 'LTXVCropGuides' },
+      { classType: 'LTXVEmptyLatentAudio' },
+      { classType: 'LTXVSeparateAVLatent' },
+      { classType: 'LTXVConcatAVLatent' },
+      { classType: 'LTXVLatentUpsampler' },
+      { classType: 'LatentUpscaleModelLoader' },
+      { classType: 'LTXVAudioVAEDecode' },
+      { classType: 'VAEDecodeTiled' },
+      { classType: 'LoadAudio' },
+      { classType: 'LatentSyncNode' },
+      { classType: 'CreateVideo' },
+      { classType: 'SaveVideo' },
+    ]),
+    requiredModels: Object.freeze([
+      { classType: 'CheckpointLoaderSimple', inputKey: 'ckpt_name', filename: 'ltx-2.3-22b-dev-fp8.safetensors', targetSubdir: 'checkpoints' },
+      { classType: 'LTXVAudioVAELoader', inputKey: 'ckpt_name', filename: 'ltx-2.3-22b-dev-fp8.safetensors', targetSubdir: 'checkpoints' },
+      { classType: 'LTXAVTextEncoderLoader', inputKey: 'text_encoder', filename: 'gemma_3_12B_it_fp4_mixed.safetensors', targetSubdir: 'text_encoders' },
+      { classType: 'LTXAVTextEncoderLoader', inputKey: 'ckpt_name', filename: 'ltx-2.3-22b-dev-fp8.safetensors', targetSubdir: 'checkpoints' },
+      { classType: 'LoraLoaderModelOnly', inputKey: 'lora_name', filename: 'ltx_2.3_22b_distilled_1.1_lora_dynamic_fro09_avg_rank_111_bf16.safetensors', targetSubdir: 'loras' },
+      { classType: 'LoraLoader', inputKey: 'lora_name', filename: 'gemma-3-12b-it-abliterated_lora_rank64_bf16.safetensors', targetSubdir: 'loras' },
+      { classType: 'LatentUpscaleModelLoader', inputKey: 'model_name', filename: 'ltx-2.3-spatial-upscaler-x2-1.1.safetensors', targetSubdir: 'latent_upscale_models' },
+    ]),
+    docsUrl: 'https://github.com/bytedance/LatentSync',
   }),
 
   'ltx23-ia2v': Object.freeze({
@@ -849,22 +970,64 @@ export const WORKFLOW_DEPENDENCY_PACKS = Object.freeze({
     docsUrl: 'https://github.com/jupo-ai/comfy-Irodori-TTS',
   }),
 
+  [IRODORI_VOICE_CLONE_WORKFLOW_ID]: Object.freeze({
+    id: IRODORI_VOICE_CLONE_WORKFLOW_ID,
+    displayName: 'Irodori Voice Studio (Clone)',
+    requiredNodes: Object.freeze([
+      { classType: 'jupo.IrodoriTTS.ModelLoader' },
+      { classType: 'jupo.IrodoriTTS.ReferenceAudio' },
+      { classType: 'jupo.IrodoriTTS.CFGConfig' },
+      { classType: 'jupo.IrodoriTTS.Sampler' },
+      { classType: 'SaveAudioAdvanced' },
+    ]),
+    requiredModels: Object.freeze([
+      {
+        classType: 'jupo.IrodoriTTS.ModelLoader',
+        inputKey: 'model',
+        filename: IRODORI_TTS_MODEL_FILENAME,
+        targetSubdir: 'checkpoints',
+      },
+    ]),
+    docsUrl: 'https://github.com/jupo-ai/comfy-Irodori-TTS',
+  }),
+
+  [IRODORI_VOICE_DESIGN_DEPENDENCY_ID]: Object.freeze({
+    id: IRODORI_VOICE_DESIGN_DEPENDENCY_ID,
+    displayName: 'Irodori Voice Design',
+    requiredNodes: Object.freeze([
+      { classType: 'jupo.IrodoriTTS.ModelLoader' },
+      { classType: 'jupo.IrodoriTTS.VoiceDesignConfig' },
+      { classType: 'jupo.IrodoriTTS.CFGConfig' },
+      { classType: 'jupo.IrodoriTTS.Sampler' },
+      { classType: 'SaveAudioAdvanced' },
+    ]),
+    requiredModels: Object.freeze([
+      {
+        classType: 'jupo.IrodoriTTS.ModelLoader',
+        inputKey: 'model',
+        filename: IRODORI_VOICE_DESIGN_MODEL_FILENAME,
+        targetSubdir: 'checkpoints',
+      },
+    ]),
+    docsUrl: 'https://huggingface.co/Aratako/Irodori-TTS-500M-v2-VoiceDesign',
+  }),
+
   'z-image-turbo': Object.freeze({
     id: 'z-image-turbo',
     displayName: 'Z Image Turbo',
     requiredNodes: Object.freeze([
-      { classType: 'CLIPLoader' },
+      { classType: 'CLIPLoaderGGUF' },
       { classType: 'VAELoader' },
-      { classType: 'UNETLoader' },
+      { classType: 'UnetLoaderGGUF' },
       { classType: 'ModelSamplingAuraFlow' },
       { classType: 'KSampler' },
       { classType: 'SaveImage' },
     ]),
     requiredModels: Object.freeze([
       {
-        classType: 'CLIPLoader',
+        classType: 'CLIPLoaderGGUF',
         inputKey: 'clip_name',
-        filename: 'qwen_3_4b.safetensors',
+        filename: 'Qwen3-4B-Q4_K_M.gguf',
         targetSubdir: 'text_encoders',
       },
       {
@@ -874,9 +1037,9 @@ export const WORKFLOW_DEPENDENCY_PACKS = Object.freeze({
         targetSubdir: 'vae',
       },
       {
-        classType: 'UNETLoader',
+        classType: 'UnetLoaderGGUF',
         inputKey: 'unet_name',
-        filename: 'z_image_turbo_bf16.safetensors',
+        filename: 'z_image_turbo-Q4_K_M.gguf',
         targetSubdir: 'diffusion_models',
       },
     ]),
@@ -943,38 +1106,24 @@ export const WORKFLOW_DEPENDENCY_PACKS = Object.freeze({
     id: 'multi-angles',
     displayName: 'Multiple Angles (Character)',
     requiredNodes: Object.freeze([
+      { classType: 'UnetLoaderGGUF' },
       { classType: 'TextEncodeQwenImageEditPlus' },
       { classType: 'SaveImage' },
     ]),
-    requiredModels: Object.freeze([
-      ...QWEN_IMAGE_EDIT_SHARED_MODELS,
-      {
-        classType: 'LoraLoaderModelOnly',
-        inputKey: 'lora_name',
-        filename: 'Qwen-Edit-2509-Multiple-angles.safetensors',
-        targetSubdir: 'loras',
-      },
-    ]),
-    docsUrl: COMFY_REGISTRY_URL,
+    requiredModels: QWEN_MULTI_ANGLE_2511_MODELS,
+    docsUrl: 'https://huggingface.co/fal/Qwen-Image-Edit-2511-Multiple-Angles-LoRA',
   }),
 
   'multi-angles-scene': Object.freeze({
     id: 'multi-angles-scene',
     displayName: 'Multiple Angles (Scene)',
     requiredNodes: Object.freeze([
+      { classType: 'UnetLoaderGGUF' },
       { classType: 'TextEncodeQwenImageEditPlus' },
       { classType: 'SaveImage' },
     ]),
-    requiredModels: Object.freeze([
-      ...QWEN_IMAGE_EDIT_SHARED_MODELS,
-      {
-        classType: 'LoraLoaderModelOnly',
-        inputKey: 'lora_name',
-        filename: 'Qwen-Edit-2509-Multiple-angles.safetensors',
-        targetSubdir: 'loras',
-      },
-    ]),
-    docsUrl: COMFY_REGISTRY_URL,
+    requiredModels: QWEN_MULTI_ANGLE_2511_MODELS,
+    docsUrl: 'https://huggingface.co/fal/Qwen-Image-Edit-2511-Multiple-Angles-LoRA',
   }),
 
   'longcat-text-to-image': Object.freeze({

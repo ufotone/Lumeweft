@@ -584,9 +584,16 @@ export const listProjects = async (baseDir) => {
  * @param {string|FileSystemDirectoryHandle} projectDir - The project directory
  * @param {File|string} file - The file to import (File object or path in Electron)
  * @param {string} category - Asset category: 'video', 'audio', or 'images'
+ * @param {object} options - Optional { subfolderSegments: string[] } destination below the category folder
  * @returns {Promise<object>} - Asset info object with relative path
  */
-export const importAsset = async (projectDir, file, category = 'video') => {
+export const importAsset = async (projectDir, file, category = 'video', options = {}) => {
+  const subfolderSegments = (Array.isArray(options?.subfolderSegments) ? options.subfolderSegments : [])
+    .map((segment) => String(segment || '')
+      .trim()
+      .replace(/[<>:"/\\|?*\u0000-\u001f]/g, '_')
+      .replace(/[. ]+$/g, ''))
+    .filter((segment) => segment && segment !== '.' && segment !== '..')
   if (isElectron()) {
     // In Electron, file can be a File object (from drag-drop) or a string path
     const srcPath = typeof file === 'string' ? file : null
@@ -594,7 +601,7 @@ export const importAsset = async (projectDir, file, category = 'video') => {
       ? await window.electronAPI.pathBasename(file)
       : file.name
     
-    const categoryPath = await window.electronAPI.pathJoin(projectDir, 'assets', category)
+    const categoryPath = await window.electronAPI.pathJoin(projectDir, 'assets', category, ...subfolderSegments)
     await window.electronAPI.createDirectory(categoryPath)
     
     // Generate unique filename if exists
@@ -627,7 +634,7 @@ export const importAsset = async (projectDir, file, category = 'video') => {
     }
     
     // Get file info
-    const relativePath = `assets/${category}/${finalFileName}`
+    const relativePath = ['assets', category, ...subfolderSegments, finalFileName].join('/')
     const fileInfo = await window.electronAPI.getFileInfo(destPath)
     
     // Get media info
@@ -722,7 +729,10 @@ export const importAsset = async (projectDir, file, category = 'video') => {
 
   // Web fallback - original implementation (non-Electron)
   const assetsDir = await projectDir.getDirectoryHandle('assets')
-  const categoryDir = await assetsDir.getDirectoryHandle(category, { create: true })
+  let categoryDir = await assetsDir.getDirectoryHandle(category, { create: true })
+  for (const segment of subfolderSegments) {
+    categoryDir = await categoryDir.getDirectoryHandle(segment, { create: true })
+  }
   
   // Generate unique filename if exists
   let fileName = file.name
@@ -746,7 +756,7 @@ export const importAsset = async (projectDir, file, category = 'video') => {
   await writable.write(file)
   await writable.close()
   
-  const relativePath = `assets/${category}/${fileName}`
+  const relativePath = ['assets', category, ...subfolderSegments, fileName].join('/')
   
   let duration = null
   let width = null

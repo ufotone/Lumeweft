@@ -6,20 +6,52 @@ This pack is for advanced ComfyUI users who want to inspect workflows directly i
 
 | Workflow | ID | Tier | Runtime | Setup Workflow | Guide | API Key |
 |---|---|---|---|---|---|---|
+| Exact Audio Lip-Sync (LTX 2.3 + LatentSync) | `ltx23-latentsync` | `pro` | `local` | [`ltx23-latentsync.comfyui.json`](workflows/local/ltx23-latentsync.comfyui.json) | [Guide](docs/workflows/ltx23-latentsync.md) | Not required |
+| First/Last Frame to Video (Seedance 2.0) | `seedance2-flf2v` | `cloud` | `cloud` | [`seedance2-flf2v.comfyui.json`](workflows/cloud/seedance2-flf2v.comfyui.json) | [Guide](docs/workflows/seedance2-flf2v.md) | Required |
+| Frame Interpolation | `frame-interpolation` | `standard` | `local` | [`frame-interpolation.comfyui.json`](workflows/local/frame-interpolation.comfyui.json) | [Guide](docs/workflows/frame-interpolation.md) | Not required |
+| Image + Audio to Video (LTX 2.3) | `ltx23-ia2v` | `pro` | `local` | [`ltx23-ia2v.comfyui.json`](workflows/local/ltx23-ia2v.comfyui.json) | [Guide](docs/workflows/ltx23-ia2v.md) | Not required |
 | Image to Video (Grok Imagine Video) | `grok-video-i2v` | `cloud` | `cloud` | [`grok-video-i2v.comfyui.json`](workflows/cloud/grok-video-i2v.comfyui.json) | [Guide](docs/workflows/grok-video-i2v.md) | Required |
 | Image to Video (Kling O3 Omni) | `kling-o3-i2v` | `cloud` | `cloud` | [`kling-o3-i2v.comfyui.json`](workflows/cloud/kling-o3-i2v.comfyui.json) | [Guide](docs/workflows/kling-o3-i2v.md) | Required |
 | Image to Video (LTX 2.3) | `ltx23-i2v` | `pro` | `local` | [`ltx23-i2v.comfyui.json`](workflows/local/ltx23-i2v.comfyui.json) | [Guide](docs/workflows/ltx23-i2v.md) | Not required |
+| Image to Video (MiniMax H3 GGUF) | `minimax-h3-gguf-i2v` | `standard` | `local` | [`minimax-h3-gguf-i2v.comfyui.json`](workflows/local/minimax-h3-gguf-i2v.comfyui.json) | [Guide](docs/workflows/minimax-h3-gguf-i2v.md) | Not required |
 | Image to Video (Vidu Q2) | `vidu-q2-i2v` | `cloud` | `cloud` | [`vidu-q2-i2v.comfyui.json`](workflows/cloud/vidu-q2-i2v.comfyui.json) | [Guide](docs/workflows/vidu-q2-i2v.md) | Required |
-| Image to Video (WAN 2.2) | `wan22-i2v` | `pro` | `local` | [`wan22-i2v.comfyui.json`](workflows/local/wan22-i2v.comfyui.json) | [Guide](docs/workflows/wan22-i2v.md) | Not required |
+| Image to Video (WAN 2.2 GGUF) | `wan22-i2v` | `standard` | `local` | [`wan22-i2v.comfyui.json`](workflows/local/wan22-i2v.comfyui.json) | [Guide](docs/workflows/wan22-i2v.md) | Not required |
+| Lip-Sync Talking Video (LTX 2.3 ID-LoRA) | `ltx23-id-lora` | `unknown` | `local` | [`ltx23-id-lora.comfyui.json`](workflows/local/ltx23-id-lora.comfyui.json) | [Guide](docs/workflows/ltx23-id-lora.md) | Not required |
+| LTX 2.3 Music Video (Image + Audio) | `music-video-shot-ltx23` | `pro` | `local` | [`music-video-shot-ltx23.comfyui.json`](workflows/local/music-video-shot-ltx23.comfyui.json) | [Guide](docs/workflows/music-video-shot-ltx23.md) | Not required |
+| Reference + Audio Guide (Seedance 2.0 Mini) | `seedance2-mini-r2v` | `cloud` | `cloud` | [`seedance2-mini-r2v.comfyui.json`](workflows/cloud/seedance2-mini-r2v.comfyui.json) | [Guide](docs/workflows/seedance2-mini-r2v.md) | Required |
+| Reference + Audio to Video (MiniMax H3) | `minimax-h3-r2v` | `unknown` | `local` | [`minimax-h3-r2v.comfyui.json`](workflows/local/minimax-h3-r2v.comfyui.json) | [Guide](docs/workflows/minimax-h3-r2v.md) | Not required |
+| Reference to Video (Seedance 2.0) | `seedance2-r2v` | `cloud` | `cloud` | [`seedance2-r2v.comfyui.json`](workflows/cloud/seedance2-r2v.comfyui.json) | [Guide](docs/workflows/seedance2-r2v.md) | Required |
+| Short Film Dialogue Shot (LTX 2.3) | `short-film-dialogue-ltx23-ia2v` | `pro` | `local` | [`short-film-dialogue-ltx23-ia2v.comfyui.json`](workflows/local/short-film-dialogue-ltx23-ia2v.comfyui.json) | [Guide](docs/workflows/short-film-dialogue-ltx23-ia2v.md) | Not required |
+| Text to Video (LTX 2.3) | `ltx23-t2v` | `pro` | `local` | [`ltx23-t2v.comfyui.json`](workflows/local/ltx23-t2v.comfyui.json) | [Guide](docs/workflows/ltx23-t2v.md) | Not required |
+| Text to Video (Seedance 2.0 Mini) | `seedance2-mini-t2v` | `unknown` | `cloud` | [`seedance2-mini-t2v.comfyui.json`](workflows/cloud/seedance2-mini-t2v.comfyui.json) | [Guide](docs/workflows/seedance2-mini-t2v.md) | Required |
+| Text to Video (Seedance 2.0) | `seedance2-t2v` | `cloud` | `cloud` | [`seedance2-t2v.comfyui.json`](workflows/cloud/seedance2-t2v.comfyui.json) | [Guide](docs/workflows/seedance2-t2v.md) | Required |
+| Text to Video (WAN 2.2 GGUF) | `wan22-t2v` | `standard` | `local` | [`wan22-t2v.comfyui.json`](workflows/local/wan22-t2v.comfyui.json) | [Guide](docs/workflows/wan22-t2v.md) | Not required |
+| Topaz Video Upscale | `topaz-video-upscale` | `cloud` | `cloud` | [`topaz-video-upscale.comfyui.json`](workflows/cloud/topaz-video-upscale.comfyui.json) | [Guide](docs/workflows/topaz-video-upscale.md) | Required |
+| H3 Character Sheet | `minimax-h3-character-sheet` | `pro` | `local` | [`minimax-h3-character-sheet.comfyui.json`](workflows/local/minimax-h3-character-sheet.comfyui.json) | [Guide](docs/workflows/minimax-h3-character-sheet.md) | Not required |
 | Image Edit | `image-edit` | `standard` | `local` | [`image-edit.comfyui.json`](workflows/local/image-edit.comfyui.json) | [Guide](docs/workflows/image-edit.md) | Not required |
+| Image Edit (GPT Image 2) | `gpt-image-2-edit` | `cloud` | `cloud` | [`gpt-image-2-edit.comfyui.json`](workflows/cloud/gpt-image-2-edit.comfyui.json) | [Guide](docs/workflows/gpt-image-2-edit.md) | Required |
 | Image Edit (Seedream 5.0 Lite) | `seedream-5-lite-image-edit` | `cloud` | `cloud` | [`seedream-5-lite-image-edit.comfyui.json`](workflows/cloud/seedream-5-lite-image-edit.comfyui.json) | [Guide](docs/workflows/seedream-5-lite-image-edit.md) | Required |
+| LongCat Image Edit | `longcat-image-edit` | `standard` | `local` | [`longcat-image-edit.comfyui.json`](workflows/local/longcat-image-edit.comfyui.json) | [Guide](docs/workflows/longcat-image-edit.md) | Not required |
 | Multiple Angles (Characters) | `multi-angles` | `standard` | `local` | [`multi-angles.comfyui.json`](workflows/local/multi-angles.comfyui.json) | [Guide](docs/workflows/multi-angles.md) | Not required |
 | Multiple Angles (Scenes) | `multi-angles-scene` | `standard` | `local` | [`multi-angles-scene.comfyui.json`](workflows/local/multi-angles-scene.comfyui.json) | [Guide](docs/workflows/multi-angles-scene.md) | Not required |
-| Qwen Image Edit 2509 (Model + Product) | `image-edit-model-product` | `standard` | `local` | [`image-edit-model-product.comfyui.json`](workflows/local/image-edit-model-product.comfyui.json) | [Guide](docs/workflows/image-edit-model-product.md) | Not required |
+| Nano Banana 2 Image Edit (Cloud) | `nano-banana-2` | `cloud` | `cloud` | [`nano-banana-2.comfyui.json`](workflows/cloud/nano-banana-2.comfyui.json) | [Guide](docs/workflows/nano-banana-2.md) | Required |
+| Qwen Image Edit 2509 GGUF (Model + Product) | `image-edit-model-product` | `standard` | `local` | [`image-edit-model-product.comfyui.json`](workflows/local/image-edit-model-product.comfyui.json) | [Guide](docs/workflows/image-edit-model-product.md) | Not required |
+| Text to Image (Ernie Turbo) | `ernie-image-turbo` | `standard` | `local` | [`ernie-image-turbo.comfyui.json`](workflows/local/ernie-image-turbo.comfyui.json) | [Guide](docs/workflows/ernie-image-turbo.md) | Not required |
+| Text to Image (Flux 2) | `flux2-text-to-image` | `pro` | `local` | [`flux2-text-to-image.comfyui.json`](workflows/local/flux2-text-to-image.comfyui.json) | [Guide](docs/workflows/flux2-text-to-image.md) | Not required |
+| Text to Image (GPT Image 2) | `gpt-image-2-t2i` | `cloud` | `cloud` | [`gpt-image-2-t2i.comfyui.json`](workflows/cloud/gpt-image-2-t2i.comfyui.json) | [Guide](docs/workflows/gpt-image-2-t2i.md) | Required |
 | Text to Image (Grok Imagine) | `grok-text-to-image` | `cloud` | `cloud` | [`grok-text-to-image.comfyui.json`](workflows/cloud/grok-text-to-image.comfyui.json) | [Guide](docs/workflows/grok-text-to-image.md) | Required |
-| Text to Image (Nano Banana 2) | `nano-banana-2` | `cloud` | `cloud` | [`nano-banana-2.comfyui.json`](workflows/cloud/nano-banana-2.comfyui.json) | [Guide](docs/workflows/nano-banana-2.md) | Required |
-| Text to Image (Z Image Turbo) | `z-image-turbo` | `lite` | `local` | [`z-image-turbo.comfyui.json`](workflows/local/z-image-turbo.comfyui.json) | [Guide](docs/workflows/z-image-turbo.md) | Not required |
+| Text to Image (LongCat) | `longcat-text-to-image` | `standard` | `local` | [`longcat-text-to-image.comfyui.json`](workflows/local/longcat-text-to-image.comfyui.json) | [Guide](docs/workflows/longcat-text-to-image.md) | Not required |
+| Text to Image (Z Image Turbo GGUF) | `z-image-turbo` | `lite` | `local` | [`z-image-turbo.comfyui.json`](workflows/local/z-image-turbo.comfyui.json) | [Guide](docs/workflows/z-image-turbo.md) | Not required |
+| UGC Keyframes (GPT Image 2) | `gpt-image-2-ugc-keyframe` | `cloud` | `cloud` | [`gpt-image-2-ugc-keyframe.comfyui.json`](workflows/cloud/gpt-image-2-ugc-keyframe.comfyui.json) | [Guide](docs/workflows/gpt-image-2-ugc-keyframe.md) | Required |
+| Caption Transcription (Qwen ASR) | `caption-qwen-asr` | `unknown` | `local` | [`caption-qwen-asr.comfyui.json`](workflows/local/caption-qwen-asr.comfyui.json) | [Guide](docs/workflows/caption-qwen-asr.md) | Not required |
+| ElevenLabs Text to Speech | `elevenlabs-tts` | `cloud` | `cloud` | [`elevenlabs-tts.comfyui.json`](workflows/cloud/elevenlabs-tts.comfyui.json) | [Guide](docs/workflows/elevenlabs-tts.md) | Required |
+| Irodori Voice Studio | `irodori-voice-clone` | `lite` | `local` | [`irodori-voice-clone.comfyui.json`](workflows/local/irodori-voice-clone.comfyui.json) | [Guide](docs/workflows/irodori-voice-clone.md) | Not required |
+| Irodori-TTS v3 | `irodori-tts` | `lite` | `local` | [`irodori-tts.comfyui.json`](workflows/local/irodori-tts.comfyui.json) | [Guide](docs/workflows/irodori-tts.md) | Not required |
 | Music Generation | `music-gen` | `lite` | `local` | [`music-gen.comfyui.json`](workflows/local/music-gen.comfyui.json) | [Guide](docs/workflows/music-gen.md) | Not required |
+| Video to Music (Sonilo) | `sonilo-v2m` | `cloud` | `cloud` | [`sonilo-v2m.comfyui.json`](workflows/cloud/sonilo-v2m.comfyui.json) | [Guide](docs/workflows/sonilo-v2m.md) | Required |
+| Vocal Extract (Mel-Band RoFormer) | `vocal-extract-melband` | `standard` | `local` | [`vocal-extract-melband.comfyui.json`](workflows/local/vocal-extract-melband.comfyui.json) | [Guide](docs/workflows/vocal-extract-melband.md) | Not required |
+| Media to Prompt (MiniMax H3 Promptor) | `minimax-h3-media-promptor` | `lite` | `local` | [`minimax-h3-media-promptor.comfyui.json`](workflows/local/minimax-h3-media-promptor.comfyui.json) | [Guide](docs/workflows/minimax-h3-media-promptor.md) | Not required |
+| Prompt Helper (Gemini 3.1 Flash Lite) | `google-gemini-flash-lite` | `cloud` | `cloud` | [`google-gemini-flash-lite.comfyui.json`](workflows/cloud/google-gemini-flash-lite.comfyui.json) | [Guide](docs/workflows/google-gemini-flash-lite.md) | Required |
 
 ## Maintenance
 - Add/update workflows in `src/config/workflowRegistry.js`.

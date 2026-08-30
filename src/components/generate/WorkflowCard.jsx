@@ -1,6 +1,8 @@
 import { Play } from 'lucide-react'
+import { useI18n } from '../../i18n/I18nContext'
 
 export default function WorkflowCard({ workflow, selected = false, onSelect, showRouteBadge = true }) {
+  const { t } = useI18n()
   if (!workflow) return null
 
   const coverIsVideo = /\.(mp4|webm|mov)(\?|#|$)/i.test(String(workflow.cover || ''))
@@ -10,7 +12,11 @@ export default function WorkflowCard({ workflow, selected = false, onSelect, sho
     : workflow.route === 'custom'
       ? 'bg-amber-400/15 text-amber-200 border-amber-300/25'
       : 'bg-emerald-400/15 text-emerald-200 border-emerald-300/25'
-  const routeLabel = workflow.route === 'cloud' ? 'Cloud' : workflow.route === 'custom' ? 'Custom' : 'Local'
+  const routeLabel = workflow.route === 'cloud'
+    ? t('generate.browser.card.cloud', {}, 'Cloud')
+    : workflow.route === 'custom'
+      ? t('generate.browser.card.custom', {}, 'Custom')
+      : t('generate.browser.card.local', {}, 'Local')
 
   return (
     <button
@@ -40,7 +46,7 @@ export default function WorkflowCard({ workflow, selected = false, onSelect, sho
           />
         ) : (
           <div className="flex h-full items-center justify-center text-xs text-sf-text-muted">
-            No cover
+            {t('generate.browser.card.noCover', {}, 'No cover')}
           </div>
         )}
         <div className="absolute inset-0 bg-gradient-to-b from-black/35 via-transparent to-black/65" />
@@ -56,7 +62,7 @@ export default function WorkflowCard({ workflow, selected = false, onSelect, sho
         {!workflow.runnable && (
           <span className="absolute bottom-2 left-2 inline-flex items-center gap-1 rounded-full bg-yellow-400/15 px-2 py-0.5 text-[10px] font-semibold text-yellow-200">
             <Play className="h-2.5 w-2.5" />
-            Preview
+            {t('generate.browser.card.preview', {}, 'Preview')}
           </span>
         )}
       </div>

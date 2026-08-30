@@ -14,13 +14,12 @@
   },
   "57:30": {
     "inputs": {
-      "clip_name": "qwen_3_4b.safetensors",
-      "type": "lumina2",
-      "device": "default"
+      "clip_name": "Qwen3-4B-Q4_K_M.gguf",
+      "type": "lumina2"
     },
-    "class_type": "CLIPLoader",
+    "class_type": "CLIPLoaderGGUF",
     "_meta": {
-      "title": "Load CLIP"
+      "title": "Load CLIP (GGUF)"
     }
   },
   "57:29": {
@@ -62,12 +61,11 @@
   },
   "57:28": {
     "inputs": {
-      "unet_name": "z_image_turbo_bf16.safetensors",
-      "weight_dtype": "default"
+      "unet_name": "z_image_turbo-Q4_K_M.gguf"
     },
-    "class_type": "UNETLoader",
+    "class_type": "UnetLoaderGGUF",
     "_meta": {
-      "title": "Load Diffusion Model"
+      "title": "Load Diffusion Model (GGUF)"
     }
   },
   "57:27": {

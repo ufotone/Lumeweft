@@ -12,6 +12,7 @@ import {
   getComfyPartnerApiKey,
   COMFY_PARTNER_KEY_CHANGED_EVENT,
 } from '../services/comfyPartnerAuth'
+import { CLOUD_RUNTIME_SETTINGS_CHANGED_EVENT, getCloudRuntimeSettings } from '../services/cloudRuntimes'
 import { resolveThumbnailUrl } from '../utils/projectThumbnail'
 import { useI18n } from '../i18n/I18nContext'
 
@@ -162,6 +163,7 @@ function WelcomeScreen() {
   const [gettingStartedOpen, setGettingStartedOpen] = useState(false)
   const [apiKeyDialogOpen, setApiKeyDialogOpen] = useState(false)
   const [partnerKeyConfigured, setPartnerKeyConfigured] = useState(false)
+  const [externalRuntimeKeyConfigured, setExternalRuntimeKeyConfigured] = useState(false)
   const [settingsOpen, setSettingsOpen] = useState(false)
   const [settingsInitialSection, setSettingsInitialSection] = useState(null)
   const [windowState, setWindowState] = useState({ isMaximized: false, isFullScreen: false })
@@ -214,20 +216,32 @@ function WelcomeScreen() {
     let cancelled = false
     const hydrate = async () => {
       try {
-        const key = await getComfyPartnerApiKey()
-        if (!cancelled) setPartnerKeyConfigured(Boolean(String(key || '').trim()))
+        const [key, runtimeSettings] = await Promise.all([
+          getComfyPartnerApiKey(),
+          getCloudRuntimeSettings().catch(() => ({ providers: [] })),
+        ])
+        if (!cancelled) {
+          setPartnerKeyConfigured(Boolean(String(key || '').trim()))
+          setExternalRuntimeKeyConfigured(runtimeSettings.providers?.some((provider) => provider.hasCredential) === true)
+        }
       } catch {
-        if (!cancelled) setPartnerKeyConfigured(false)
+        if (!cancelled) {
+          setPartnerKeyConfigured(false)
+          setExternalRuntimeKeyConfigured(false)
+        }
       }
     }
     hydrate()
     const handler = () => { hydrate() }
     window.addEventListener(COMFY_PARTNER_KEY_CHANGED_EVENT, handler)
+    window.addEventListener(CLOUD_RUNTIME_SETTINGS_CHANGED_EVENT, handler)
     return () => {
       cancelled = true
       window.removeEventListener(COMFY_PARTNER_KEY_CHANGED_EVENT, handler)
+      window.removeEventListener(CLOUD_RUNTIME_SETTINGS_CHANGED_EVENT, handler)
     }
   }, [])
+  const anyCloudApiKeyConfigured = partnerKeyConfigured || externalRuntimeKeyConfigured
 
   // Load recent projects on mount
   useEffect(() => {
@@ -569,13 +583,13 @@ function WelcomeScreen() {
           <button
             type="button"
             onClick={() => setApiKeyDialogOpen(true)}
-            title={partnerKeyConfigured ? t('launcherChip.apiKeySetHelp') : t('launcherChip.apiKeyNeededHelp')}
-            className={`flex items-center gap-1.5 h-7 px-2.5 rounded-md text-[11px] font-medium transition-colors border ${partnerKeyConfigured
+            title={anyCloudApiKeyConfigured ? t('launcherChip.apiKeySetHelp') : t('launcherChip.apiKeyNeededHelp')}
+            className={`flex items-center gap-1.5 h-7 px-2.5 rounded-md text-[11px] font-medium transition-colors border ${anyCloudApiKeyConfigured
               ? 'bg-sf-dark-800 hover:bg-sf-dark-700 border-sf-dark-700 text-sf-text-primary'
               : 'bg-amber-500/10 hover:bg-amber-500/20 border-amber-500/40 text-amber-100'
             }`}
           >
-            {partnerKeyConfigured ? (
+            {anyCloudApiKeyConfigured ? (
               <>
                 <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400" />
                 <span>{t('launcherChip.apiKeySet')}</span>
@@ -993,7 +1007,11 @@ function WelcomeScreen() {
       <ApiKeyDialog
         open={apiKeyDialogOpen}
         onClose={() => setApiKeyDialogOpen(false)}
-        onSaved={(value) => setPartnerKeyConfigured(Boolean(String(value || '').trim()))}
+        allowProviderSelection
+        onSaved={(value, providerId) => {
+          if (providerId === 'floyo') setExternalRuntimeKeyConfigured(Boolean(String(value || '').trim()))
+          else setPartnerKeyConfigured(Boolean(String(value || '').trim()))
+        }}
       />
 
       {deleteProjectDialog && (

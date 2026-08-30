@@ -9,6 +9,7 @@ import {
   Eye,
   EyeOff,
   Trash2,
+  Cloud,
 } from 'lucide-react'
 import {
   COMFY_PARTNER_DASHBOARD_URL,
@@ -19,6 +20,12 @@ import {
   saveComfyPartnerApiKey,
   validateComfyPartnerApiKey,
 } from '../services/comfyPartnerAuth'
+import {
+  getCloudRuntimeSettings,
+  saveCloudRuntimeCredential,
+  setImportedWorkflowRuntime,
+  testCloudRuntimeCredential,
+} from '../services/cloudRuntimes'
 import { useI18n } from '../i18n/I18nContext'
 
 function maskKey(value) {
@@ -41,9 +48,14 @@ export default function ApiKeyDialog({
   onSaved,
   headline,
   subhead,
+  allowProviderSelection = false,
+  initialProviderId = 'comfy-org',
 }) {
   const { t } = useI18n()
   const [existingKey, setExistingKey] = useState('')
+  const [providerId, setProviderId] = useState(initialProviderId)
+  const [credentialFromEnvironment, setCredentialFromEnvironment] = useState(false)
+  const [useFloyoForImportedWorkflows, setUseFloyoForImportedWorkflows] = useState(true)
   const [draftKey, setDraftKey] = useState('')
   const [showKey, setShowKey] = useState(false)
   const [validation, setValidation] = useState({ state: 'idle', message: '' })
@@ -52,15 +64,28 @@ export default function ApiKeyDialog({
   const [error, setError] = useState('')
   const inputRef = useRef(null)
   const abortRef = useRef(null)
+  const isFloyo = providerId === 'floyo'
 
   useEffect(() => {
     if (!open) return
     let cancelled = false
     const load = async () => {
       try {
-        const stored = await getComfyPartnerApiKey()
+        const stored = isFloyo
+          ? await getCloudRuntimeSettings()
+          : await getComfyPartnerApiKey()
         if (cancelled) return
-        setExistingKey(stored)
+        if (isFloyo) {
+          const floyo = stored.providers?.find((provider) => provider.id === 'floyo')
+          setExistingKey(floyo?.hasCredential ? '__configured__' : '')
+          setCredentialFromEnvironment(Boolean(floyo?.credentialFromEnvironment))
+          setUseFloyoForImportedWorkflows(floyo?.hasCredential
+            ? stored.routing?.importedApiWorkflows === 'floyo'
+            : true)
+        } else {
+          setExistingKey(stored)
+          setCredentialFromEnvironment(false)
+        }
         setDraftKey('')
         setShowKey(false)
         setValidation({ state: 'idle', message: '' })
@@ -75,7 +100,11 @@ export default function ApiKeyDialog({
     return () => {
       cancelled = true
     }
-  }, [open, t])
+  }, [isFloyo, open, t])
+
+  useEffect(() => {
+    if (open) setProviderId(initialProviderId)
+  }, [initialProviderId, open])
 
   useEffect(() => {
     if (!open) return
@@ -99,11 +128,13 @@ export default function ApiKeyDialog({
   }, [])
 
   const handleGetKey = useCallback(async () => {
-    const result = await openComfyPartnerDashboard()
+    const result = isFloyo
+      ? await window.electronAPI?.openExternalUrl?.('https://www.floyo.ai/app')
+      : await openComfyPartnerDashboard()
     if (!result?.success) {
       setError(t('apiKey.openFailed'))
     }
-  }, [t])
+  }, [isFloyo, t])
 
   const runValidation = useCallback(async (candidate) => {
     const value = String(candidate || '').trim()
@@ -119,21 +150,29 @@ export default function ApiKeyDialog({
     const controller = new AbortController()
     abortRef.current = controller
     try {
-      const result = await validateComfyPartnerApiKey(value, { signal: controller.signal })
+      const result = isFloyo
+        ? await testCloudRuntimeCredential('floyo', value).then(() => ({ status: 'valid' }))
+        : await validateComfyPartnerApiKey(value, { signal: controller.signal })
       setValidation({
         state: result.status === 'valid' ? 'valid'
           : result.status === 'invalid' ? 'invalid'
           : 'unknown',
-        message: result.status === 'valid' ? t('apiKey.accepted') : (result.message || ''),
+        message: result.status === 'valid'
+          ? t(isFloyo ? 'apiKey.floyoAccepted' : 'apiKey.accepted')
+          : (result.message || ''),
       })
       return result
     } catch (err) {
-      setValidation({ state: 'unknown', message: err?.message || t('apiKey.validateFailed') })
-      return { status: 'unknown' }
+      const invalidCredential = isFloyo && [400, 401, 403].includes(Number(err?.status))
+      setValidation({
+        state: invalidCredential ? 'invalid' : 'unknown',
+        message: err?.message || t('apiKey.validateFailed'),
+      })
+      return { status: invalidCredential ? 'invalid' : 'unknown' }
     } finally {
       setValidating(false)
     }
-  }, [t])
+  }, [isFloyo, t])
 
   const handleTest = useCallback(() => {
     void runValidation(draftKey)
@@ -161,36 +200,46 @@ export default function ApiKeyDialog({
       return
     }
     try {
-      await saveComfyPartnerApiKey(value)
+      if (isFloyo) {
+        await saveCloudRuntimeCredential('floyo', value)
+        if (useFloyoForImportedWorkflows) await setImportedWorkflowRuntime('floyo')
+      } else {
+        await saveComfyPartnerApiKey(value)
+      }
       setSaving(false)
-      onSaved?.(value)
+      onSaved?.(value, providerId)
       onClose?.()
     } catch (err) {
       setSaving(false)
       setError(err?.message || t('apiKey.saveFailed'))
     }
-  }, [draftKey, onClose, onSaved, runValidation, t, validation.state])
+  }, [draftKey, isFloyo, onClose, onSaved, providerId, runValidation, t, useFloyoForImportedWorkflows, validation.state])
 
   const handleRemove = useCallback(async () => {
     setSaving(true)
     setError('')
     try {
-      await clearComfyPartnerApiKey()
+      if (isFloyo) {
+        await saveCloudRuntimeCredential('floyo', '')
+        await setImportedWorkflowRuntime('local-comfyui')
+      } else await clearComfyPartnerApiKey()
       setExistingKey('')
       setDraftKey('')
       setValidation({ state: 'idle', message: '' })
       setSaving(false)
-      onSaved?.('')
+      onSaved?.('', providerId)
     } catch (err) {
       setSaving(false)
       setError(err?.message || t('apiKey.removeFailed'))
     }
-  }, [onSaved, t])
+  }, [isFloyo, onSaved, providerId, t])
 
   if (!open) return null
 
   const hasDraft = Boolean(String(draftKey || '').trim())
   const hasExisting = Boolean(String(existingKey || '').trim())
+  const providerName = isFloyo ? 'Floyo' : 'Comfy.org'
+  const providerHost = isFloyo ? 'www.floyo.ai' : 'platform.comfy.org'
 
   return (
     <div
@@ -208,10 +257,10 @@ export default function ApiKeyDialog({
             </div>
             <div>
               <h2 className="text-base font-semibold text-sf-text-primary">
-                {headline || t('apiKey.title')}
+                {headline || t(allowProviderSelection ? 'apiKey.providersTitle' : 'apiKey.title')}
               </h2>
               <p className="mt-1 text-xs text-sf-text-muted">
-                {subhead || t('apiKey.subtitle')}
+                {subhead || t(allowProviderSelection ? 'apiKey.providersSubtitle' : 'apiKey.subtitle')}
               </p>
             </div>
           </div>
@@ -226,12 +275,43 @@ export default function ApiKeyDialog({
         </div>
 
         <div className="space-y-4 px-5 py-4">
+          {allowProviderSelection && (
+            <div>
+              <label className="mb-1.5 block text-[11px] font-semibold uppercase tracking-[0.12em] text-sf-text-muted">
+                {t('apiKey.provider')}
+              </label>
+              <div className="grid grid-cols-2 gap-2 rounded-lg bg-sf-dark-900/70 p-1">
+                {[
+                  { id: 'comfy-org', label: 'Comfy.org', icon: KeyRound },
+                  { id: 'floyo', label: 'Floyo', icon: Cloud },
+                ].map((provider) => {
+                  const Icon = provider.icon
+                  return (
+                    <button
+                      key={provider.id}
+                      type="button"
+                      onClick={() => setProviderId(provider.id)}
+                      className={`flex items-center justify-center gap-2 rounded-md border px-3 py-2 text-xs font-medium transition-colors ${providerId === provider.id ? 'border-sf-accent/50 bg-sf-accent/15 text-sf-text-primary' : 'border-transparent text-sf-text-muted hover:bg-sf-dark-800 hover:text-sf-text-primary'}`}
+                    >
+                      <Icon className="h-3.5 w-3.5" />
+                      {provider.label}
+                    </button>
+                  )
+                })}
+              </div>
+            </div>
+          )}
+
           <div className="rounded-lg border border-sf-dark-700 bg-sf-dark-900/70 px-3 py-3">
             <div className="text-[11px] font-semibold uppercase tracking-[0.12em] text-sf-text-muted">
               {t('apiKey.unlocks')}
             </div>
             <ul className="mt-1.5 space-y-0.5 text-xs text-sf-text-secondary">
-              {COMFY_PARTNER_WORKFLOWS.map((item) => (
+              {(isFloyo ? [
+                t('apiKey.floyoFeatureRun'),
+                t('apiKey.floyoFeatureUpload'),
+                t('apiKey.floyoFeatureBalance'),
+              ] : COMFY_PARTNER_WORKFLOWS).map((item) => (
                 <li key={item} className="flex items-center gap-2">
                   <span className="h-1 w-1 rounded-full bg-sf-accent" aria-hidden />
                   {item}
@@ -239,7 +319,7 @@ export default function ApiKeyDialog({
               ))}
             </ul>
             <p className="mt-2 text-[11px] text-sf-text-muted">
-              {t('apiKey.coverage')}
+              {t(isFloyo ? 'apiKey.floyoCoverage' : 'apiKey.coverage')}
             </p>
           </div>
 
@@ -249,16 +329,16 @@ export default function ApiKeyDialog({
                 <div className="flex items-start gap-2">
                   <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0 text-green-400" />
                   <div>
-                    <div className="text-sm text-sf-text-primary">{t('apiKey.alreadySaved')}</div>
+                    <div className="text-sm text-sf-text-primary">{providerName} · {t('apiKey.alreadySaved')}</div>
                     <div className="mt-0.5 font-mono text-[11px] text-sf-text-muted">
-                      {maskKey(existingKey)}
+                      {isFloyo ? (credentialFromEnvironment ? 'FLOYO_API_KEY' : t('apiKey.securelyStored')) : maskKey(existingKey)}
                     </div>
                   </div>
                 </div>
                 <button
                   type="button"
                   onClick={() => { void handleRemove() }}
-                  disabled={saving}
+                  disabled={saving || credentialFromEnvironment}
                   className="inline-flex items-center gap-1 rounded-md border border-sf-dark-600 px-2 py-1 text-[11px] text-sf-text-muted transition-colors hover:border-sf-error/40 hover:text-sf-error disabled:opacity-50"
                 >
                   <Trash2 className="h-3 w-3" />
@@ -270,7 +350,7 @@ export default function ApiKeyDialog({
 
           <div>
             <div className="flex items-center justify-between gap-2">
-              <label className="text-xs font-medium text-sf-text-secondary" htmlFor="comfy-partner-key">
+              <label className="text-xs font-medium text-sf-text-secondary" htmlFor="cloud-provider-key">
                 {hasExisting ? t('apiKey.replacePrompt') : t('apiKey.pastePrompt')}
               </label>
               <button
@@ -285,9 +365,10 @@ export default function ApiKeyDialog({
             <div className="mt-1.5 flex gap-2">
               <div className="relative flex-1">
                 <input
-                  id="comfy-partner-key"
+                  id="cloud-provider-key"
                   ref={inputRef}
                   type={showKey ? 'text' : 'password'}
+                  disabled={credentialFromEnvironment}
                   autoComplete="off"
                   spellCheck={false}
                   value={draftKey}
@@ -303,8 +384,8 @@ export default function ApiKeyDialog({
                       void handleSave()
                     }
                   }}
-                  placeholder="comfyui-..."
-                  className="w-full rounded border border-sf-dark-600 bg-sf-dark-800 px-3 py-2 pr-9 text-sm text-sf-text-primary placeholder-sf-text-muted focus:border-sf-accent focus:outline-none"
+                  placeholder={isFloyo ? 'Floyo API key' : 'comfyui-...'}
+                  className="w-full rounded border border-sf-dark-600 bg-sf-dark-800 px-3 py-2 pr-9 text-sm text-sf-text-primary placeholder-sf-text-muted focus:border-sf-accent focus:outline-none disabled:cursor-not-allowed disabled:opacity-60"
                 />
                 <button
                   type="button"
@@ -319,7 +400,7 @@ export default function ApiKeyDialog({
               <button
                 type="button"
                 onClick={handleTest}
-                disabled={!hasDraft || validating || saving}
+                disabled={!hasDraft || validating || saving || credentialFromEnvironment}
                 className="inline-flex items-center gap-1.5 rounded border border-sf-dark-600 bg-sf-dark-800 px-3 py-2 text-xs text-sf-text-secondary transition-colors hover:border-sf-dark-500 hover:text-sf-text-primary disabled:cursor-not-allowed disabled:opacity-50"
               >
                 {validating ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : null}
@@ -353,6 +434,21 @@ export default function ApiKeyDialog({
             )}
           </div>
 
+          {isFloyo && (
+            <label className="flex cursor-pointer items-start gap-2 rounded-lg border border-sf-dark-700 bg-sf-dark-900/40 px-3 py-2.5">
+              <input
+                type="checkbox"
+                checked={useFloyoForImportedWorkflows}
+                onChange={(event) => setUseFloyoForImportedWorkflows(event.target.checked)}
+                className="mt-0.5 h-3.5 w-3.5 accent-sf-accent"
+              />
+              <span>
+                <span className="block text-xs text-sf-text-primary">{t('apiKey.useFloyo')}</span>
+                <span className="mt-0.5 block text-[10px] text-sf-text-muted">{t('apiKey.useFloyoHelp')}</span>
+              </span>
+            </label>
+          )}
+
           {error && (
             <div className="rounded border border-sf-error/40 bg-sf-error/10 px-3 py-2 text-[11px] text-sf-error">
               {error}
@@ -360,15 +456,15 @@ export default function ApiKeyDialog({
           )}
 
           <div className="rounded-lg border border-sf-dark-700 bg-sf-dark-900/40 px-3 py-2.5 text-[11px] text-sf-text-muted">
-            {t('apiKey.storagePrefix')}{' '}
-            <code className="rounded bg-sf-dark-800 px-1">api_key_comfy_org</code>{' '}
-            {t('apiKey.storageSuffix')}
+            {isFloyo ? t('apiKey.floyoStorage') : (
+              <>{t('apiKey.storagePrefix')}{' '}<code className="rounded bg-sf-dark-800 px-1">api_key_comfy_org</code>{' '}{t('apiKey.storageSuffix')}</>
+            )}
           </div>
         </div>
 
         <div className="flex items-center justify-between gap-3 border-t border-sf-dark-700 bg-sf-dark-900/40 px-5 py-3">
           <a
-            href={COMFY_PARTNER_DASHBOARD_URL}
+            href={isFloyo ? 'https://www.floyo.ai/app' : COMFY_PARTNER_DASHBOARD_URL}
             onClick={(event) => {
               event.preventDefault()
               void handleGetKey()
@@ -376,7 +472,7 @@ export default function ApiKeyDialog({
             className="inline-flex items-center gap-1 text-[11px] text-sf-text-muted hover:text-sf-text-primary"
           >
             <ExternalLink className="h-3 w-3" />
-            platform.comfy.org
+            {providerHost}
           </a>
           <div className="flex items-center gap-2">
             <button
@@ -389,7 +485,7 @@ export default function ApiKeyDialog({
             <button
               type="button"
               onClick={() => { void handleSave() }}
-              disabled={!hasDraft || saving || validating || validation.state === 'invalid'}
+              disabled={!hasDraft || saving || validating || validation.state === 'invalid' || credentialFromEnvironment}
               className="inline-flex items-center gap-1.5 rounded bg-sf-accent px-3 py-1.5 text-xs font-medium text-white transition-colors hover:bg-sf-accent/90 disabled:cursor-not-allowed disabled:opacity-50"
             >
               {saving ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : null}

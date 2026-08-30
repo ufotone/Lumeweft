@@ -1,10 +1,11 @@
-import { TOPAZ_VIDEO_UPSCALE_WORKFLOW_ID } from './topazVideoUpscaleConfig'
-import { MUSIC_VIDEO_SHOT_WORKFLOW_ID, VOCAL_EXTRACT_WORKFLOW_ID } from './musicVideoShotConfig'
+import { TOPAZ_VIDEO_UPSCALE_WORKFLOW_ID } from './topazVideoUpscaleConfig.js'
+import { MUSIC_VIDEO_SHOT_WORKFLOW_ID, VOCAL_EXTRACT_WORKFLOW_ID } from './musicVideoShotConfig.js'
 import {
   ELEVENLABS_TTS_WORKFLOW_ID,
+  IRODORI_VOICE_CLONE_WORKFLOW_ID,
   IRODORI_TTS_WORKFLOW_ID,
   SHORT_FILM_DIALOGUE_VIDEO_WORKFLOW_ID,
-} from './shortFilmConfig'
+} from './shortFilmConfig.js'
 
 export const SHOT_CATEGORIES = {
   Shot: ['Extreme close-up', 'Close-up', 'Medium close-up', 'Medium shot', 'Medium wide', 'Wide shot', 'Extreme wide', 'Over-the-shoulder', 'POV', 'Two-shot', 'Insert shot'],
@@ -26,16 +27,18 @@ export const CUSTOM_GENERATE_VIDEO_WORKFLOW_ID = 'custom-generate-video'
 export const CUSTOM_AD_KEYFRAME_WORKFLOW_ID = 'custom-ad-keyframe'
 export const GPT_IMAGE_2_UGC_KEYFRAME_WORKFLOW_ID = 'gpt-image-2-ugc-keyframe'
 export const SEEDANCE_UGC_VIDEO_WORKFLOW_ID = 'seedance2-r2v'
+export const UGC_EXACT_LIPSYNC_WORKFLOW_ID = 'ltx23-latentsync'
 
 export const WORKFLOWS = {
   video: [
     { id: CUSTOM_GENERATE_VIDEO_WORKFLOW_ID, label: 'Custom Video Workflow', needsImage: false, description: 'Run your own ComfyUI video graph from Generate' },
     { id: 'minimax-h3-gguf-i2v', label: 'Image to Video (MiniMax H3 GGUF)', needsImage: true, description: 'Local GGUF image-to-video with native stereo audio and Turbo sampling' },
     { id: 'ltx23-i2v', label: 'Image to Video (LTX 2.3)', needsImage: true, description: 'Animate an image with local LTX 2.3' },
+    { id: UGC_EXACT_LIPSYNC_WORKFLOW_ID, label: 'Exact Audio Lip-Sync (LTX 2.3 + LatentSync)', needsImage: true, description: 'Animate an image with LTX 2.3, then lip-sync the exact supplied audio with LatentSync 1.6' },
     { id: 'ltx23-ia2v', label: 'Image + Audio to Video (LTX 2.3)', needsImage: true, description: 'Animate an image with local LTX 2.3 audio conditioning' },
     { id: 'ltx23-t2v', label: 'Text to Video (LTX 2.3)', needsImage: false, description: 'Generate video from text with local LTX 2.3' },
-    { id: 'wan22-i2v', label: 'Image to Video (WAN 2.2)', needsImage: true, description: 'Animate an image into video' },
-    { id: 'wan22-t2v', label: 'Text to Video (WAN 2.2)', needsImage: false, description: 'Generate video from text with local WAN 2.2' },
+    { id: 'wan22-i2v', label: 'Image to Video (WAN 2.2 GGUF)', needsImage: true, description: 'Animate an image locally with WAN 2.2 Q4_K_M GGUF + Lightning' },
+    { id: 'wan22-t2v', label: 'Text to Video (WAN 2.2 GGUF)', needsImage: false, description: 'Generate video locally with WAN 2.2 Q4_K_M GGUF + Lightning' },
     { id: 'frame-interpolation', label: 'Frame Interpolation', needsImage: true, description: 'Add in-between frames to smooth video motion' },
     { id: 'kling-o3-i2v', label: 'Image to Video (Kling O3 Omni)', needsImage: true, description: 'Premium image-to-video with Kling 3.0 Omni' },
     { id: 'grok-video-i2v', label: 'Image to Video (Grok Imagine Video)', needsImage: true, description: 'Cloud image-to-video with Grok Imagine Video Beta' },
@@ -48,7 +51,8 @@ export const WORKFLOWS = {
   ],
   image: [
     { id: CUSTOM_GENERATE_IMAGE_WORKFLOW_ID, label: 'Custom Image Workflow', needsImage: false, description: 'Run your own ComfyUI image graph from Generate' },
-    { id: 'z-image-turbo', label: 'Text to Image (Z Image Turbo)', needsImage: false, description: 'Generate image from text prompt using Z Image Turbo' },
+    { id: 'minimax-h3-character-sheet', label: 'H3 Character Sheet', needsImage: true, description: 'Create a four-panel character turnaround from up to three references with Ref2VA GGUF' },
+    { id: 'z-image-turbo', label: 'Text to Image (Z Image Turbo GGUF)', needsImage: false, description: 'Generate images locally with Z Image Turbo Q4_K_M GGUF' },
     { id: 'longcat-text-to-image', label: 'Text to Image (LongCat)', needsImage: false, description: 'Generate image with local LongCat' },
     { id: 'ernie-image-turbo', label: 'Text to Image (Ernie Turbo)', needsImage: false, description: 'Generate image with local Ernie Image Turbo' },
     { id: 'flux2-text-to-image', label: 'Text to Image (Flux 2)', needsImage: false, description: 'Generate image with local Flux 2' },
@@ -57,8 +61,8 @@ export const WORKFLOWS = {
     { id: 'gpt-image-2-edit', label: 'Image Edit (GPT Image 2)', needsImage: true, description: 'Cloud image edit with OpenAI GPT Image 2' },
     { id: 'grok-text-to-image', label: 'Text to Image (Grok Imagine)', needsImage: false, description: 'Cloud text-to-image using Grok Imagine Image Beta' },
     { id: 'seedream-5-lite-image-edit', label: 'Image Edit (Seedream 5.0 Lite)', needsImage: true, description: 'Cloud image edit with ByteDance Seedream 5.0 Lite' },
-    { id: 'multi-angles', label: 'Multiple Angles (Characters)', needsImage: true, description: 'Generate 8 camera angles from one character image' },
-    { id: 'multi-angles-scene', label: 'Multiple Angles (Scenes)', needsImage: true, description: 'Generate 8 camera angles from one scene image' },
+    { id: 'multi-angles', label: 'Multiple Angles (Characters)', needsImage: true, description: 'Generate 8 controlled views with Qwen Image Edit 2511 GGUF' },
+    { id: 'multi-angles-scene', label: 'Multiple Angles (Scenes)', needsImage: true, description: 'Generate 8 controlled scene views with Qwen Image Edit 2511 GGUF' },
     { id: 'image-edit', label: 'Image Edit', needsImage: true, description: 'Edit image with text prompt (e.g. remove person on left, change color of car)' },
     { id: 'longcat-image-edit', label: 'LongCat Image Edit', needsImage: true, description: 'Edit image with local LongCat' },
   ],
@@ -132,7 +136,7 @@ export const YOLO_MUSIC_KEYFRAME_WORKFLOW_OPTIONS = Object.freeze([
     id: 'image-edit',
     label: 'Qwen Image Edit',
     runtimeLabel: 'Local',
-    description: 'Fully local keyframes using Qwen Image Edit 2509. Uses the resolved cast/reference image as the edit source.',
+    description: 'Fully local keyframes using Qwen Image Edit 2509 GGUF + Lightning. Uses the resolved cast/reference image as the edit source.',
   },
   {
     id: 'nano-banana-2',
@@ -173,7 +177,7 @@ export const SEEDANCE_VIDEO_DURATION_PRESETS = Object.freeze([5, 8, 10, 12, 15])
 
 export function getVideoDurationPresets(workflowId = '') {
   const normalized = String(workflowId || '').trim()
-  if (['ltx23-i2v', 'ltx23-ia2v', 'ltx23-id-lora', 'ltx23-t2v'].includes(normalized)) {
+  if (['ltx23-i2v', 'ltx23-ia2v', 'ltx23-id-lora', UGC_EXACT_LIPSYNC_WORKFLOW_ID, 'ltx23-t2v'].includes(normalized)) {
     return LTX23_VIDEO_DURATION_PRESETS
   }
   if (['seedance2-t2v', 'seedance2-mini-r2v', 'seedance2-flf2v', 'seedance2-r2v'].includes(normalized)) {
@@ -333,12 +337,13 @@ export const YOLO_VIDEO_WORKFLOW_TARGET_OPTIONS = Object.freeze([
 ])
 
 const WORKFLOW_DISPLAY_LABELS = Object.freeze({
-  'z-image-turbo': 'Z-Image Turbo',
-  'image-edit': 'Qwen Image Edit 2509',
+  'z-image-turbo': 'Z-Image Turbo GGUF',
+  'image-edit': 'Qwen Image Edit 2509 GGUF',
   'nano-banana-2': 'Nano Banana 2 Image Edit (Cloud)',
-  'wan22-i2v': 'WAN 2.2',
-  'wan22-t2v': 'WAN 2.2 Text to Video',
+  'wan22-i2v': 'WAN 2.2 GGUF',
+  'wan22-t2v': 'WAN 2.2 GGUF Text to Video',
   'ltx23-i2v': 'LTX 2.3',
+  [UGC_EXACT_LIPSYNC_WORKFLOW_ID]: 'LTX 2.3 + LatentSync (Exact Audio)',
   'ltx23-ia2v': 'LTX 2.3 IA2V',
   'ltx23-id-lora': 'LTX 2.3 Lip-Sync',
   'ltx23-t2v': 'LTX 2.3 Text to Video',
@@ -361,6 +366,7 @@ const WORKFLOW_DISPLAY_LABELS = Object.freeze({
   [VOCAL_EXTRACT_WORKFLOW_ID]: 'Vocal Extract (Mel-Band)',
   [ELEVENLABS_TTS_WORKFLOW_ID]: 'ElevenLabs Text to Speech',
   [IRODORI_TTS_WORKFLOW_ID]: 'Irodori-TTS v3',
+  [IRODORI_VOICE_CLONE_WORKFLOW_ID]: 'Irodori-TTS Voice Clone',
   'caption-qwen-asr': 'Caption Transcription (Qwen ASR)',
   'grok-text-to-image': 'Grok Imagine',
   'gpt-image-2-t2i': 'GPT Image 2',
@@ -372,10 +378,11 @@ const WORKFLOW_DISPLAY_LABELS = Object.freeze({
   'longcat-image-edit': 'LongCat Image Edit',
   'google-gemini-flash-lite': 'Prompt Helper (Gemini 3.1 Flash Lite)',
   'minimax-h3-media-promptor': 'Media to Prompt (MiniMax H3 Promptor)',
+  'minimax-h3-character-sheet': 'H3 Character Sheet',
   'minimax-h3-gguf-i2v': 'MiniMax H3 GGUF Image to Video',
   'sonilo-v2m': 'Sonilo Video to Music',
   'seedream-5-lite-image-edit': 'Seedream 5.0 Lite',
-  'image-edit-model-product': 'Qwen Image Edit 2509 (Model + Product)',
+  'image-edit-model-product': 'Qwen Image Edit 2509 GGUF (Model + Product)',
   'mask-gen': 'Mask Generation',
 })
 
@@ -410,6 +417,12 @@ export const HARDWARE_TIERS = Object.freeze({
 })
 
 const WORKFLOW_HARDWARE = Object.freeze({
+  'minimax-h3-character-sheet': {
+    tierId: 'pro',
+    runtime: 'local',
+    minimumVramGb: 16,
+    recommendedVramGb: 24,
+  },
   'minimax-h3-gguf-i2v': {
     tierId: 'standard',
     runtime: 'local',
@@ -473,26 +486,26 @@ const WORKFLOW_HARDWARE = Object.freeze({
   'multi-angles': {
     tierId: 'standard',
     runtime: 'local',
-    minimumVramGb: 12,
-    recommendedVramGb: 16,
+    minimumVramGb: 16,
+    recommendedVramGb: 24,
   },
   'multi-angles-scene': {
     tierId: 'standard',
     runtime: 'local',
-    minimumVramGb: 12,
-    recommendedVramGb: 16,
+    minimumVramGb: 16,
+    recommendedVramGb: 24,
   },
   'wan22-i2v': {
-    tierId: 'pro',
+    tierId: 'standard',
     runtime: 'local',
-    minimumVramGb: 20,
-    recommendedVramGb: 24,
+    minimumVramGb: 8,
+    recommendedVramGb: 16,
   },
   'wan22-t2v': {
-    tierId: 'pro',
+    tierId: 'standard',
     runtime: 'local',
-    minimumVramGb: 20,
-    recommendedVramGb: 24,
+    minimumVramGb: 8,
+    recommendedVramGb: 16,
   },
   'ltx23-i2v': {
     tierId: 'pro',
@@ -606,7 +619,19 @@ const WORKFLOW_HARDWARE = Object.freeze({
     tierId: 'cloud',
     runtime: 'cloud',
   },
+  [UGC_EXACT_LIPSYNC_WORKFLOW_ID]: {
+    tierId: 'pro',
+    runtime: 'local',
+    minimumVramGb: 24,
+    recommendedVramGb: 32,
+  },
   [IRODORI_TTS_WORKFLOW_ID]: {
+    tierId: 'lite',
+    runtime: 'local',
+    minimumVramGb: 6,
+    recommendedVramGb: 8,
+  },
+  [IRODORI_VOICE_CLONE_WORKFLOW_ID]: {
     tierId: 'lite',
     runtime: 'local',
     minimumVramGb: 6,

@@ -1,4 +1,4 @@
-import { getImportedModelRecipe } from './importedWorkflowRegistry'
+import { getImportedModelRecipe } from './importedWorkflowRegistry.js'
 
 const COMFY_REGISTRY_URL = 'https://registry.comfy.org'
 const HUGGING_FACE_BASE_URL = 'https://huggingface.co'
@@ -110,7 +110,7 @@ export const CURATED_NODE_PACKS = Object.freeze([
     installDirName: 'ComfyUI-GGUF',
     docsUrl: 'https://github.com/city96/ComfyUI-GGUF',
     requirementsStrategy: 'requirements-txt',
-    notes: 'Loads the MiniMax H3 diffusion model and text encoder in GGUF format.',
+    notes: 'Loads supported diffusion models and text encoders in GGUF format.',
     classTypes: ['UnetLoaderGGUF', 'CLIPLoaderGGUF'],
   }),
   createAutoNodePack({
@@ -144,6 +144,9 @@ export const CURATED_NODE_PACKS = Object.freeze([
     classTypes: [
       'jupo.IrodoriTTS.ModelLoader',
       'jupo.IrodoriTTS.Sampler',
+      'jupo.IrodoriTTS.ReferenceAudio',
+      'jupo.IrodoriTTS.CFGConfig',
+      'jupo.IrodoriTTS.VoiceDesignConfig',
     ],
   }),
   createAutoNodePack({
@@ -214,6 +217,21 @@ const AUTO_NODE_PACK_BY_CLASS_TYPE = Object.freeze(
 )
 
 export const CORE_NODE_HINTS = Object.freeze({
+  MiniMaxH3ReferenceToVideo: createCoreNodeHint({
+    classType: 'MiniMaxH3ReferenceToVideo',
+    docsUrl: 'https://huggingface.co/PoopMan333/H3_Character_Sheet_Generator',
+    notes: 'MiniMax H3 reference-to-video support ships with current ComfyUI builds. Update ComfyUI if this node is missing.',
+  }),
+  ImageFromBatch: createCoreNodeHint({
+    classType: 'ImageFromBatch',
+    docsUrl: `${COMFY_REGISTRY_URL}`,
+    notes: 'Core batch-image extraction node. Update ComfyUI if it is missing.',
+  }),
+  ImageStitch: createCoreNodeHint({
+    classType: 'ImageStitch',
+    docsUrl: `${COMFY_REGISTRY_URL}`,
+    notes: 'Core image-stitching node used to assemble the final character sheet. Update ComfyUI if it is missing.',
+  }),
   MiniMaxH3ImageToVideo: createCoreNodeHint({
     classType: 'MiniMaxH3ImageToVideo',
     docsUrl: 'https://docs.comfy.org/built-in-nodes/MiniMaxH3ImageToVideo',
@@ -308,6 +326,11 @@ export const CORE_NODE_HINTS = Object.freeze({
     classType: 'ImageScaleToTotalPixels',
     docsUrl: `${COMFY_REGISTRY_URL}`,
     notes: 'Core image sizing utility. Update ComfyUI if this is missing.',
+  }),
+  ImageCompositeMasked: createCoreNodeHint({
+    classType: 'ImageCompositeMasked',
+    docsUrl: `${COMFY_REGISTRY_URL}`,
+    notes: 'Core masked image compositing node. Update ComfyUI if this is missing.',
   }),
   ImageToMask: createCoreNodeHint({
     classType: 'ImageToMask',
@@ -459,6 +482,11 @@ export const CORE_NODE_HINTS = Object.freeze({
     classType: 'SaveAudioMP3',
     docsUrl: 'https://docs.comfy.org/tutorials/audio/ace-step/ace-step-v1',
     notes: 'Ace-Step audio save nodes are included in newer ComfyUI builds.',
+  }),
+  SaveAudioAdvanced: createCoreNodeHint({
+    classType: 'SaveAudioAdvanced',
+    docsUrl: 'https://docs.comfy.org/tutorials/audio/ace-step/ace-step-v1',
+    notes: 'Advanced audio output is included in newer ComfyUI builds. Update ComfyUI if this node is missing.',
   }),
   SaveImage: createCoreNodeHint({
     classType: 'SaveImage',
@@ -688,6 +716,17 @@ export const MANUAL_NODE_HINTS = Object.freeze({
 })
 
 export const MODEL_INSTALL_RECIPES = Object.freeze({
+  [modelKey('diffusion_models', 'minimax-h3-ref2va-Q4_0.gguf')]: createModelRecipe({
+    filename: 'minimax-h3-ref2va-Q4_0.gguf',
+    targetSubdir: 'diffusion_models',
+    displayName: 'MiniMax H3 Ref2VA GGUF Q4_0',
+    downloadUrl: hfResolve('molbal/MiniMax-H3-GGUF', 'minimax-h3-ref2va-Q4_0.gguf'),
+    sourceUrl: hfBlob('molbal/MiniMax-H3-GGUF', 'minimax-h3-ref2va-Q4_0.gguf'),
+    licenseUrl: 'https://huggingface.co/MiniMaxAI/MiniMax-H3/blob/main/LICENSE',
+    sizeBytes: 11377542880,
+    sha256: '737463c522b0f78ebe157df918c272935c2b61047ba7ae303008cfc84ba81644',
+    notes: 'Q4 Ref2VA model for the CANVAS H3 Character Sheet flow. It reuses the existing H3 GGUF encoder, mmproj, and VAEs. MiniMax H3 uses its own community license.',
+  }),
   [modelKey('diffusion_models', 'minimax_h3_fl2va_pruned_fp8_Q4_0.gguf')]: createModelRecipe({
     filename: 'minimax_h3_fl2va_pruned_fp8_Q4_0.gguf',
     targetSubdir: 'diffusion_models',
@@ -731,6 +770,8 @@ export const MODEL_INSTALL_RECIPES = Object.freeze({
     downloadUrl: hfResolve('Comfy-Org/MiniMax-H3', 'vae/minimax_h3_audio_vae_fp32.safetensors'),
     sourceUrl: hfBlob('Comfy-Org/MiniMax-H3', 'vae/minimax_h3_audio_vae_fp32.safetensors'),
     licenseUrl: 'https://huggingface.co/MiniMaxAI/MiniMax-H3/blob/main/LICENSE',
+    sizeBytes: 605254808,
+    sha256: '8e505d95dd1561d47abd43d4238fd40d9bb1ae9e147ed0a4cba778d76ae4db48',
     notes: 'Official ComfyUI-packaged audio VAE for native stereo audio output.',
   }),
   [modelKey('loras', 'minimax_h3_fl2v_turbo_8step_v1.0_comfyui_bf16.safetensors')]: createModelRecipe({
@@ -752,6 +793,17 @@ export const MODEL_INSTALL_RECIPES = Object.freeze({
     sizeBytes: 2048269748,
     sha256: '8dbd537f8edebcce7fddc2a093fd8bd649cfb87741800ddf417f52bdfeb55b70',
     notes: 'Latest local Irodori-TTS v3 checkpoint used by Short Film Creation. Existing copies in checkpoint subfolders are detected by filename.',
+  }),
+  [modelKey('checkpoints', 'irodori-tts-500m-v2-VoiceDesign.safetensors')]: createModelRecipe({
+    filename: 'irodori-tts-500m-v2-VoiceDesign.safetensors',
+    targetSubdir: 'checkpoints',
+    displayName: 'Irodori-TTS 500M v2 VoiceDesign',
+    downloadUrl: hfResolve('Aratako/Irodori-TTS-500M-v2-VoiceDesign', 'model.safetensors'),
+    sourceUrl: hfBlob('Aratako/Irodori-TTS-500M-v2-VoiceDesign', 'model.safetensors'),
+    licenseUrl: 'https://huggingface.co/Aratako/Irodori-TTS-500M-v2-VoiceDesign',
+    sizeBytes: 2045071384,
+    sha256: '8b703c28e88f160dee0258b1136f8fe1ea68c063b45fc28375b5a134d6ce1131',
+    notes: 'Japanese VoiceDesign checkpoint for reference-free voice, tone, emotion, and speaking-style prompts.',
   }),
   [modelKey('vae', 'ace_1.5_vae.safetensors')]: createModelRecipe({
     filename: 'ace_1.5_vae.safetensors',
@@ -864,6 +916,28 @@ export const MODEL_INSTALL_RECIPES = Object.freeze({
     sizeBytes: 9380000000,
     notes: 'Shared by Qwen image edit and multiple-angle workflows.',
   }),
+  [modelKey('text_encoders', 'Qwen2.5-VL-7B-Instruct-Q4_K_M.gguf')]: createModelRecipe({
+    filename: 'Qwen2.5-VL-7B-Instruct-Q4_K_M.gguf',
+    targetSubdir: 'text_encoders',
+    displayName: 'Qwen 2.5 VL 7B GGUF Q4_K_M text encoder',
+    downloadUrl: hfResolve('ggml-org/Qwen2.5-VL-7B-Instruct-GGUF', 'Qwen2.5-VL-7B-Instruct-Q4_K_M.gguf'),
+    sourceUrl: hfBlob('ggml-org/Qwen2.5-VL-7B-Instruct-GGUF', 'Qwen2.5-VL-7B-Instruct-Q4_K_M.gguf'),
+    licenseUrl: 'https://huggingface.co/Qwen/Qwen2.5-VL-7B-Instruct',
+    sizeBytes: 4683072032,
+    sha256: '9258bf05b12686d097ff3b6b18d968ab393649780aa2b3cd67fec43d50554392',
+    notes: 'GGUF text encoder for Qwen Image Edit 2509. Keep its matching mmproj in the same text_encoders folder.',
+  }),
+  [modelKey('text_encoders', 'Qwen2.5-VL-7B-Instruct-mmproj-BF16.gguf')]: createModelRecipe({
+    filename: 'Qwen2.5-VL-7B-Instruct-mmproj-BF16.gguf',
+    targetSubdir: 'text_encoders',
+    displayName: 'Qwen 2.5 VL 7B mmproj BF16',
+    downloadUrl: hfResolve('QuantStack/Qwen-Image-Edit-GGUF', 'mmproj/Qwen2.5-VL-7B-Instruct-mmproj-BF16.gguf'),
+    sourceUrl: hfBlob('QuantStack/Qwen-Image-Edit-GGUF', 'mmproj/Qwen2.5-VL-7B-Instruct-mmproj-BF16.gguf'),
+    licenseUrl: 'https://huggingface.co/Qwen/Qwen2.5-VL-7B-Instruct',
+    sizeBytes: 1354163040,
+    sha256: 'f0edf43c09b69d6e5dd24262f33b356a1e9dd978e7c3299b3e69141fcbb87553',
+    notes: 'Automatically discovered by ComfyUI-GGUF when stored beside the matching Qwen 2.5 VL GGUF encoder.',
+  }),
   [modelKey('text_encoders', 'qwen_3_4b.safetensors')]: createModelRecipe({
     filename: 'qwen_3_4b.safetensors',
     targetSubdir: 'text_encoders',
@@ -874,6 +948,17 @@ export const MODEL_INSTALL_RECIPES = Object.freeze({
     sizeBytes: 8040000000,
     notes: 'Text encoder used by Z Image Turbo.',
   }),
+  [modelKey('text_encoders', 'Qwen3-4B-Q4_K_M.gguf')]: createModelRecipe({
+    filename: 'Qwen3-4B-Q4_K_M.gguf',
+    targetSubdir: 'text_encoders',
+    displayName: 'Qwen 3 4B GGUF Q4_K_M text encoder',
+    downloadUrl: hfResolve('unsloth/Qwen3-4B-GGUF', 'Qwen3-4B-Q4_K_M.gguf'),
+    sourceUrl: hfBlob('unsloth/Qwen3-4B-GGUF', 'Qwen3-4B-Q4_K_M.gguf'),
+    licenseUrl: 'https://huggingface.co/Qwen/Qwen3-4B',
+    sizeBytes: 2497281312,
+    sha256: 'f6f851777709861056efcdad3af01da38b31223a3ba26e61a4f8bf3a2195813a',
+    notes: 'Memory-efficient Q4_K_M text encoder used by the bundled Z Image Turbo GGUF workflow.',
+  }),
   [modelKey('diffusion_models', 'qwen_image_edit_2509_fp8_e4m3fn.safetensors')]: createModelRecipe({
     filename: 'qwen_image_edit_2509_fp8_e4m3fn.safetensors',
     targetSubdir: 'diffusion_models',
@@ -883,6 +968,27 @@ export const MODEL_INSTALL_RECIPES = Object.freeze({
     licenseUrl: 'https://huggingface.co/Qwen/Qwen-Image-Edit-2509',
     sizeBytes: 20400000000,
     notes: 'Shared by Qwen image edit and multiple-angle workflows.',
+  }),
+  [modelKey('diffusion_models', 'Qwen-Image-Edit-2509-Q4_K_M.gguf')]: createModelRecipe({
+    filename: 'Qwen-Image-Edit-2509-Q4_K_M.gguf',
+    targetSubdir: 'diffusion_models',
+    displayName: 'Qwen Image Edit 2509 GGUF Q4_K_M diffusion model',
+    downloadUrl: hfResolve('QuantStack/Qwen-Image-Edit-2509-GGUF', 'Qwen-Image-Edit-2509-Q4_K_M.gguf'),
+    sourceUrl: hfBlob('QuantStack/Qwen-Image-Edit-2509-GGUF', 'Qwen-Image-Edit-2509-Q4_K_M.gguf'),
+    licenseUrl: 'https://huggingface.co/Qwen/Qwen-Image-Edit-2509',
+    sizeBytes: 13065746976,
+    sha256: '08f27cdf3e760edef5136ab0afdb9d3ed7a2799bd730b8d5cd9ecb291d808425',
+    notes: 'Q4_K_M GGUF model used by the bundled Qwen Image Edit 2509 workflows.',
+  }),
+  [modelKey('diffusion_models', 'qwen-image-edit-2511-Q5_K_M.gguf')]: createModelRecipe({
+    filename: 'qwen-image-edit-2511-Q5_K_M.gguf',
+    targetSubdir: 'diffusion_models',
+    displayName: 'Qwen Image Edit 2511 GGUF Q5_K_M diffusion model',
+    downloadUrl: hfResolve('unsloth/Qwen-Image-Edit-2511-GGUF', 'qwen-image-edit-2511-Q5_K_M.gguf'),
+    sourceUrl: hfBlob('unsloth/Qwen-Image-Edit-2511-GGUF', 'qwen-image-edit-2511-Q5_K_M.gguf'),
+    licenseUrl: 'https://huggingface.co/Qwen/Qwen-Image-Edit-2511',
+    sizeBytes: 15027501664,
+    notes: 'Memory-efficient Qwen 2511 model used by the bundled multiple-angle workflows.',
   }),
   [modelKey('vae', 'qwen_image_vae.safetensors')]: createModelRecipe({
     filename: 'qwen_image_vae.safetensors',
@@ -914,6 +1020,26 @@ export const MODEL_INSTALL_RECIPES = Object.freeze({
     sizeBytes: 849608296,
     notes: 'Optional speed LoRA used by the bundled Qwen image edit workflow.',
   }),
+  [modelKey('loras', 'Qwen-Image-Edit-2511-Lightning-4steps-V1.0-bf16.safetensors')]: createModelRecipe({
+    filename: 'Qwen-Image-Edit-2511-Lightning-4steps-V1.0-bf16.safetensors',
+    targetSubdir: 'loras',
+    displayName: 'Qwen Image Edit 2511 Lightning 4-step LoRA',
+    downloadUrl: hfResolve('lightx2v/Qwen-Image-Edit-2511-Lightning', 'Qwen-Image-Edit-2511-Lightning-4steps-V1.0-bf16.safetensors'),
+    sourceUrl: hfBlob('lightx2v/Qwen-Image-Edit-2511-Lightning', 'Qwen-Image-Edit-2511-Lightning-4steps-V1.0-bf16.safetensors'),
+    licenseUrl: 'https://huggingface.co/lightx2v/Qwen-Image-Edit-2511-Lightning',
+    sizeBytes: 849608296,
+    notes: 'Four-step acceleration LoRA for Qwen Image Edit 2511.',
+  }),
+  [modelKey('loras', 'qwen-image-edit-2511-multiple-angles-lora.safetensors')]: createModelRecipe({
+    filename: 'qwen-image-edit-2511-multiple-angles-lora.safetensors',
+    targetSubdir: 'loras',
+    displayName: 'Qwen Image Edit 2511 Multiple Angles LoRA',
+    downloadUrl: hfResolve('fal/Qwen-Image-Edit-2511-Multiple-Angles-LoRA', 'qwen-image-edit-2511-multiple-angles-lora.safetensors'),
+    sourceUrl: hfBlob('fal/Qwen-Image-Edit-2511-Multiple-Angles-LoRA', 'qwen-image-edit-2511-multiple-angles-lora.safetensors'),
+    licenseUrl: 'https://huggingface.co/fal/Qwen-Image-Edit-2511-Multiple-Angles-LoRA',
+    sizeBytes: 295140688,
+    notes: 'Provides 2511-native camera angle control with the required <sks> prompt format.',
+  }),
   [modelKey('text_encoders', 'umt5_xxl_fp8_e4m3fn_scaled.safetensors')]: createModelRecipe({
     filename: 'umt5_xxl_fp8_e4m3fn_scaled.safetensors',
     targetSubdir: 'text_encoders',
@@ -923,6 +1049,61 @@ export const MODEL_INSTALL_RECIPES = Object.freeze({
     licenseUrl: 'https://huggingface.co/Wan-AI/Wan2.2-I2V-A14B',
     sizeBytes: 6735906897,
     notes: 'Text encoder for the bundled WAN 2.2 workflow.',
+  }),
+  [modelKey('text_encoders', 'umt5-xxl-encoder-Q4_K_M.gguf')]: createModelRecipe({
+    filename: 'umt5-xxl-encoder-Q4_K_M.gguf',
+    targetSubdir: 'text_encoders',
+    displayName: 'WAN UMT5 XXL GGUF Q4_K_M text encoder',
+    downloadUrl: hfResolve('city96/umt5-xxl-encoder-gguf', 'umt5-xxl-encoder-Q4_K_M.gguf'),
+    sourceUrl: hfBlob('city96/umt5-xxl-encoder-gguf', 'umt5-xxl-encoder-Q4_K_M.gguf'),
+    licenseUrl: 'https://huggingface.co/google/umt5-xxl',
+    sizeBytes: 3655145312,
+    sha256: '17cf97a5bbbc60a646d6105b832b6f657ce904a8a1ad970e4b59df0c67584a40',
+    notes: 'Shared Q4_K_M text encoder for the bundled WAN 2.2 I2V and T2V GGUF workflows.',
+  }),
+  [modelKey('diffusion_models', 'Wan2.2-I2V-A14B-HighNoise-Q4_K_M.gguf')]: createModelRecipe({
+    filename: 'Wan2.2-I2V-A14B-HighNoise-Q4_K_M.gguf',
+    targetSubdir: 'diffusion_models',
+    displayName: 'WAN 2.2 I2V high-noise GGUF Q4_K_M expert',
+    downloadUrl: hfResolve('QuantStack/Wan2.2-I2V-A14B-GGUF', 'HighNoise/Wan2.2-I2V-A14B-HighNoise-Q4_K_M.gguf'),
+    sourceUrl: hfBlob('QuantStack/Wan2.2-I2V-A14B-GGUF', 'HighNoise/Wan2.2-I2V-A14B-HighNoise-Q4_K_M.gguf'),
+    licenseUrl: 'https://huggingface.co/Wan-AI/Wan2.2-I2V-A14B',
+    sizeBytes: 9651728896,
+    sha256: '836250abfaa3411694e2c9cf3a0cc18265329d5156d81aa116d5366b0f8f02e7',
+    notes: 'Q4_K_M high-noise MoE expert for the bundled local WAN 2.2 image-to-video workflow.',
+  }),
+  [modelKey('diffusion_models', 'Wan2.2-I2V-A14B-LowNoise-Q4_K_M.gguf')]: createModelRecipe({
+    filename: 'Wan2.2-I2V-A14B-LowNoise-Q4_K_M.gguf',
+    targetSubdir: 'diffusion_models',
+    displayName: 'WAN 2.2 I2V low-noise GGUF Q4_K_M expert',
+    downloadUrl: hfResolve('QuantStack/Wan2.2-I2V-A14B-GGUF', 'LowNoise/Wan2.2-I2V-A14B-LowNoise-Q4_K_M.gguf'),
+    sourceUrl: hfBlob('QuantStack/Wan2.2-I2V-A14B-GGUF', 'LowNoise/Wan2.2-I2V-A14B-LowNoise-Q4_K_M.gguf'),
+    licenseUrl: 'https://huggingface.co/Wan-AI/Wan2.2-I2V-A14B',
+    sizeBytes: 9651728896,
+    sha256: 'e2f98d834af009d035c6b0918268f2eba0aa8a63025ce942277e2384d40b0866',
+    notes: 'Q4_K_M low-noise MoE expert for the bundled local WAN 2.2 image-to-video workflow.',
+  }),
+  [modelKey('diffusion_models', 'Wan2.2-T2V-A14B-HighNoise-Q4_K_M.gguf')]: createModelRecipe({
+    filename: 'Wan2.2-T2V-A14B-HighNoise-Q4_K_M.gguf',
+    targetSubdir: 'diffusion_models',
+    displayName: 'WAN 2.2 T2V high-noise GGUF Q4_K_M expert',
+    downloadUrl: hfResolve('QuantStack/Wan2.2-T2V-A14B-GGUF', 'HighNoise/Wan2.2-T2V-A14B-HighNoise-Q4_K_M.gguf'),
+    sourceUrl: hfBlob('QuantStack/Wan2.2-T2V-A14B-GGUF', 'HighNoise/Wan2.2-T2V-A14B-HighNoise-Q4_K_M.gguf'),
+    licenseUrl: 'https://huggingface.co/Wan-AI/Wan2.2-T2V-A14B',
+    sizeBytes: 9650090496,
+    sha256: 'e0c490c6e316fd91ff52034e4ca66b825717e33ff11624585c0ccfcb5d410c59',
+    notes: 'Q4_K_M high-noise MoE expert for the bundled local WAN 2.2 text-to-video workflow.',
+  }),
+  [modelKey('diffusion_models', 'Wan2.2-T2V-A14B-LowNoise-Q4_K_M.gguf')]: createModelRecipe({
+    filename: 'Wan2.2-T2V-A14B-LowNoise-Q4_K_M.gguf',
+    targetSubdir: 'diffusion_models',
+    displayName: 'WAN 2.2 T2V low-noise GGUF Q4_K_M expert',
+    downloadUrl: hfResolve('QuantStack/Wan2.2-T2V-A14B-GGUF', 'LowNoise/Wan2.2-T2V-A14B-LowNoise-Q4_K_M.gguf'),
+    sourceUrl: hfBlob('QuantStack/Wan2.2-T2V-A14B-GGUF', 'LowNoise/Wan2.2-T2V-A14B-LowNoise-Q4_K_M.gguf'),
+    licenseUrl: 'https://huggingface.co/Wan-AI/Wan2.2-T2V-A14B',
+    sizeBytes: 9650090496,
+    sha256: '091a5bae02e14aa016bc9b10a7892efda4c629346b81c5dcebbe30ea2ac8923a',
+    notes: 'Q4_K_M low-noise MoE expert for the bundled local WAN 2.2 text-to-video workflow.',
   }),
   [modelKey('diffusion_models', 'wan2.2_i2v_high_noise_14B_fp8_scaled.safetensors')]: createModelRecipe({
     filename: 'wan2.2_i2v_high_noise_14B_fp8_scaled.safetensors',
@@ -1128,6 +1309,17 @@ export const MODEL_INSTALL_RECIPES = Object.freeze({
     licenseUrl: 'https://huggingface.co/Tongyi-MAI/Z-Image-Turbo',
     sizeBytes: 12309866400,
     notes: 'Primary local text-to-image model used by the bundled Z Image Turbo workflow.',
+  }),
+  [modelKey('diffusion_models', 'z_image_turbo-Q4_K_M.gguf')]: createModelRecipe({
+    filename: 'z_image_turbo-Q4_K_M.gguf',
+    targetSubdir: 'diffusion_models',
+    displayName: 'Z Image Turbo GGUF Q4_K_M diffusion model',
+    downloadUrl: hfResolve('jayn7/Z-Image-Turbo-GGUF', 'z_image_turbo-Q4_K_M.gguf'),
+    sourceUrl: hfBlob('jayn7/Z-Image-Turbo-GGUF', 'z_image_turbo-Q4_K_M.gguf'),
+    licenseUrl: 'https://huggingface.co/Tongyi-MAI/Z-Image-Turbo',
+    sizeBytes: 4981532736,
+    sha256: '745ec270db042409fde084d6b5cfccabf214a7fe5a494edf994a391125656afd',
+    notes: 'Q4_K_M model used by the bundled local Z Image Turbo GGUF workflow.',
   }),
 })
 

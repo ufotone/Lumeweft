@@ -1,4 +1,4 @@
-# Qwen Image Edit 2509 (Model + Product)
+# Qwen Image Edit 2509 GGUF (Model + Product)
 
 Local image-edit workflow used by Director Mode for combined model and product keyframes.
 
@@ -16,12 +16,21 @@ Local image-edit workflow used by Director Mode for combined model and product k
 - This is a local workflow: expect to install the listed custom nodes and local model files before it runs successfully.
 
 ## Required Custom Nodes
+- `CLIPLoaderGGUF` - Auto-install supported
+  - Loads supported diffusion models and text encoders in GGUF format.
+  - Repo: https://github.com/city96/ComfyUI-GGUF
 - `FluxKontextImageScale` - Built into newer ComfyUI builds
   - Qwen/Flux edit support ships with current ComfyUI releases.
   - Docs: https://registry.comfy.org
+- `ImageCompositeMasked` - Built into newer ComfyUI builds
+  - Core masked image compositing node. Update ComfyUI if this is missing.
+  - Docs: https://registry.comfy.org
 - `ImageResizeKJv2` - Auto-install supported
-  - Provides ImageResizeKJv2 for the model + product keyframe helper workflow.
+  - Provides ImageResizeKJv2 and GetImagesFromBatchIndexed for bundled helper workflows.
   - Repo: https://github.com/kijai/ComfyUI-KJNodes
+- `ImageToMask` - Built into newer ComfyUI builds
+  - Core mask conversion node. Missing this usually means the ComfyUI install is incomplete or very outdated.
+  - Docs: https://registry.comfy.org
 - `KSampler` - Built into newer ComfyUI builds
   - Core sampler node. Missing this usually means the ComfyUI install is incomplete or very outdated.
   - Docs: https://registry.comfy.org
@@ -31,14 +40,18 @@ Local image-edit workflow used by Director Mode for combined model and product k
 - `TextEncodeQwenImageEditPlus` - Built into newer ComfyUI builds
   - Native Qwen image edit support ships with newer ComfyUI builds.
   - Docs: https://docs.comfy.org/built-in-nodes/TextEncodeQwenImageEditPlus
+- `UnetLoaderGGUF` - Auto-install supported
+  - Loads supported diffusion models and text encoders in GGUF format.
+  - Repo: https://github.com/city96/ComfyUI-GGUF
 
 ## Required Models
 | Filename | ComfyUI Folder | Loader | Input Key | Download |
 |---|---|---|---|---|
-| `qwen_2.5_vl_7b_fp8_scaled.safetensors` | `models/text_encoders` | `CLIPLoader` | `clip_name` | [Download](https://huggingface.co/Comfy-Org/Qwen-Image_ComfyUI/resolve/main/split_files/text_encoders/qwen_2.5_vl_7b_fp8_scaled.safetensors) |
-| `qwen_image_edit_2509_fp8_e4m3fn.safetensors` | `models/diffusion_models` | `UNETLoader` | `unet_name` | [Download](https://huggingface.co/Comfy-Org/Qwen-Image-Edit_ComfyUI/resolve/main/split_files/diffusion_models/qwen_image_edit_2509_fp8_e4m3fn.safetensors) |
 | `qwen_image_vae.safetensors` | `models/vae` | `VAELoader` | `vae_name` | [Download](https://huggingface.co/Comfy-Org/Qwen-Image_ComfyUI/resolve/main/split_files/vae/qwen_image_vae.safetensors) |
 | `Qwen-Image-Edit-2509-Lightning-4steps-V1.0-bf16.safetensors` | `models/loras` | `LoraLoaderModelOnly` | `lora_name` | [Download](https://huggingface.co/lightx2v/Qwen-Image-Lightning/resolve/main/Qwen-Image-Edit-2509/Qwen-Image-Edit-2509-Lightning-4steps-V1.0-bf16.safetensors) |
+| `Qwen-Image-Edit-2509-Q4_K_M.gguf` | `models/diffusion_models` | `UnetLoaderGGUF` | `unet_name` | [Download](https://huggingface.co/QuantStack/Qwen-Image-Edit-2509-GGUF/resolve/main/Qwen-Image-Edit-2509-Q4_K_M.gguf) |
+| `Qwen2.5-VL-7B-Instruct-mmproj-BF16.gguf` | `models/text_encoders` | `CLIPLoaderGGUF` | `clip_name` | [Download](https://huggingface.co/QuantStack/Qwen-Image-Edit-GGUF/resolve/main/mmproj/Qwen2.5-VL-7B-Instruct-mmproj-BF16.gguf) |
+| `Qwen2.5-VL-7B-Instruct-Q4_K_M.gguf` | `models/text_encoders` | `CLIPLoaderGGUF` | `clip_name` | [Download](https://huggingface.co/ggml-org/Qwen2.5-VL-7B-Instruct-GGUF/resolve/main/Qwen2.5-VL-7B-Instruct-Q4_K_M.gguf) |
 
 ## API Key
 - Not required for this workflow.

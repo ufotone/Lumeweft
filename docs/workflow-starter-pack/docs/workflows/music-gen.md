@@ -31,6 +31,8 @@ Generate music from tags and lyrics
 |---|---|---|---|---|
 | `ace_1.5_vae.safetensors` | `models/vae` | `VAELoader` | `vae_name` | [Download](https://huggingface.co/Comfy-Org/ace_step_1.5_ComfyUI_files/resolve/main/split_files/vae/ace_1.5_vae.safetensors) |
 | `acestep_v1.5_turbo.safetensors` | `models/diffusion_models` | `UNETLoader` | `unet_name` | [Download](https://huggingface.co/Comfy-Org/ace_step_1.5_ComfyUI_files/resolve/main/split_files/diffusion_models/acestep_v1.5_turbo.safetensors) |
+| `qwen_0.6b_ace15.safetensors` | `models/text_encoders` | `DualCLIPLoader` | `clip_name1` | [Download](https://huggingface.co/Comfy-Org/ace_step_1.5_ComfyUI_files/resolve/main/split_files/text_encoders/qwen_0.6b_ace15.safetensors) |
+| `qwen_1.7b_ace15.safetensors` | `models/text_encoders` | `DualCLIPLoader` | `clip_name2` | [Download](https://huggingface.co/Comfy-Org/ace_step_1.5_ComfyUI_files/resolve/main/split_files/text_encoders/qwen_1.7b_ace15.safetensors) |
 
 ## API Key
 - Not required for this workflow.

@@ -10,9 +10,20 @@ import { comfyui } from './comfyui'
 import { getLocalComfyConnectionSync } from './localComfyConnection'
 import { buildMissingDependencyClipboardText, checkWorkflowDependenciesBatch } from './workflowDependencies'
 import { getImportedWorkflowEntry } from '../config/importedWorkflowRegistry'
+import { IRODORI_VOICE_DESIGN_DEPENDENCY_ID } from '../config/shortFilmConfig'
 
 export const WORKFLOW_SETUP_SECTION_ID = 'workflow-setup'
 const WORKFLOW_SETUP_EXTRA_IDS = new Set(['mask-gen'])
+const WORKFLOW_SETUP_DEPENDENCY_ONLY_WORKFLOWS = Object.freeze([
+  {
+    id: IRODORI_VOICE_DESIGN_DEPENDENCY_ID,
+    label: 'Irodori VoiceDesign',
+    category: 'audio',
+    needsImage: false,
+    description: 'Install the reference-free Irodori VoiceDesign node support and dedicated checkpoint.',
+    file: 'irodori_tts_voice_clone.json',
+  },
+])
 
 function uniqueBy(items = [], keyBuilder = (value) => value) {
   const seen = new Set()
@@ -134,7 +145,7 @@ function buildSetupStatus(checkResult, summary) {
 
 export function getWorkflowSetupWorkflows() {
   const extraWorkflows = AVAILABLE_WORKFLOWS.filter((workflow) => WORKFLOW_SETUP_EXTRA_IDS.has(workflow.id))
-  return uniqueBy([...BUILTIN_WORKFLOWS, ...extraWorkflows], (workflow) => workflow?.id || '')
+  return uniqueBy([...BUILTIN_WORKFLOWS, ...extraWorkflows, ...WORKFLOW_SETUP_DEPENDENCY_ONLY_WORKFLOWS], (workflow) => workflow?.id || '')
 }
 
 export function enrichWorkflowDependencyResult(checkResult) {

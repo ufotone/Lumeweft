@@ -4,16 +4,22 @@ import {
   CUSTOM_AD_KEYFRAME_WORKFLOW_ID,
   GPT_IMAGE_2_UGC_KEYFRAME_WORKFLOW_ID,
   SEEDANCE_UGC_VIDEO_WORKFLOW_ID,
+  UGC_EXACT_LIPSYNC_WORKFLOW_ID,
 } from '../../config/generateWorkspaceConfig'
 import { useI18n } from '../../i18n/I18nContext'
 
-// One-shot flow: brief -> references -> one Seedance generation of the whole ad.
-// (The legacy per-shot steps — Script Review / Voiceover / Keyframes / Videos —
-// are no longer in the nav; their render blocks remain but are unreachable.)
-const STEPS = [
+const ONE_SHOT_STEPS = [
   { id: 'setup', label: 'The Vibe' },
   { id: 'references', label: 'References' },
   { id: 'generate', label: 'Generate' },
+]
+const EDITABLE_SHOT_STEPS = [
+  { id: 'setup', label: 'The Vibe' },
+  { id: 'references', label: 'References' },
+  { id: 'script', label: 'Script Review' },
+  { id: 'voiceover', label: 'Voice' },
+  { id: 'keyframes', label: 'Keyframes' },
+  { id: 'videos', label: 'Videos + Timeline' },
 ]
 
 // Ready-made ElevenLabs voices (must match the alias list in
@@ -112,7 +118,8 @@ const TONE_OPTIONS = [
 ]
 
 const VIDEO_MODEL_OPTIONS = [
-  { id: 'ltx23-i2v', label: 'LTX 2.3', helper: 'Default. Good for people-heavy shots and longer takes.' },
+  { id: UGC_EXACT_LIPSYNC_WORKFLOW_ID, label: 'Exact Audio (recommended)', helper: 'LTX 2.3 motion + LatentSync 1.6. Keeps the finished Irodori/ElevenLabs audio and corrects the mouth to it.' },
+  { id: 'ltx23-i2v', label: 'LTX TalkVid', helper: 'Lighter fallback. Uses the voice clip as a reference, then regenerates speech and mouth motion together.' },
   { id: 'wan22-i2v', label: 'WAN 2.2', helper: 'Good alternate for product motion and physical demo shots.' },
   { id: SEEDANCE_UGC_VIDEO_WORKFLOW_ID, label: 'Seedance 2.0', helper: 'Cloud UGC pass. Generates spoken dialogue from the shot prompt.' },
 ]
@@ -164,13 +171,33 @@ const RESOLUTION_OPTIONS = [
   { id: '1080p', label: '1080p' },
 ]
 const FPS_OPTIONS = [FIXED_UGC_FPS]
-const HOOK_SUGGESTIONS = [
-  'Wait. Look at this.',
-  'I was today years old when...',
-  'POV: you finally found it',
-  'Nobody talks about this',
-  'I did NOT expect this',
-]
+const HOOK_SUGGESTIONS_BY_LANGUAGE = Object.freeze({
+  ja: Object.freeze([
+    'ちょっと待って、これ見て。',
+    '今まで知らなかったなんて…。',
+    'ついに見つけました。',
+    'これ、誰も教えてくれない。',
+    '正直、こんなに良いとは思わなかった。',
+  ]),
+  en: Object.freeze([
+    'Wait. Look at this.',
+    'I was today years old when...',
+    'POV: you finally found it',
+    'Nobody talks about this',
+    'I did NOT expect this',
+  ]),
+})
+
+function localizeBuiltInHook(value, language = 'ja') {
+  const text = String(value || '').trim()
+  if (!text) return ''
+  const targetLanguage = language === 'en' ? 'en' : 'ja'
+  for (const suggestions of Object.values(HOOK_SUGGESTIONS_BY_LANGUAGE)) {
+    const suggestionIndex = suggestions.indexOf(text)
+    if (suggestionIndex >= 0) return HOOK_SUGGESTIONS_BY_LANGUAGE[targetLanguage][suggestionIndex]
+  }
+  return text
+}
 const UGC_HUMAN_THEME_CSS = `
   .ugc-human-theme {
     color: #f1efe8;
@@ -913,6 +940,7 @@ const UGC_HUMAN_THEME_CSS = `
 const KEYFRAME_BUSY_STATUSES = new Set(['queued', 'paused', 'uploading', 'configuring', 'queuing', 'running', 'saving'])
 const VIDEO_BUSY_STATUSES = KEYFRAME_BUSY_STATUSES
 const UGC_AD_DRAFT_STORAGE_KEY = 'comfystudio-ugc-ad-creator-draft-v1'
+const UGC_LIPSYNC_ROUTING_VERSION = 2
 const DEFAULT_UGC_AD_DRAFT = Object.freeze({
   // Product-/brand-/setting-specific fields start blank so the placeholders show and
   // the user fills in their own. Only the universal, product-agnostic defaults below
@@ -935,9 +963,13 @@ const DEFAULT_UGC_AD_DRAFT = Object.freeze({
   videoFps: FIXED_UGC_FPS,
   commercialLength: 15,
   shotCount: 5,
+  productionMode: 'one_shot',
+  dialogueLanguage: 'ja',
   keyframeWorkflowId: 'nano-banana-2',
-  videoWorkflowId: 'ltx23-i2v',
+  videoWorkflowId: UGC_EXACT_LIPSYNC_WORKFLOW_ID,
+  lipSyncRoutingVersion: UGC_LIPSYNC_ROUTING_VERSION,
   voiceMode: 'generate',
+  voiceProvider: 'irodori',
   voiceId: 'Jessica (female, american)',
   voiceModel: 'eleven_v3',
   voiceStability: 0.4,
@@ -968,6 +1000,10 @@ function normalizeDraftRangeNumber(value, fallback, min, max) {
 
 function normalizeUgcAdDraft(rawDraft = {}) {
   const raw = rawDraft && typeof rawDraft === 'object' ? rawDraft : {}
+  const migratedVideoWorkflowId = Number(raw.lipSyncRoutingVersion || 0) < UGC_LIPSYNC_ROUTING_VERSION
+    && String(raw.videoWorkflowId || '') === 'ltx23-i2v'
+    ? UGC_EXACT_LIPSYNC_WORKFLOW_ID
+    : raw.videoWorkflowId
   return {
     businessName: String(raw.businessName || DEFAULT_UGC_AD_DRAFT.businessName),
     productService: String(raw.productService || DEFAULT_UGC_AD_DRAFT.productService),
@@ -987,9 +1023,13 @@ function normalizeUgcAdDraft(rawDraft = {}) {
     videoFps: normalizeDraftNumber(raw.videoFps, FPS_OPTIONS, DEFAULT_UGC_AD_DRAFT.videoFps),
     commercialLength: normalizeDraftRangeNumber(raw.commercialLength, DEFAULT_UGC_AD_DRAFT.commercialLength, MIN_UGC_LENGTH_SECONDS, MAX_UGC_LENGTH_SECONDS),
     shotCount: normalizeDraftNumber(raw.shotCount, SHOT_COUNT_OPTIONS, DEFAULT_UGC_AD_DRAFT.shotCount),
+    productionMode: ['one_shot', 'local_ja'].includes(String(raw.productionMode)) ? String(raw.productionMode) : DEFAULT_UGC_AD_DRAFT.productionMode,
+    dialogueLanguage: ['en', 'ja'].includes(String(raw.dialogueLanguage)) ? String(raw.dialogueLanguage) : DEFAULT_UGC_AD_DRAFT.dialogueLanguage,
     keyframeWorkflowId: normalizeDraftOption(raw.keyframeWorkflowId, KEYFRAME_MODEL_OPTIONS, DEFAULT_UGC_AD_DRAFT.keyframeWorkflowId),
-    videoWorkflowId: normalizeDraftOption(raw.videoWorkflowId, VIDEO_MODEL_OPTIONS, DEFAULT_UGC_AD_DRAFT.videoWorkflowId),
+    videoWorkflowId: normalizeDraftOption(migratedVideoWorkflowId, VIDEO_MODEL_OPTIONS, DEFAULT_UGC_AD_DRAFT.videoWorkflowId),
+    lipSyncRoutingVersion: UGC_LIPSYNC_ROUTING_VERSION,
     voiceMode: ['none', 'generate'].includes(String(raw.voiceMode)) ? String(raw.voiceMode) : DEFAULT_UGC_AD_DRAFT.voiceMode,
+    voiceProvider: ['elevenlabs', 'irodori'].includes(String(raw.voiceProvider)) ? String(raw.voiceProvider) : DEFAULT_UGC_AD_DRAFT.voiceProvider,
     voiceId: VOICE_OPTIONS.includes(String(raw.voiceId)) ? String(raw.voiceId) : DEFAULT_UGC_AD_DRAFT.voiceId,
     voiceModel: VOICE_MODEL_OPTIONS.some((option) => option.id === String(raw.voiceModel)) ? String(raw.voiceModel) : DEFAULT_UGC_AD_DRAFT.voiceModel,
     voiceStability: normalizeDraftRangeNumber(typeof raw.voiceStability === 'number' ? raw.voiceStability * 100 : NaN, DEFAULT_UGC_AD_DRAFT.voiceStability * 100, 0, 100) / 100,
@@ -1078,7 +1118,7 @@ function compact(text, fallback) {
 function buildShotTemplates(data) {
   const product = compact(data.productService || data.product, 'the product')
   const brand = compact(data.businessName || data.brand, 'the brand')
-  const hook = compact(data.hook, `Okay, I need to show you this ${product}.`)
+  const hook = compact(data.hook, data.dialogueLanguage === 'ja' ? `${product}、ちょっと見てください。` : `Okay, I need to show you this ${product}.`)
   const audience = compact(data.audience, 'the viewer')
   const promise = compact(data.offer || data.promise, 'the main product reason to care')
   const proof = compact(data.proof, 'one believable proof moment')
@@ -1758,16 +1798,36 @@ function buildExpandedShotTemplates(data, requestedCount) {
   return [firstShot, ...expandedMiddle, finalShot]
 }
 
+function buildJapaneseCreatorDialogue(shot, index, total, data) {
+  if (shotHasNoDialogue(shot)) return shot.dialogue
+  const product = compact(data.productService || data.product, 'これ')
+  const hook = stripDialogueQuotes(data.hook)
+  const cta = stripDialogueQuotes(data.cta)
+  if (index === 0) return `"${hook || `${product}、ちょっと見てください。`}"`
+  if (index === total - 1) return `"${cta || `これは本当におすすめできます。`}"`
+  const middleLines = [
+    `最初に気になったのは、ここです。`,
+    `実際に${product}を使ってみます。`,
+    `思っていたより、かなり使いやすいです。`,
+    `この仕上がりなら、普段から使いたくなります。`,
+    `細かいところまで、ちゃんと作られています。`,
+    `正直、ここまで良いとは思っていませんでした。`,
+  ]
+  return `"${middleLines[(index - 1) % middleLines.length]}"`
+}
+
 function buildDirectorScript(data, shotOverrides = {}) {
   const shotCount = getNormalizedShotCount(data.shotCount)
   const shotDuration = getShotDuration(shotCount, data.commercialLength)
-  const shots = buildExpandedShotTemplates(data, shotCount).map((shot, index) => ({
-    ...shot,
-    ...(shotOverrides?.[index] || {}),
-  }))
+  const shots = buildExpandedShotTemplates(data, shotCount).map((shot, index, allShots) => {
+    const localizedShot = data.dialogueLanguage === 'ja'
+      ? { ...shot, dialogue: buildJapaneseCreatorDialogue(shot, index, allShots.length, data) }
+      : shot
+    return { ...localizedShot, ...(shotOverrides?.[index] || {}) }
+  })
   return [
     `Scene 1: ${[compact(data.productService || data.product, ''), compact(data.goalLabel || data.formatLabel, 'UGC Ad')].filter(Boolean).join(' ')}`,
-    `Scene context: Creator-style vertical UGC for ${compact(data.audience, 'the target viewer')}. Product: ${compact(data.productService || data.product, 'the product')}. Hook: ${compact(data.hook, 'Okay, I need to show you this.')}. Core reason to care: ${compact(data.offer || data.promise, 'the product benefit')}. Proof moment: ${compact(data.proof, 'believable product proof')}. CTA: ${compact(data.cta, 'soft call to action')}. Destination: ${compact(data.destination, 'website/contact')}. Setting: ${compact(data.location, 'natural creator environment')}. Visual rules: ${compact(data.visualRules || data.colors, 'phone-native UGC')}. Creator direction: ${data.noVisibleTalent ? 'hands-only, no face visible' : compact(data.talentDirection, 'creator talks naturally to camera')}. Tone: ${compact(data.toneText, 'casual friend energy')}. Pacing: keep the dialogue relaxed and unhurried — finish the final spoken line a beat before the clip ends, then hold a short natural beat (a smile or nod) so nothing gets cut off.`,
+    `Scene context: Creator-style vertical UGC for ${compact(data.audience, 'the target viewer')}. Product: ${compact(data.productService || data.product, 'the product')}. Hook: ${compact(data.hook, data.dialogueLanguage === 'ja' ? 'ちょっと待って、これ見て。' : 'Okay, I need to show you this.')}. Core reason to care: ${compact(data.offer || data.promise, 'the product benefit')}. Proof moment: ${compact(data.proof, 'believable product proof')}. CTA: ${compact(data.cta, 'soft call to action')}. Destination: ${compact(data.destination, 'website/contact')}. Setting: ${compact(data.location, 'natural creator environment')}. Visual rules: ${compact(data.visualRules || data.colors, 'phone-native UGC')}. Creator direction: ${data.noVisibleTalent ? 'hands-only, no face visible' : compact(data.talentDirection, 'creator talks naturally to camera')}. Tone: ${compact(data.toneText, 'casual friend energy')}. Pacing: keep the dialogue relaxed and unhurried — finish the final spoken line a beat before the clip ends, then hold a short natural beat (a smile or nod) so nothing gets cut off.`,
     data.environmentReferenceName
       ? `Environment reference: Treat ${data.environmentReferenceName} as the room/location anchor. Prefer this reference over generic setting words, and match its surfaces, lighting, colors, and background continuity when composing each shot.`
       : '',
@@ -1808,12 +1868,12 @@ function shotHasNoDialogue(shot) {
 
 function buildExternalLlmPrompt(data, currentScript) {
   return [
-    'Write a Velorn Director Mode script for an editable UGC-style social ad using this exact structure.',
+    'Write a Lumeweft Director Mode script for an editable UGC-style social ad using this exact structure.',
     '',
     'Return only the script. Do not include explanation, markdown, or notes.',
     '',
     `Product: ${compact(data.productService || data.product, 'Product')}`,
-    `Hook: ${compact(data.hook, 'Okay, I need to show you this.')}`,
+    `Hook: ${compact(data.hook, data.dialogueLanguage === 'ja' ? 'ちょっと待って、これ見て。' : 'Okay, I need to show you this.')}`,
     `UGC format: ${compact(data.goalLabel || data.formatLabel, 'Casual review')}`,
     '',
     UGC_ARCHETYPE_SPECS[data.goal] || UGC_ARCHETYPE_SPECS.casual_review,
@@ -1831,6 +1891,7 @@ function buildExternalLlmPrompt(data, currentScript) {
       : 'Environment reference: none provided',
     `Aspect ratio: ${compact(data.aspectRatioLabel, data.platform || '9:16')}`,
     `Tone: ${compact(data.toneText, 'casual friend energy')}`,
+    `Dialogue language: ${data.dialogueLanguage === 'ja' ? 'Japanese' : 'English'}. Write every Creator dialogue line in this language; keep the field labels in English so Lumeweft can parse the script.`,
     `Final ad length target: ${Number(data.commercialLength) || 15} seconds`,
     `Shot count: ${Number(data.shotCount) || 5}`,
     `Output resolution: ${data.resolutionLabel}`,
@@ -1948,7 +2009,7 @@ export default function UGCAdCreator({
   const [step, setStep] = useState('setup')
   const [businessName, setBusinessName] = useState(initialDraft.businessName)
   const [productService, setProductService] = useState(initialDraft.productService)
-  const [hook, setHook] = useState(initialDraft.hook)
+  const [hook, setHook] = useState(() => localizeBuiltInHook(initialDraft.hook, initialDraft.dialogueLanguage))
   const [audience, setAudience] = useState(initialDraft.audience)
   const [offer, setOffer] = useState(initialDraft.offer)
   const [proof, setProof] = useState(initialDraft.proof)
@@ -1964,9 +2025,12 @@ export default function UGCAdCreator({
   const [videoFps, setVideoFps] = useState(initialDraft.videoFps)
   const [commercialLength, setCommercialLength] = useState(initialDraft.commercialLength)
   const [shotCount, setShotCount] = useState(initialDraft.shotCount)
+  const [productionMode, setProductionMode] = useState(initialDraft.productionMode)
+  const [dialogueLanguage, setDialogueLanguage] = useState(initialDraft.dialogueLanguage)
   const [keyframeWorkflowId, setKeyframeWorkflowId] = useState(initialDraft.keyframeWorkflowId)
   const [videoWorkflowId, setVideoWorkflowId] = useState(initialDraft.videoWorkflowId)
   const [voiceMode, setVoiceMode] = useState(initialDraft.voiceMode)
+  const [voiceProvider, setVoiceProvider] = useState(initialDraft.voiceProvider)
   const [voiceId, setVoiceId] = useState(initialDraft.voiceId)
   const [voiceModel, setVoiceModel] = useState(initialDraft.voiceModel)
   const [voiceStability, setVoiceStability] = useState(initialDraft.voiceStability)
@@ -1977,6 +2041,7 @@ export default function UGCAdCreator({
   const [isGeneratingPreviews, setIsGeneratingPreviews] = useState(false)
   const [isGeneratingOneShot, setIsGeneratingOneShot] = useState(false)
   const [oneShotStatus, setOneShotStatus] = useState('')
+  const [selectedOneShotAssetId, setSelectedOneShotAssetId] = useState('')
   const [productAssetId, setProductAssetId] = useState(initialDraft.productAssetId)
   const [talentAssetId, setTalentAssetId] = useState(initialDraft.talentAssetId)
   const [environmentAssetId, setEnvironmentAssetId] = useState(initialDraft.environmentAssetId)
@@ -2025,9 +2090,13 @@ export default function UGCAdCreator({
       videoFps,
       commercialLength,
       shotCount,
+      productionMode,
+      dialogueLanguage,
       keyframeWorkflowId,
       videoWorkflowId,
+      lipSyncRoutingVersion: UGC_LIPSYNC_ROUTING_VERSION,
       voiceMode,
+      voiceProvider,
       voiceId,
       voiceModel,
       voiceStability,
@@ -2061,6 +2130,8 @@ export default function UGCAdCreator({
     noVisibleTalent,
     offer,
     platform,
+    productionMode,
+    dialogueLanguage,
     productService,
     productAssetId,
     proof,
@@ -2072,6 +2143,7 @@ export default function UGCAdCreator({
     videoFps,
     videoWorkflowId,
     voiceMode,
+    voiceProvider,
     voiceId,
     voiceModel,
     voiceStability,
@@ -2156,6 +2228,7 @@ export default function UGCAdCreator({
   const selectedGoal = UGC_FORMAT_OPTIONS.find((option) => option.id === goal) || UGC_FORMAT_OPTIONS[0]
   const selectedKeyframeWorkflow = KEYFRAME_MODEL_OPTIONS.find((option) => option.id === keyframeWorkflowId) || KEYFRAME_MODEL_OPTIONS[0]
   const selectedVideoWorkflow = VIDEO_MODEL_OPTIONS.find((option) => option.id === videoWorkflowId) || VIDEO_MODEL_OPTIONS[0]
+  const hookSuggestions = HOOK_SUGGESTIONS_BY_LANGUAGE[dialogueLanguage === 'en' ? 'en' : 'ja']
   const selectedAspectRatio = ASPECT_RATIO_OPTIONS.find((option) => option.id === platform) || ASPECT_RATIO_OPTIONS[0]
   const mappedFormatPreset = goal === 'try_on_grwm'
     ? 'fashion_lifestyle'
@@ -2222,6 +2295,7 @@ export default function UGCAdCreator({
     resolutionLabel: outputResolutionLabel,
     videoFps,
     commercialLength,
+    dialogueLanguage,
     // Beats scale with the chosen length so the last line isn't clipped (the
     // generated/LLM script is always duration-appropriate, regardless of any
     // stale shotCount).
@@ -2244,6 +2318,7 @@ export default function UGCAdCreator({
     offer,
     outputResolutionLabel,
     platform,
+    dialogueLanguage,
     productService,
     proof,
     resolutionPreset,
@@ -2256,10 +2331,12 @@ export default function UGCAdCreator({
     visualRules,
   ])
   const scriptReviewShots = useMemo(
-    () => buildExpandedShotTemplates(currentData, shotCount).map((shot, index) => ({
-      ...shot,
-      ...(scriptShotOverrides?.[index] || {}),
-    })),
+    () => buildExpandedShotTemplates(currentData, shotCount).map((shot, index, allShots) => {
+      const localizedShot = dialogueLanguage === 'ja'
+        ? { ...shot, dialogue: buildJapaneseCreatorDialogue(shot, index, allShots.length, currentData) }
+        : shot
+      return { ...localizedShot, ...(scriptShotOverrides?.[index] || {}) }
+    }),
     [
       audience,
       businessName,
@@ -2272,6 +2349,7 @@ export default function UGCAdCreator({
       offer,
       productService,
       proof,
+      dialogueLanguage,
       scriptShotOverrides,
       shotCount,
       talentDirection,
@@ -2453,7 +2531,7 @@ export default function UGCAdCreator({
       setSelectedVideoIndex(0)
       setKeyframeStatus('Plan ready. Choose a keyframe model, then create keyframes.')
       setVideoStatus('Plan ready. Generate keyframes before creating videos.')
-      setStep('keyframes')
+      setStep(isEditableShotsMode ? 'voiceover' : 'keyframes')
     } else {
       setKeyframeStatus('Could not build the plan. Check the script format and try again.')
     }
@@ -2700,7 +2778,7 @@ export default function UGCAdCreator({
       const baseLine = stripDialogueQuotes(shot.dialogue || '').trim()
       if (!baseLine) continue
       const delivery = String(voiceDelivery[shot.id] || '').trim()
-      overrides[variant.key] = (voiceModel === 'eleven_v3' && delivery)
+      overrides[variant.key] = (voiceProvider === 'elevenlabs' && voiceModel === 'eleven_v3' && delivery)
         ? `[${delivery}] ${baseLine}`
         : baseLine
     }
@@ -2708,6 +2786,8 @@ export default function UGCAdCreator({
   }
 
   const voiceQueueOptions = () => ({
+    provider: voiceProvider,
+    language: dialogueLanguage,
     voice: voiceId,
     model: voiceModel,
     stability: voiceStability,
@@ -2718,7 +2798,8 @@ export default function UGCAdCreator({
   const handleGenerateAllVoices = async () => {
     if (!handleQueueUgcVoices || planShots.length === 0) return
     setIsQueuingVoices(true)
-    setVoiceStatus(`Generating ${voiceLineShots.length} voice line${voiceLineShots.length === 1 ? '' : 's'} with ${voiceId}...`)
+    const providerLabel = voiceProvider === 'irodori' ? 'Irodori-TTS' : voiceId
+    setVoiceStatus(`Generating ${voiceLineShots.length} voice line${voiceLineShots.length === 1 ? '' : 's'} with ${providerLabel}...`)
     try {
       const result = await handleQueueUgcVoices(voiceQueueOptions())
       const queued = result?.queued || 0
@@ -2795,11 +2876,23 @@ export default function UGCAdCreator({
     location ? `in ${location}` : 'in a natural home setting',
     'vertical 9:16 UGC selfie, photoreal, handheld phone look, natural light',
   ].filter(Boolean).join(', ')
-  const oneShotAsset = useMemo(() => {
-    const list = (assets || []).filter((a) => a?.type === 'video' && (a?.yolo?.stage === 'oneshot' || a?.settings?.yolo?.stage === 'oneshot'))
+  const oneShotAssets = useMemo(() => {
+    const list = (assets || []).filter((a) => {
+      const meta = a?.yolo || a?.settings?.yolo
+      return a?.type === 'video' && meta?.stage === 'oneshot' && meta?.mode !== 'music'
+    })
     list.sort((a, b) => new Date(b?.createdAt || 0).getTime() - new Date(a?.createdAt || 0).getTime())
-    return list[0] || null
+    return list
   }, [assets])
+  const oneShotAssetSignature = oneShotAssets.map((asset) => asset?.id || getAssetUrl(asset)).join('|')
+  useEffect(() => {
+    if (oneShotAssets.length === 0) {
+      setSelectedOneShotAssetId('')
+      return
+    }
+    setSelectedOneShotAssetId(oneShotAssets[0]?.id || '')
+  }, [oneShotAssetSignature])
+  const oneShotAsset = oneShotAssets.find((asset) => asset?.id === selectedOneShotAssetId) || oneShotAssets[0] || null
   const oneShotAssetUrl = getAssetUrl(oneShotAsset)
 
   const handleGenerateOneShot = async (model = 'seedance') => {
@@ -2834,11 +2927,41 @@ export default function UGCAdCreator({
     }
   }
 
-  const stepIndex = STEPS.findIndex((item) => item.id === step)
+  const isEditableShotsMode = productionMode === 'local_ja'
+  const steps = isEditableShotsMode ? EDITABLE_SHOT_STEPS : ONE_SHOT_STEPS
+  const stepIndex = steps.findIndex((item) => item.id === step)
+
+  const handleDialogueLanguageChange = (nextLanguage) => {
+    const normalizedLanguage = nextLanguage === 'en' ? 'en' : 'ja'
+    setDialogueLanguage(normalizedLanguage)
+    setHook((currentHook) => localizeBuiltInHook(currentHook, normalizedLanguage))
+    if (normalizedLanguage === 'en' && voiceProvider === 'irodori') {
+      setVoiceProvider('elevenlabs')
+    }
+    setScriptManuallyEdited(false)
+    setScriptShotOverrides({})
+    if (planShots.length > 0) {
+      setStep('script')
+      setVoiceStatus(t('generate.director.ugc.voiceover.languageChanged', {}, 'Language changed. Review the updated dialogue and prepare the voice plan again.'))
+    }
+  }
+
+  const handleProductionModeChange = (nextMode) => {
+    setProductionMode(nextMode)
+    setStep('setup')
+    setScriptManuallyEdited(false)
+    setScriptShotOverrides({})
+    if (nextMode === 'local_ja') {
+      if (dialogueLanguage === 'en') setVoiceProvider('elevenlabs')
+      setVoiceMode('generate')
+      handleKeyframeWorkflowChange('image-edit-model-product')
+      handleVideoWorkflowChange(UGC_EXACT_LIPSYNC_WORKFLOW_ID)
+    }
+  }
 
   const renderStepNav = () => (
     <nav className="ugc-steps" aria-label={t('generate.director.ugc.steps.aria', {}, 'UGC ad steps')}>
-      {STEPS.map((item, index) => (
+      {steps.map((item, index) => (
         <button
           key={item.id}
           type="button"
@@ -2995,7 +3118,7 @@ export default function UGCAdCreator({
   }
 
   const renderSideRail = () => {
-    const previewHook = compact(hook, 'Okay, I need to show you this...')
+    const previewHook = compact(hook, dialogueLanguage === 'ja' ? 'ちょっと待って、これ見て…。' : 'Okay, I need to show you this...')
     const activePreviewClip = socialPreviewEditEnabled && socialPreviewClips.length > 0
       ? socialPreviewClips[Math.min(socialPreviewClipIndex, socialPreviewClips.length - 1)]
       : null
@@ -3053,13 +3176,13 @@ export default function UGCAdCreator({
                   }}
                 />
                 <div className="pv-sequence-badge">
-                  rough cut {activePreviewClip.index + 1}/{planShots.length}
+                  {t('generate.director.ugc.preview.roughCut', { current: activePreviewClip.index + 1, total: planShots.length }, `rough cut ${activePreviewClip.index + 1}/${planShots.length}`)}
                 </div>
               </>
             ) : (
               <div className="pv-center">
                 <div className="hook-line">"{previewHook}"</div>
-                <div className="sub">{selectedGoal.label} / {commercialLength}s / {shotCount} shots</div>
+                <div className="sub">{t(`generate.director.ugc.templates.${selectedGoal.id}.title`, {}, selectedGoal.label)} / {commercialLength}{t('generate.director.ugc.setup.secondsShort', {}, 's')} / {shotCount} {t('generate.director.ugc.summary.shots', {}, 'shots')}</div>
               </div>
             )}
             <div className="pv-actions" aria-hidden="true">
@@ -3071,10 +3194,12 @@ export default function UGCAdCreator({
               <>
                 <div className="pv-caption">
                   <div className="user">@{brandHandle}</div>
-                  <div>{activePreviewClip ? `Shot ${activePreviewClip.index + 1}: ${activePreviewClip.caption}` : 'this is the one everyone keeps asking me about #ad'}</div>
+                  <div>{activePreviewClip
+                    ? t('generate.director.ugc.preview.shotCaption', { number: activePreviewClip.index + 1, caption: activePreviewClip.caption }, `Shot ${activePreviewClip.index + 1}: ${activePreviewClip.caption}`)
+                    : t('generate.director.ugc.preview.defaultCaption', {}, 'this is the one everyone keeps asking me about #ad')}</div>
                 </div>
                 <div className="pv-sound">
-                  ♪ <span>original sound - your ad, but make it feel native</span>
+                  ♪ <span>{t('generate.director.ugc.preview.originalSound', {}, 'original sound - your ad, but make it feel native')}</span>
                 </div>
               </>
             )}
@@ -3099,9 +3224,9 @@ export default function UGCAdCreator({
             {t('generate.director.ugc.why.description', {}, 'UGC ads work when they feel native to the feed. The defaults here favor handheld framing, real skin tones, clear product handling, and editable shot-by-shot control.')}
           </div>
           <div className="ugc-tag-row">
-            <span className="ugc-tag pink">dialogue beats</span>
-            <span className="ugc-tag cyan">product moments</span>
-            <span className="ugc-tag lime">editable clips</span>
+            <span className="ugc-tag pink">{t('generate.director.ugc.why.dialogueBeats', {}, 'dialogue beats')}</span>
+            <span className="ugc-tag cyan">{t('generate.director.ugc.why.productMoments', {}, 'product moments')}</span>
+            <span className="ugc-tag lime">{t('generate.director.ugc.why.editableClips', {}, 'editable clips')}</span>
           </div>
         </div>
       </aside>
@@ -3155,6 +3280,50 @@ export default function UGCAdCreator({
           </div>
 
           <div className="ugc-card-block">
+            <div className="ugc-card-title">{t('generate.director.ugc.productionMode.title', {}, 'Production mode')}</div>
+            <div className="ugc-card-copy">{t('generate.director.ugc.productionMode.description', {}, 'Choose a fast one-shot render or a fully editable shot workflow with selectable dialogue language and TTS.')}</div>
+            <div className="mt-3 grid grid-cols-1 gap-2 md:grid-cols-2">
+              {renderChoiceButton(
+                productionMode === 'one_shot',
+                t('generate.director.ugc.productionMode.oneShot', {}, 'One-shot generation'),
+                () => handleProductionModeChange('one_shot'),
+                t('generate.director.ugc.productionMode.oneShotHelp', {}, 'Generate the complete ad as one clip.'),
+                'production-one-shot'
+              )}
+              {renderChoiceButton(
+                productionMode === 'local_ja',
+                t('generate.director.ugc.productionMode.editableShots', {}, 'Editable shots'),
+                () => handleProductionModeChange('local_ja'),
+                t('generate.director.ugc.productionMode.editableShotsHelp', {}, 'Choose English or Japanese dialogue, select a TTS engine, and edit every shot.'),
+                'production-local-ja'
+              )}
+            </div>
+            {isEditableShotsMode && (
+              <div className="mt-3 space-y-3 rounded-lg border border-emerald-500/30 bg-emerald-500/10 px-3 py-3">
+                <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                  <label className="block text-xs text-emerald-50">
+                    <span className="text-[10px] font-semibold uppercase tracking-wider text-emerald-200">{t('generate.director.ugc.productionMode.dialogueLanguage', {}, 'Dialogue language')}</span>
+                    <select value={dialogueLanguage} onChange={(event) => handleDialogueLanguageChange(event.target.value)} className="mt-1 w-full rounded-lg border border-emerald-500/30 bg-[#121b17] px-3 py-2 text-xs text-emerald-50 focus:border-emerald-400 focus:outline-none">
+                      <option value="ja">{t('generate.director.ugc.productionMode.japanese', {}, 'Japanese')}</option>
+                      <option value="en">{t('generate.director.ugc.productionMode.english', {}, 'English')}</option>
+                    </select>
+                  </label>
+                  <label className="block text-xs text-emerald-50">
+                    <span className="text-[10px] font-semibold uppercase tracking-wider text-emerald-200">{t('generate.director.ugc.productionMode.ttsEngine', {}, 'TTS engine')}</span>
+                    <select value={voiceProvider} onChange={(event) => setVoiceProvider(event.target.value)} className="mt-1 w-full rounded-lg border border-emerald-500/30 bg-[#121b17] px-3 py-2 text-xs text-emerald-50 focus:border-emerald-400 focus:outline-none">
+                      <option value="irodori" disabled={dialogueLanguage !== 'ja'}>Irodori-TTS ({t('generate.director.ugc.productionMode.japaneseOnly', {}, 'Japanese only')})</option>
+                      <option value="elevenlabs">ElevenLabs</option>
+                    </select>
+                  </label>
+                </div>
+                <div className="text-[11px] leading-relaxed text-emerald-100">
+                  {t('generate.director.ugc.productionMode.editableRoute', { language: dialogueLanguage === 'ja' ? t('generate.director.ugc.productionMode.japanese', {}, 'Japanese') : t('generate.director.ugc.productionMode.english', {}, 'English'), tts: voiceProvider === 'irodori' ? 'Irodori-TTS' : 'ElevenLabs' }, '{{language}} dialogue → {{tts}} → keyframes → exact-audio lip-sync.')}
+                </div>
+              </div>
+            )}
+          </div>
+
+          <div className="ugc-card-block">
             <div className="ugc-card-title">{t('generate.director.ugc.setup.templateTitle', {}, 'Pick a starting template')}</div>
             <div className="ugc-card-copy">{t('generate.director.ugc.setup.templateDescription', {}, 'Each one writes a full default script — shots, dialogue, and camera — as a starting point. Pick the closest, then customize the prompt on the Generate step. These are templates, not locked formats; the real ad is yours to edit.')}</div>
             <div className="ugc-format-grid">
@@ -3169,10 +3338,10 @@ export default function UGCAdCreator({
               value={hook}
               onChange={(e) => setHook(e.target.value)}
               className="ugc-hook-input"
-              placeholder='"Okay, I need to show you this..."'
+              placeholder={dialogueLanguage === 'ja' ? '「ちょっと待って、これ見て…」' : '"Okay, I need to show you this..."'}
             />
             <div className="ugc-chip-row">
-              {HOOK_SUGGESTIONS.map((suggestion) => (
+              {hookSuggestions.map((suggestion) => (
                 <button
                   key={suggestion}
                   type="button"
@@ -3184,7 +3353,7 @@ export default function UGCAdCreator({
               ))}
               <button
                 type="button"
-                onClick={() => setHook(HOOK_SUGGESTIONS[Math.floor(Math.random() * HOOK_SUGGESTIONS.length)])}
+                onClick={() => setHook(hookSuggestions[Math.floor(Math.random() * hookSuggestions.length)])}
                 className="ugc-chip active"
               >
                 {t('generate.director.ugc.setup.surprise', {}, 'surprise me')}
@@ -3237,7 +3406,7 @@ export default function UGCAdCreator({
                     }}
                     className={`ugc-toggle ${platform === option.id ? 'selected' : ''}`}
                   >
-                    {option.id === 'vertical_9x16' ? '9:16 - TikTok - Reels' : option.id === 'square_1x1' ? '1:1 - Feed post' : '16:9 - YouTube'}
+                    {t(`generate.director.ugc.setup.aspectOptions.${option.id}`, {}, option.id === 'vertical_9x16' ? '9:16 - TikTok - Reels' : option.id === 'square_1x1' ? '1:1 - Feed post' : '16:9 - YouTube')}
                   </button>
                 ))}
               </div>
@@ -3256,7 +3425,7 @@ export default function UGCAdCreator({
                   <span className="text-xs text-[#c9c6ba]">{t('generate.director.ugc.setup.seconds', {}, 'seconds')}</span>
                 </div>
                 <span className="mt-1 block text-[10px] text-[#95927f]">
-                  Recommended {RECOMMENDED_UGC_LENGTH_MIN}-{RECOMMENDED_UGC_LENGTH_MAX}s. One-shot generation caps at 15s.
+                  {t('generate.director.ugc.setup.durationHelp', { min: RECOMMENDED_UGC_LENGTH_MIN, max: RECOMMENDED_UGC_LENGTH_MAX }, `Recommended ${RECOMMENDED_UGC_LENGTH_MIN}-${RECOMMENDED_UGC_LENGTH_MAX}s. One-shot generation caps at 15s.`)}
                 </span>
               </label>
               <div className="ugc-field-label mt-4">{t('generate.director.ugc.setup.quality', {}, 'Quality')}</div>
@@ -3296,35 +3465,35 @@ export default function UGCAdCreator({
             <p className="ugc-card-copy mt-2">{t('generate.director.ugc.setup.detailsHelp', {}, 'All optional. Leave them and the workflow fills in sensible defaults; add any to steer the result. You can also tweak every line later in Script Review.')}</p>
             <div className="mt-3 grid grid-cols-1 gap-3 lg:grid-cols-2">
               <label className="block">
-                <span className="ugc-field-label">Brand</span>
+                <span className="ugc-field-label">{t('generate.director.ugc.setup.detailsFields.brand', {}, 'Brand')}</span>
                 <input value={businessName} onChange={(e) => setBusinessName(e.target.value)} className="ugc-input w-full rounded-lg border px-3 py-2 text-xs" placeholder="Your brand name" />
               </label>
               <label className="block">
-                <span className="ugc-field-label">Who's scrolling past? (your audience)</span>
+                <span className="ugc-field-label">{t('generate.director.ugc.setup.detailsFields.audience', {}, "Who's scrolling past? (your audience)")}</span>
                 <input value={audience} onChange={(e) => setAudience(e.target.value)} className="ugc-input w-full rounded-lg border px-3 py-2 text-xs" placeholder="Who is this for? e.g. busy people who want a quick win" />
               </label>
               <label className="block lg:col-span-2">
-                <span className="ugc-field-label">Why should they stop scrolling?</span>
+                <span className="ugc-field-label">{t('generate.director.ugc.setup.detailsFields.reason', {}, 'Why should they stop scrolling?')}</span>
                 <textarea value={offer} onChange={(e) => setOffer(e.target.value)} rows={2} className="ugc-input w-full resize-y rounded-lg border px-3 py-2 text-xs" placeholder="The one reason to care - the payoff in plain words." />
               </label>
               <label className="block lg:col-span-2">
-                <span className="ugc-field-label">The proof moment - what convinces people it's real?</span>
+                <span className="ugc-field-label">{t('generate.director.ugc.setup.detailsFields.proof', {}, "The proof moment - what convinces people it's real?")}</span>
                 <textarea value={proof} onChange={(e) => setProof(e.target.value)} rows={2} className="ugc-input w-full resize-y rounded-lg border px-3 py-2 text-xs" placeholder="The believable beat - a demo, before/after, or honest reaction." />
               </label>
               <label className="block lg:col-span-2">
-                <span className="ugc-field-label">Creator direction</span>
+                <span className="ugc-field-label">{t('generate.director.ugc.setup.detailsFields.creatorDirection', {}, 'Creator direction')}</span>
                 <textarea value={talentDirection} onChange={(e) => setTalentDirection(e.target.value)} rows={2} className="ugc-input w-full resize-y rounded-lg border px-3 py-2 text-xs" placeholder="mid-20s creator, talks like a friend, slightly skeptical then impressed" />
               </label>
               <label className="block">
-                <span className="ugc-field-label">Room / location</span>
+                <span className="ugc-field-label">{t('generate.director.ugc.setup.detailsFields.location', {}, 'Room / location')}</span>
                 <input value={location} onChange={(e) => setLocation(e.target.value)} className="ugc-input w-full rounded-lg border px-3 py-2 text-xs" />
               </label>
               <label className="block">
-                <span className="ugc-field-label">Final line / CTA</span>
+                <span className="ugc-field-label">{t('generate.director.ugc.setup.detailsFields.cta', {}, 'Final line / CTA')}</span>
                 <input value={cta} onChange={(e) => setCta(e.target.value)} className="ugc-input w-full rounded-lg border px-3 py-2 text-xs" />
               </label>
               <label className="block lg:col-span-2">
-                <span className="ugc-field-label">Camera rules</span>
+                <span className="ugc-field-label">{t('generate.director.ugc.setup.detailsFields.cameraRules', {}, 'Camera rules')}</span>
                 <textarea value={visualRules} onChange={(e) => setVisualRules(e.target.value)} rows={2} className="ugc-input w-full resize-y rounded-lg border px-3 py-2 text-xs" />
               </label>
             </div>
@@ -3433,7 +3602,13 @@ export default function UGCAdCreator({
               {t('generate.director.ugc.references.tip', {}, 'A creator reference plus a room reference keeps the same person in the same place across shots. That continuity is what makes UGC ads feel real instead of stitched together.')}
             </div>
           </div>
-          {renderActions('setup', 'generate', t('generate.director.ugc.actions.buildPrompt', {}, 'Build Prompt'))}
+          {renderActions(
+            'setup',
+            isEditableShotsMode ? 'script' : 'generate',
+            isEditableShotsMode
+              ? t('generate.director.ugc.actions.reviewScript', {}, 'Review Script')
+              : t('generate.director.ugc.actions.buildPrompt', {}, 'Build Prompt')
+          )}
         </div>
       )}
 
@@ -3626,7 +3801,9 @@ export default function UGCAdCreator({
                 Rebuild from brief
               </button>
               <button type="button" onClick={handleBuildPlan} disabled={isQueuingKeyframes || isQueuingVideos} className="ugc-primary rounded-lg px-3 py-2 text-xs font-semibold disabled:cursor-not-allowed disabled:opacity-50">
-                Create keyframes
+                {isEditableShotsMode
+                  ? t('generate.director.ugc.actions.prepareVoice', {}, 'Prepare Voice')
+                  : 'Create keyframes'}
               </button>
             </div>
           </div>
@@ -3639,7 +3816,7 @@ export default function UGCAdCreator({
             <div className="ugc-kicker">One Voice, Every Shot</div>
             <h2 className="mt-1 text-lg font-semibold text-sf-text-primary">Give the creator a single, consistent voice.</h2>
             <p className="mt-1 text-xs text-sf-text-muted">
-              Pick one voice and generate a clip for every spoken line. LTX 2.3 lip-syncs to these clips, so the creator sounds identical across all shots instead of inventing a new voice per clip. Silent shots stay silent — add music or SFX yourself in the editor.
+              Pick one TTS engine and generate the final audio for every spoken line. The recommended Exact Audio route keeps that clip unchanged and uses LatentSync 1.6 to correct the generated mouth motion. TalkVid remains available as a lighter fallback that regenerates the speech. Silent shots stay silent — add music or SFX yourself in the editor.
             </p>
           </div>
 
@@ -3650,12 +3827,35 @@ export default function UGCAdCreator({
           ) : (
             <>
               <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
-                {renderChoiceButton(voiceMode === 'generate', 'Generate voices', () => setVoiceMode('generate'), 'One pinned voice for the whole ad, generated with ElevenLabs.', 'voice-generate')}
+                {renderChoiceButton(voiceMode === 'generate', 'Generate voices', () => setVoiceMode('generate'), voiceProvider === 'irodori' ? 'Local Japanese dialogue generated with Irodori-TTS.' : 'One pinned voice for the whole ad, generated with ElevenLabs.', 'voice-generate')}
                 {renderChoiceButton(voiceMode === 'none', 'No voice', () => setVoiceMode('none'), 'Skip voices. Every shot stays silent for you to score yourself.', 'voice-none')}
               </div>
 
               {voiceMode === 'generate' && (
                 <div className="rounded-xl border border-sf-dark-700 bg-sf-dark-800/40 p-3 space-y-3">
+                  <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                    <label className="block text-xs text-sf-text-secondary">
+                      <span className="text-[10px] uppercase tracking-wider text-sf-text-muted">{t('generate.director.ugc.productionMode.dialogueLanguage', {}, 'Dialogue language')}</span>
+                      <select value={dialogueLanguage} onChange={(event) => handleDialogueLanguageChange(event.target.value)} className="mt-1 w-full rounded-lg border border-sf-dark-600 bg-sf-dark-900 px-3 py-2 text-xs text-sf-text-primary focus:border-sf-accent focus:outline-none">
+                        <option value="ja">{t('generate.director.ugc.productionMode.japanese', {}, 'Japanese')}</option>
+                        <option value="en">{t('generate.director.ugc.productionMode.english', {}, 'English')}</option>
+                      </select>
+                    </label>
+                    <label className="block text-xs text-sf-text-secondary">
+                      <span className="text-[10px] uppercase tracking-wider text-sf-text-muted">{t('generate.director.ugc.productionMode.ttsEngine', {}, 'TTS engine')}</span>
+                      <select value={voiceProvider} onChange={(event) => setVoiceProvider(event.target.value)} className="mt-1 w-full rounded-lg border border-sf-dark-600 bg-sf-dark-900 px-3 py-2 text-xs text-sf-text-primary focus:border-sf-accent focus:outline-none">
+                        <option value="irodori" disabled={dialogueLanguage !== 'ja'}>Irodori-TTS ({t('generate.director.ugc.productionMode.japaneseOnly', {}, 'Japanese only')})</option>
+                        <option value="elevenlabs">ElevenLabs</option>
+                      </select>
+                    </label>
+                  </div>
+                  {voiceProvider === 'irodori' && (
+                    <div className="rounded-lg border border-emerald-500/30 bg-emerald-500/10 px-3 py-2 text-[11px] leading-relaxed text-emerald-100">
+                      {t('generate.director.ugc.voiceover.irodoriHelp', {}, 'Japanese lines are generated locally with Irodori-TTS. The recommended Exact Audio route keeps each finished clip and syncs its matching shot to that waveform.')}
+                    </div>
+                  )}
+                  {voiceProvider === 'elevenlabs' && (
+                    <>
                   <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
                     <label className="block text-xs text-sf-text-secondary">
                       <span className="text-[10px] uppercase tracking-wider text-sf-text-muted">Creator voice</span>
@@ -3715,6 +3915,8 @@ export default function UGCAdCreator({
                     />
                     <span className="text-[10px] text-sf-text-muted">More emotional &amp; variable ⟵ ⟶ more consistent &amp; steady (stability {voiceStability.toFixed(2)})</span>
                   </label>
+                    </>
+                  )}
 
                   <div className="flex flex-wrap items-center gap-3">
                     <button
@@ -3758,7 +3960,7 @@ export default function UGCAdCreator({
                           </div>
                           {!silent && (
                             <div className="mt-2 space-y-2">
-                              {voiceModel === 'eleven_v3' && (
+                              {voiceProvider === 'elevenlabs' && voiceModel === 'eleven_v3' && (
                                 <input
                                   type="text"
                                   value={voiceDelivery[shot.id] || ''}
@@ -3787,7 +3989,7 @@ export default function UGCAdCreator({
                     })}
                   </div>
                   <p className="text-[10px] text-sf-text-muted">
-                    Tweak delivery and hit “New take” until a line sounds right, then move on. Change the words in Script Review. With a voice clip, LTX 2.3 voiced shots auto-route to the lip-sync graph (audio + lips in one clip). Seedance also lip-syncs to the clip but outputs silent video — lay the clip on the timeline.
+                    Tweak delivery and hit “New take” until a line sounds right, then move on. Change the words in Script Review. Exact Audio produces a clip with that same waveform and corrected lips; TalkVid uses it only as a voice/performance reference. Seedance may use it as a guide, so verify its output audio before assembly.
                   </p>
                 </div>
               )}
@@ -3891,11 +4093,73 @@ export default function UGCAdCreator({
             </p>
           </div>
 
-          {oneShotAssetUrl && (
-            <div className="rounded-lg border border-emerald-500/30 bg-emerald-500/5 px-3 py-2 text-[10px] text-sf-text-muted">
-              {t('generate.director.ugc.generate.readyPrefix', {}, 'Your ad is ready — hit play in the')} <span className="text-emerald-200">{t('generate.director.ugc.preview.title', {}, 'Social preview')}</span> {t('generate.director.ugc.generate.readySuffix', {}, 'to watch it. Saved to your project assets too; drag it onto the timeline to edit or export. Not happy? Tweak the prompt and generate again.')}
+          <div className="rounded-xl border border-sf-dark-700 bg-sf-dark-800/40 p-3 space-y-3">
+            <div className="flex flex-wrap items-start justify-between gap-2">
+              <div>
+                <div className="ugc-card-title">{t('generate.director.ugc.generate.resultsTitle', {}, 'Generated results')}</div>
+                <p className="mt-1 text-[11px] text-sf-text-muted">
+                  {t('generate.director.ugc.generate.resultsHelp', {}, 'Completed one-shot videos appear here automatically and are also saved in Project Assets.')}
+                </p>
+              </div>
+              <span className={`rounded-full border px-2 py-1 text-[10px] ${oneShotAssets.length > 0 ? 'border-emerald-500/40 text-emerald-200' : 'border-sf-dark-600 text-sf-text-muted'}`}>
+                {t('generate.director.ugc.generate.resultsCount', { count: oneShotAssets.length }, `${oneShotAssets.length} ready`)}
+              </span>
             </div>
-          )}
+
+            {oneShotAssetUrl ? (
+              <>
+                <div className="overflow-hidden rounded-xl border border-sf-dark-600 bg-black">
+                  <video
+                    key={`ugc-result-${oneShotAsset?.id || oneShotAssetUrl}`}
+                    src={oneShotAssetUrl}
+                    className="mx-auto max-h-[560px] w-full bg-black object-contain"
+                    controls
+                    playsInline
+                    preload="metadata"
+                  />
+                </div>
+                <div className="flex flex-wrap items-center justify-between gap-2 text-[10px] text-sf-text-muted">
+                  <span className="truncate text-sf-text-secondary">{oneShotAsset?.name || t('generate.director.ugc.generate.untitledResult', {}, 'UGC generated video')}</span>
+                  <span>{t('generate.director.ugc.generate.savedToAssets', {}, 'Saved to Project Assets')}</span>
+                </div>
+                {oneShotAssets.length > 1 && (
+                  <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-4">
+                    {oneShotAssets.slice(0, 8).map((asset, index) => {
+                      const url = getAssetUrl(asset)
+                      const selected = asset === oneShotAsset
+                      return (
+                        <button
+                          key={asset?.id || `${url}-${index}`}
+                          type="button"
+                          onClick={() => setSelectedOneShotAssetId(asset?.id || '')}
+                          className={`overflow-hidden rounded-lg border text-left transition-colors ${selected ? 'border-sf-accent bg-sf-accent/10' : 'border-sf-dark-600 bg-sf-dark-900 hover:border-sf-dark-500'}`}
+                          title={asset?.name || t('generate.director.ugc.generate.untitledResult', {}, 'UGC generated video')}
+                        >
+                          <span className="block aspect-video overflow-hidden bg-black">
+                            <video src={url} className="h-full w-full object-cover" muted playsInline preload="metadata" />
+                          </span>
+                          <span className="block truncate px-2 py-1.5 text-[10px] text-sf-text-secondary">
+                            {asset?.name || t('generate.director.ugc.generate.resultNumber', { number: index + 1 }, `Result ${index + 1}`)}
+                          </span>
+                        </button>
+                      )
+                    })}
+                  </div>
+                )}
+                <div className="rounded-lg border border-emerald-500/30 bg-emerald-500/5 px-3 py-2 text-[10px] text-sf-text-muted">
+                  {t('generate.director.ugc.generate.readyMessage', {}, 'The video is ready to review here. It is also available in Project Assets, where you can drag it onto the timeline for editing or export.')}
+                </div>
+              </>
+            ) : (
+              <div className="flex min-h-40 flex-col items-center justify-center rounded-xl border border-dashed border-sf-dark-600 bg-sf-dark-900/60 px-4 py-8 text-center">
+                <Film className="h-7 w-7 text-sf-text-muted" />
+                <div className="mt-2 text-xs font-medium text-sf-text-secondary">{t('generate.director.ugc.generate.noResults', {}, 'No completed video yet')}</div>
+                <p className="mt-1 max-w-md text-[10px] leading-relaxed text-sf-text-muted">
+                  {t('generate.director.ugc.generate.noResultsHelp', {}, 'After a queued one-shot finishes and is imported, its playable asset will appear here automatically.')}
+                </p>
+              </div>
+            )}
+          </div>
 
           <div className="flex flex-wrap items-center justify-between gap-2">
             <button type="button" onClick={() => setStep('references')} className="rounded-lg border border-sf-dark-600 px-3 py-2 text-xs text-sf-text-secondary hover:border-sf-dark-500 hover:text-sf-text-primary">{t('generate.director.ugc.actions.back', {}, 'Back')}</button>

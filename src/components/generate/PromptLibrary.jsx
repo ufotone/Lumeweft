@@ -15,6 +15,7 @@ import { COLLAPSED_RECIPE_IDS_KEY, readCollapsedIds, writeCollapsedIds } from '.
 import { useI18n } from '../../i18n/I18nContext'
 
 const STORAGE_KEY = 'lumeweft-prompt-library-v1'
+const AUDIO_RECIPE_THUMBNAIL_URL = '/generated-thumbnails/audio-eighth-note.webp'
 
 function readEntries() {
   try {
@@ -109,22 +110,39 @@ function findLatestComfyOutput(history = {}) {
   return null
 }
 
-function findMatchingApiWorkflow(history = {}, entry = {}) {
+function findOutputFile(record = {}) {
+  const outputs = Object.values(record?.outputs || {}).reverse()
+  for (const output of outputs) {
+    for (const key of ['images', 'gifs', 'videos']) {
+      const files = Array.isArray(output?.[key]) ? output[key] : []
+      const file = files[files.length - 1]
+      if (file?.filename) return file
+    }
+  }
+  return null
+}
+
+function findMatchingWorkflowExecution(history = {}, entry = {}) {
   const expected = String(entry?.text || '').trim()
   const expectedResources = new Set((entry?.recipe?.resources || []).map((item) => String(item?.name || '').trim()).filter(Boolean))
   const expectedSettings = entry?.recipe?.settings || {}
+  const expectedPromptId = String(entry?.recipe?.promptId || '').trim()
+  const expectedUiId = String(entry?.recipe?.uiWorkflow?.id || '').trim()
+  const targetTime = Date.parse(entry?.createdAt || '')
   let best = null
   let bestScore = -1
-  for (const [, record] of Object.entries(history || {}).reverse()) {
-    const workflow = Array.isArray(record?.prompt) ? record.prompt[2] : record?.prompt
+  let bestTimeDistance = Number.POSITIVE_INFINITY
+  for (const [promptId, record] of Object.entries(history || {})) {
+    const promptData = record?.prompt
+    const workflow = Array.isArray(promptData) ? promptData[2] : promptData
     if (!workflow || typeof workflow !== 'object' || Array.isArray(workflow)) continue
     const hasPrompt = Object.values(workflow).some((node) => String(node?.inputs?.text || '').trim() === expected)
     if (!hasPrompt) continue
 
-    // The same prompt may have been tried in several graphs. Prefer the job
-    // whose model/LoRA and sampler settings match the saved recipe; reverse
-    // iteration makes the newest exact tie win.
+    const uiWorkflow = Array.isArray(promptData) ? promptData?.[3]?.extra_pnginfo?.workflow : null
     let score = 100
+    if (expectedPromptId && String(promptId) === expectedPromptId) score += 10000
+    if (expectedUiId && String(uiWorkflow?.id || '') === expectedUiId) score += 1000
     for (const node of Object.values(workflow)) {
       const inputs = node?.inputs || {}
       for (const value of Object.values(inputs)) {
@@ -137,18 +155,28 @@ function findMatchingApiWorkflow(history = {}, entry = {}) {
       if (expectedSettings.width != null && Number(inputs.width) === Number(expectedSettings.width)) score += 1
       if (expectedSettings.height != null && Number(inputs.height) === Number(expectedSettings.height)) score += 1
     }
-    if (score > bestScore) {
-      best = workflow
+    const executionTime = Number(promptData?.[3]?.create_time)
+    const timeDistance = Number.isFinite(targetTime) && Number.isFinite(executionTime)
+      ? Math.abs(targetTime - executionTime)
+      : Number.POSITIVE_INFINITY
+    if (score > bestScore || (score === bestScore && timeDistance < bestTimeDistance)) {
+      best = {
+        promptId,
+        apiWorkflow: workflow,
+        uiWorkflow: uiWorkflow && typeof uiWorkflow === 'object' ? uiWorkflow : null,
+        record,
+        outputFile: findOutputFile(record),
+      }
       bestScore = score
+      bestTimeDistance = timeDistance
     }
   }
   return best
 }
 
-async function latestComfyOutputThumbnail() {
-  const history = await comfyui.getHistory()
-  const file = findLatestComfyOutput(history)
-  if (!file) throw new Error('No generated image or video was found in ComfyUI Job History.')
+async function historyOutputThumbnail(record) {
+  const file = findOutputFile(record)
+  if (!file) throw new Error('No generated image or video was found for this workflow execution.')
   const response = await fetch(comfyui.getMediaUrl(file.filename, file.subfolder || '', file.type || 'output'))
   if (!response.ok) throw new Error(`Could not read the ComfyUI result (${response.status}).`)
   return mediaBlobToThumbnail(await response.blob())
@@ -171,6 +199,7 @@ function extractRecipe(apiWorkflow, workflowName = '') {
   const sampler = nodes.find((node) => /sampler/i.test(String(node.class_type || '')) && node.inputs)
   const dimensions = nodes.find((node) => Number.isFinite(Number(node.inputs?.width)) && Number.isFinite(Number(node.inputs?.height)))
   const isVideo = nodes.some((node) => /video|wanimagetovideo/i.test(`${node.class_type || ''} ${node._meta?.title || ''}`))
+  const isAudio = !isVideo && nodes.some((node) => /audio|music|sound|voice|tts|irodori/i.test(`${node.class_type || ''} ${node._meta?.title || ''}`))
   return {
     workflowName: String(workflowName || '').trim(),
     positive: String(positiveNode?.inputs?.text || '').trim(),
@@ -186,6 +215,7 @@ function extractRecipe(apiWorkflow, workflowName = '') {
       height: dimensions?.inputs?.height,
     },
     isVideo,
+    isAudio,
   }
 }
 
@@ -197,6 +227,7 @@ export default function PromptLibrary({ onUseInQueue }) {
   const [title, setTitle] = useState('')
   const [forImage, setForImage] = useState(true)
   const [forVideo, setForVideo] = useState(false)
+  const [forAudio, setForAudio] = useState(false)
   const [filter, setFilter] = useState('all')
   const [query, setQuery] = useState('')
   const [message, setMessage] = useState('')
@@ -234,6 +265,7 @@ export default function PromptLibrary({ onUseInQueue }) {
     return entries.filter((entry) => {
       if (filter === 'image' && !entry.forImage) return false
       if (filter === 'video' && !entry.forVideo) return false
+      if (filter === 'audio' && !entry.forAudio) return false
       return !needle || `${entry.title} ${entry.text} ${entry.negativeText || ''}`.toLowerCase().includes(needle)
     })
   }, [entries, filter, query])
@@ -264,6 +296,7 @@ export default function PromptLibrary({ onUseInQueue }) {
       thumbnail: draftThumbnail,
       forImage,
       forVideo,
+      forAudio,
       createdAt: new Date().toISOString(),
     }
     updateEntries((current) => [entry, ...current])
@@ -295,7 +328,29 @@ export default function PromptLibrary({ onUseInQueue }) {
     setThumbnailBusy(true)
     setMessage(t('generate.prompter.messages.thumbnailCapturing'))
     try {
-      setDraftThumbnail(await latestComfyOutputThumbnail())
+      const history = await comfyui.getHistory()
+      const matchingExecution = draftRecipe && draft.trim()
+        ? findMatchingWorkflowExecution(history, {
+            text: draft.trim(),
+            createdAt: new Date().toISOString(),
+            recipe: draftRecipe,
+          })
+        : null
+      if (matchingExecution?.record) {
+        setDraftThumbnail(await historyOutputThumbnail(matchingExecution.record))
+        setDraftRecipe((current) => current ? {
+          ...current,
+          promptId: matchingExecution.promptId,
+          apiWorkflow: matchingExecution.apiWorkflow,
+          uiWorkflow: matchingExecution.uiWorkflow || current.uiWorkflow,
+        } : current)
+      } else {
+        const file = findLatestComfyOutput(history)
+        if (!file) throw new Error('No generated image or video was found in ComfyUI Job History.')
+        const response = await fetch(comfyui.getMediaUrl(file.filename, file.subfolder || '', file.type || 'output'))
+        if (!response.ok) throw new Error(`Could not read the ComfyUI result (${response.status}).`)
+        setDraftThumbnail(await mediaBlobToThumbnail(await response.blob()))
+      }
       setMessage(t('generate.prompter.messages.thumbnailCaptured'))
     } catch (error) {
       setMessage(error instanceof Error ? error.message : t('generate.prompter.messages.thumbnailFailed'))
@@ -313,16 +368,51 @@ export default function PromptLibrary({ onUseInQueue }) {
       const saved = await saveCapturedGraphToLibrary(captured, captured.workflowName || `Recipe ${new Date().toLocaleString()}`)
       const converted = await convertCustomLibraryWorkflowToApi(saved.entry.id)
       if (!converted.success) throw new Error(converted.error || t('generate.prompter.messages.parseFailed'))
-      const recipe = extractRecipe(converted.apiWorkflow, captured.workflowName || saved.entry.title)
+      const initialRecipe = extractRecipe(converted.apiWorkflow, captured.workflowName || saved.entry.title)
+      let exactExecution = null
+      try {
+        const history = await comfyui.getHistory()
+        exactExecution = findMatchingWorkflowExecution(history, {
+          text: initialRecipe.positive,
+          createdAt: new Date().toISOString(),
+          recipe: { ...initialRecipe, uiWorkflow: captured.workflow },
+        })
+      } catch (_) {
+        // Capturing the current graph still works while Job History is offline.
+      }
+      const exactApiWorkflow = exactExecution?.apiWorkflow || converted.apiWorkflow
+      const exactUiWorkflow = exactExecution?.uiWorkflow || captured.workflow
+      const recipe = extractRecipe(exactApiWorkflow, captured.workflowName || saved.entry.title)
+
+      // If the sampler uses randomize/increment, the canvas already contains
+      // the seed for the *next* run. Replace it with the graph recorded for the
+      // matching output so the recipe and its thumbnail describe one execution.
+      if (exactExecution?.uiWorkflow) {
+        await saveCapturedGraphToLibrary({ ...captured, workflow: exactUiWorkflow }, captured.workflowName || saved.entry.title)
+      }
       setDraft(recipe.positive)
       setNegativeDraft(recipe.negative)
       setTitle(recipe.workflowName || saved.entry.title)
-      setForImage(!recipe.isVideo)
+      setForImage(!recipe.isVideo && !recipe.isAudio)
       setForVideo(recipe.isVideo)
+      setForAudio(recipe.isAudio)
       // Keep the graph itself in the recipe database. The library ID remains
       // useful for older versions, but must not be the only copy: users can
       // rename or delete My Workflows independently of their saved recipes.
-      setDraftRecipe({ ...recipe, workflowLibraryId: saved.entry.id, uiWorkflow: captured.workflow })
+      setDraftRecipe({
+        ...recipe,
+        workflowLibraryId: saved.entry.id,
+        promptId: exactExecution?.promptId || null,
+        apiWorkflow: exactApiWorkflow,
+        uiWorkflow: exactUiWorkflow,
+      })
+      if (exactExecution?.record && exactExecution.outputFile) {
+        try {
+          setDraftThumbnail(await historyOutputThumbnail(exactExecution.record))
+        } catch (_) {
+          // A missing output preview must not prevent saving the exact graph.
+        }
+      }
       setMessage(t('generate.prompter.messages.captureParsed'))
     } catch (error) {
       setMessage(error instanceof Error ? error.message : t('generate.prompter.messages.captureFailed'))
@@ -338,10 +428,34 @@ export default function PromptLibrary({ onUseInQueue }) {
     setMessage(t('generate.prompter.messages.restoring'))
     try {
       let result = null
+      let recoveredExecution = null
+      try {
+        const history = await comfyui.getHistory()
+        recoveredExecution = findMatchingWorkflowExecution(history, entry)
+      } catch (_) {
+        // Fall through to the recipe's durable workflow snapshot.
+      }
       // Do not recreate the iframe here. ComfyUI's Vite module singleton can
       // be left half-initialized by repeated iframe remounts, which also breaks
       // the independent Civitai community reconstruction path afterwards.
-      if (entry.recipe.uiWorkflow) {
+      if (recoveredExecution?.uiWorkflow) {
+        result = await openUiWorkflowInComfyUi(recoveredExecution.uiWorkflow, {
+          label: entry.title,
+        })
+        if (result?.success) {
+          updateEntries((current) => current.map((item) => item.id === entry.id
+            ? {
+                ...item,
+                recipe: {
+                  ...item.recipe,
+                  promptId: recoveredExecution.promptId,
+                  apiWorkflow: recoveredExecution.apiWorkflow,
+                  uiWorkflow: recoveredExecution.uiWorkflow,
+                },
+              }
+            : item))
+        }
+      } else if (entry.recipe.uiWorkflow) {
         result = await openUiWorkflowInComfyUi(entry.recipe.uiWorkflow, {
           label: entry.title,
         })
@@ -351,22 +465,6 @@ export default function PromptLibrary({ onUseInQueue }) {
           reloadComfyUi: false,
         })
       } else {
-        // Legacy recipes only kept a mutable My Workflows ID. Resolve their
-        // immutable executed graph from Job History first, because a later
-        // capture with the same workflow name may have overwritten that file.
-        const history = await comfyui.getHistory()
-        const recoveredWorkflow = findMatchingApiWorkflow(history, entry)
-        if (recoveredWorkflow) {
-          result = await openApiWorkflowInComfyUi(recoveredWorkflow, {
-            label: entry.title,
-            reloadComfyUi: false,
-          })
-          if (result?.success) {
-            updateEntries((current) => current.map((item) => item.id === entry.id
-              ? { ...item, recipe: { ...item.recipe, apiWorkflow: recoveredWorkflow } }
-              : item))
-          }
-        }
         // Last-resort compatibility when ComfyUI history has been cleared.
         if (!result?.success && libraryId) {
           result = await openCustomLibraryWorkflow(libraryId, { label: entry.title })
@@ -467,7 +565,9 @@ export default function PromptLibrary({ onUseInQueue }) {
           <div className="relative flex h-[50px] w-[50px] shrink-0 items-center justify-center overflow-hidden rounded-md border border-sf-dark-600 bg-sf-dark-800">
             {draftThumbnail
               ? <img src={draftThumbnail} alt="" width="50" height="50" className="h-[50px] w-[50px] object-cover" />
-              : <ImagePlus className="h-5 w-5 text-sf-text-muted" />}
+              : forAudio
+                ? <img src={AUDIO_RECIPE_THUMBNAIL_URL} alt={t('generate.prompter.audioThumbnailAlt')} width="50" height="50" className="h-[50px] w-[50px] object-contain" />
+                : <ImagePlus className="h-5 w-5 text-sf-text-muted" />}
             {draftThumbnail && (
               <button type="button" onClick={() => setDraftThumbnail('')} title={t('generate.prompter.removeThumbnail')} className="absolute right-0 top-0 rounded-bl bg-black/70 p-0.5 text-white hover:bg-red-500">
                 <X className="h-3 w-3" />
@@ -490,6 +590,9 @@ export default function PromptLibrary({ onUseInQueue }) {
           <label className="flex items-center gap-2 text-xs text-sf-text-secondary">
             <input type="checkbox" checked={forVideo} onChange={(event) => setForVideo(event.target.checked)} /> {t('generate.prompter.video')}
           </label>
+          <label className="flex items-center gap-2 text-xs text-sf-text-secondary">
+            <input type="checkbox" checked={forAudio} onChange={(event) => setForAudio(event.target.checked)} /> {t('generate.prompter.audio')}
+          </label>
           <div className="flex-1" />
           <button type="button" onClick={() => { void pasteDraft() }} className="inline-flex items-center gap-1.5 rounded-lg border border-sf-dark-600 px-3 py-2 text-xs text-sf-text-secondary hover:border-sf-accent hover:text-sf-text-primary">
             <ClipboardPaste className="h-3.5 w-3.5" /> {t('generate.prompter.pasteClipboard')}
@@ -502,7 +605,7 @@ export default function PromptLibrary({ onUseInQueue }) {
       <section className="rounded-xl border border-sf-dark-700 bg-sf-dark-900 p-4">
         <div className="mb-3 flex flex-wrap items-center gap-2">
           <h2 className="mr-auto text-sm font-semibold text-sf-text-primary">{t('generate.prompter.savedTitle')}</h2>
-          {['all', 'image', 'video'].map((value) => (
+          {['all', 'image', 'video', 'audio'].map((value) => (
             <button key={value} type="button" onClick={() => setFilter(value)} className={`rounded-full px-2.5 py-1 text-[10px] ${filter === value ? 'bg-sf-accent text-white' : 'bg-sf-dark-800 text-sf-text-muted hover:text-sf-text-primary'}`}>
               {t(`generate.prompter.${value}`)}
             </button>
@@ -521,12 +624,21 @@ export default function PromptLibrary({ onUseInQueue }) {
                 <button type="button" onClick={() => toggleEntryCollapsed(entry.id)} title={t(collapsed ? 'generate.prompter.expand' : 'generate.prompter.collapse')} className="rounded p-1 text-sf-text-muted hover:bg-sf-dark-700 hover:text-sf-text-primary">
                   {collapsed ? <ChevronRight className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
                 </button>
-                {entry.thumbnail && <img src={entry.thumbnail} alt="" width="50" height="50" className="h-[50px] w-[50px] shrink-0 rounded-md border border-sf-dark-600 object-cover" />}
+                {(entry.thumbnail || entry.forAudio) && (
+                  <img
+                    src={entry.thumbnail || AUDIO_RECIPE_THUMBNAIL_URL}
+                    alt={entry.thumbnail ? '' : t('generate.prompter.audioThumbnailAlt')}
+                    width="50"
+                    height="50"
+                    className={`h-[50px] w-[50px] shrink-0 rounded-md border border-sf-dark-600 ${entry.thumbnail ? 'object-cover' : 'object-contain'}`}
+                  />
+                )}
                 <div className="min-w-0 flex-1">
                   <div className="flex flex-wrap items-center gap-1.5">
                     <span className="text-xs font-medium text-sf-text-primary">{entry.title}</span>
                     {entry.forImage && <span className="rounded bg-sky-500/15 px-1.5 py-0.5 text-[9px] text-sky-300">{t('generate.prompter.image')}</span>}
                     {entry.forVideo && <span className="rounded bg-violet-500/15 px-1.5 py-0.5 text-[9px] text-violet-300">{t('generate.prompter.video')}</span>}
+                    {entry.forAudio && <span className="rounded bg-fuchsia-500/15 px-1.5 py-0.5 text-[9px] text-fuchsia-300">{t('generate.prompter.audio')}</span>}
                   </div>
                   {!collapsed && <>
                   <div className="mb-1 mt-2 text-[9px] font-medium uppercase tracking-wider text-sf-text-muted">{t('generate.prompter.positive')}</div>

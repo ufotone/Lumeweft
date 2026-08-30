@@ -3,7 +3,7 @@ import {
   X, Server, FolderOpen, Palette, Monitor, Save,
   HardDrive, Film, Keyboard, Wrench, Power,
   KeyRound, CheckCircle2, ExternalLink, Loader2, RefreshCcw,
-  Volume2, Play, Bot, Copy, Globe2,
+  Volume2, Play, Bot, Copy, Globe2, Cloud,
 } from 'lucide-react'
 import useProjectStore, { RESOLUTION_PRESETS, FPS_PRESETS } from '../stores/projectStore'
 import useTimelineStore from '../stores/timelineStore'
@@ -56,10 +56,19 @@ import {
   getShowCloudCreditBalance,
   setShowCloudCreditBalance,
 } from '../services/cloudCreditDisplaySettings'
+import {
+  LOCAL_COMFY_RUNTIME_ID,
+  getCloudRuntimeSettings,
+  saveCloudRuntimeCredential,
+  setImportedWorkflowRuntime,
+  testCloudRuntime,
+} from '../services/cloudRuntimes'
 
 const AUTO_IMPORT_KEY = 'comfystudio-auto-import-comfy-outputs'
 const OUTPUT_DIRECTORY_SETTING_KEY = 'outputDirectory'
 const WORKFLOWS_DIRECTORY_SETTING_KEY = 'workflowsDirectory'
+const ANIMA_LORA_FACTORY_ROOT_SETTING_KEY = 'animaLoraFactoryRootPath'
+const SDXL_LORA_FACTORY_ROOT_SETTING_KEY = 'sdxlLoraFactoryRootPath'
 const OUTPUT_DIRECTORY_PLACEHOLDER = 'C:\\Users\\...\\Lumeweft\\outputs'
 const WORKFLOWS_DIRECTORY_PLACEHOLDER = 'C:\\Users\\...\\ComfyUI\\workflow_API'
 const HOTKEY_CATEGORY_KEY = {
@@ -88,9 +97,9 @@ const SETTINGS_SECTIONS = [
   },
   {
     id: 'connection',
-    title: 'ComfyUI Connection',
+    title: 'Connections & Runtimes',
     icon: Server,
-    description: 'Configure the local ComfyUI endpoint, partner API key, and advanced tab visibility.',
+    description: 'Configure local ComfyUI, cloud providers, credentials, routing, and credit display.',
   },
   {
     id: 'agents',
@@ -184,7 +193,7 @@ function SettingsRailItem({ section, isActive, onSelect }) {
   )
 }
 
-function GeneralTab({ initialSection = null }) {
+function GeneralTab({ initialSection = null, initialFocusTarget = '', workflowSetupFocusIds = [] }) {
   const { language, languages, setLanguage, t } = useI18n()
   const initialComfyConnection = getLocalComfyConnectionSync()
   const [comfyPortInput, setComfyPortInput] = useState(String(initialComfyConnection.port || DEFAULT_COMFY_PORT))
@@ -195,6 +204,9 @@ function GeneralTab({ initialSection = null }) {
   })
   const [outputPath, setOutputPath] = useState('')
   const [workflowPath, setWorkflowPath] = useState('')
+  const [animaLoraFactoryRootPath, setAnimaLoraFactoryRootPath] = useState('')
+  const [sdxlLoraFactoryRootPath, setSdxlLoraFactoryRootPath] = useState('')
+  const [loraFactoryPathStatus, setLoraFactoryPathStatus] = useState({ anima: null, sdxl: null })
   const [hardwareExportFfmpegPath, setHardwareExportFfmpegPathState] = useState('')
   const [hardwareExportFfmpegStatus, setHardwareExportFfmpegStatus] = useState(null)
   const [hardwareExportFfmpegTest, setHardwareExportFfmpegTest] = useState(null)
@@ -210,6 +222,9 @@ function GeneralTab({ initialSection = null }) {
   const [pexelsApiKey, setPexelsApiKeyLocal] = useState('')
   const [comfyOrgApiKey, setComfyOrgApiKey] = useState('')
   const [apiKeyDialogOpen, setApiKeyDialogOpen] = useState(false)
+  const [cloudRuntimeSettings, setCloudRuntimeSettings] = useState({ providers: [], routing: { importedApiWorkflows: LOCAL_COMFY_RUNTIME_ID } })
+  const [cloudCredentialInputs, setCloudCredentialInputs] = useState({})
+  const [cloudRuntimeStatus, setCloudRuntimeStatus] = useState({ providerId: '', status: 'idle', message: '' })
   const [settingsSaved, setSettingsSaved] = useState(false)
   const [activeSection, setActiveSection] = useState(() => resolveInitialSection(initialSection))
   const [editorHotkeys, setEditorHotkeysState] = useState(DEFAULT_EDITOR_HOTKEYS)
@@ -262,13 +277,24 @@ function GeneralTab({ initialSection = null }) {
     ;(async () => {
       const hardwareFfmpegStatusGeneration = hardwareExportFfmpegStatusGenerationRef.current
       try {
-        const [storedOutputPath, storedWorkflowPath, hardwareFfmpegStatus] = await Promise.all([
+        const [storedOutputPath, storedWorkflowPath, storedAnimaFactoryPath, storedSdxlFactoryPath, hardwareFfmpegStatus] = await Promise.all([
           window.electronAPI?.getSetting?.(OUTPUT_DIRECTORY_SETTING_KEY),
           window.electronAPI?.getSetting?.(WORKFLOWS_DIRECTORY_SETTING_KEY),
+          window.electronAPI?.getSetting?.(ANIMA_LORA_FACTORY_ROOT_SETTING_KEY),
+          window.electronAPI?.getSetting?.(SDXL_LORA_FACTORY_ROOT_SETTING_KEY),
           window.electronAPI?.getHardwareExportFfmpegStatus?.(),
         ])
         setOutputPath(String(storedOutputPath || ''))
         setWorkflowPath(String(storedWorkflowPath || ''))
+        setAnimaLoraFactoryRootPath(String(storedAnimaFactoryPath || ''))
+        setSdxlLoraFactoryRootPath(String(storedSdxlFactoryPath || ''))
+        if (window.electronAPI?.validateLoraFactoryRoot) {
+          const [animaStatus, sdxlStatus] = await Promise.all([
+            storedAnimaFactoryPath ? window.electronAPI.validateLoraFactoryRoot(storedAnimaFactoryPath) : null,
+            storedSdxlFactoryPath ? window.electronAPI.validateLoraFactoryRoot(storedSdxlFactoryPath) : null,
+          ])
+          setLoraFactoryPathStatus({ anima: animaStatus, sdxl: sdxlStatus })
+        }
         if (
           hardwareFfmpegStatus
           && hardwareFfmpegStatusGeneration === hardwareExportFfmpegStatusGenerationRef.current
@@ -281,6 +307,9 @@ function GeneralTab({ initialSection = null }) {
       } catch {
         setOutputPath('')
         setWorkflowPath('')
+        setAnimaLoraFactoryRootPath('')
+        setSdxlLoraFactoryRootPath('')
+        setLoraFactoryPathStatus({ anima: null, sdxl: null })
         if (hardwareFfmpegStatusGeneration === hardwareExportFfmpegStatusGenerationRef.current) {
           setHardwareExportFfmpegStatus(null)
         }
@@ -300,6 +329,12 @@ function GeneralTab({ initialSection = null }) {
       }
 
       try {
+        setCloudRuntimeSettings(await getCloudRuntimeSettings())
+      } catch (error) {
+        setCloudRuntimeStatus({ providerId: '', status: 'error', message: error?.message || t('settings.cloudRuntimes.loadFailed') })
+      }
+
+      try {
         const connection = await hydrateLocalComfyConnection()
         setComfyPortInput(String(connection.port || DEFAULT_COMFY_PORT))
         setComfyConnectionState({
@@ -316,6 +351,51 @@ function GeneralTab({ initialSection = null }) {
       }
     })()
   }, [])
+
+  const handleSaveCloudCredential = async (providerId) => {
+    const apiKey = String(cloudCredentialInputs[providerId] || '').trim()
+    if (!apiKey) return
+    setCloudRuntimeStatus({ providerId, status: 'busy', message: t('settings.cloudRuntimes.saving') })
+    try {
+      await saveCloudRuntimeCredential(providerId, apiKey)
+      setCloudCredentialInputs((current) => ({ ...current, [providerId]: '' }))
+      setCloudRuntimeSettings(await getCloudRuntimeSettings())
+      setCloudRuntimeStatus({ providerId, status: 'success', message: t('settings.cloudRuntimes.saved') })
+    } catch (error) {
+      setCloudRuntimeStatus({ providerId, status: 'error', message: error?.message || t('settings.cloudRuntimes.saveFailed') })
+    }
+  }
+
+  const handleRemoveCloudCredential = async (providerId) => {
+    try {
+      await saveCloudRuntimeCredential(providerId, '')
+      setCloudRuntimeSettings(await getCloudRuntimeSettings())
+      setCloudRuntimeStatus({ providerId, status: 'idle', message: t('settings.cloudRuntimes.removed') })
+    } catch (error) {
+      setCloudRuntimeStatus({ providerId, status: 'error', message: error?.message || t('settings.cloudRuntimes.removeFailed') })
+    }
+  }
+
+  const handleTestCloudRuntime = async (providerId) => {
+    setCloudRuntimeStatus({ providerId, status: 'busy', message: t('settings.cloudRuntimes.testing') })
+    try {
+      await testCloudRuntime(providerId)
+      setCloudRuntimeStatus({ providerId, status: 'success', message: t('settings.cloudRuntimes.connected') })
+    } catch (error) {
+      setCloudRuntimeStatus({ providerId, status: 'error', message: error?.message || t('settings.cloudRuntimes.testFailed') })
+    }
+  }
+
+  const handleCloudRuntimeRouting = async (runtimeId) => {
+    const previous = cloudRuntimeSettings.routing?.importedApiWorkflows || LOCAL_COMFY_RUNTIME_ID
+    setCloudRuntimeSettings((current) => ({ ...current, routing: { ...current.routing, importedApiWorkflows: runtimeId } }))
+    try {
+      await setImportedWorkflowRuntime(runtimeId)
+    } catch (error) {
+      setCloudRuntimeSettings((current) => ({ ...current, routing: { ...current.routing, importedApiWorkflows: previous } }))
+      setCloudRuntimeStatus({ providerId: runtimeId, status: 'error', message: error?.message || t('settings.cloudRuntimes.routeFailed') })
+    }
+  }
 
   useEffect(() => {
     if (!recordingHotkeyId) return
@@ -369,6 +449,14 @@ function GeneralTab({ initialSection = null }) {
     if (!initialSection) return
     setActiveSection(resolveInitialSection(initialSection))
   }, [initialSection])
+
+  useEffect(() => {
+    if (activeSection !== 'paths' || initialFocusTarget !== 'lora-factories') return undefined
+    const timer = window.setTimeout(() => {
+      document.getElementById('settings-lora-factories')?.scrollIntoView({ behavior: 'smooth', block: 'center' })
+    }, 50)
+    return () => window.clearTimeout(timer)
+  }, [activeSection, initialFocusTarget])
 
   useEffect(() => {
     if (activeSection !== 'agents') return undefined
@@ -552,47 +640,62 @@ function GeneralTab({ initialSection = null }) {
     }
   }
 
+  const handleChooseLoraFactoryRoot = async (factoryType) => {
+    const isAnima = factoryType === 'anima'
+    const currentPath = isAnima ? animaLoraFactoryRootPath : sdxlLoraFactoryRootPath
+    await handleChooseDirectory({
+      title: t(isAnima ? 'settings.paths.selectAnimaFactory' : 'settings.paths.selectSdxlFactory'),
+      currentPath,
+      onSelect: async (selectedPath) => {
+        if (isAnima) setAnimaLoraFactoryRootPath(selectedPath)
+        else setSdxlLoraFactoryRootPath(selectedPath)
+        const status = await window.electronAPI?.validateLoraFactoryRoot?.(selectedPath)
+        setLoraFactoryPathStatus((previous) => ({ ...previous, [factoryType]: status || null }))
+      },
+    })
+  }
+
   const handleChooseHardwareExportFfmpeg = async () => {
     if (!window.electronAPI?.selectFile) {
-      setHardwareExportFfmpegMessage('File picker is not available in this environment.')
+      setHardwareExportFfmpegMessage(t('settings.paths.hardwareFfmpeg.filePickerUnavailable'))
       return
     }
     try {
       const selectedPath = await window.electronAPI.selectFile({
-        title: 'Select FFmpeg for hardware export',
+        title: t('settings.paths.hardwareFfmpeg.selectTitle'),
         defaultPath: hardwareExportFfmpegPath || hardwareExportFfmpegStatus?.activePath || undefined,
-        filters: [{ name: 'FFmpeg executable', extensions: ['*'] }],
+        filters: [{ name: t('settings.paths.hardwareFfmpeg.executable'), extensions: ['*'] }],
       })
       if (selectedPath) {
         hardwareExportFfmpegInputDirtyRef.current = true
         setHardwareExportFfmpegPathState(String(selectedPath))
         setHardwareExportFfmpegTest(null)
-        setHardwareExportFfmpegMessage('Path selected. Save it to validate and activate it.')
+        setHardwareExportFfmpegMessage(t('settings.paths.hardwareFfmpeg.pathSelected'))
       }
     } catch (error) {
-      setHardwareExportFfmpegMessage(error?.message || 'Could not choose an FFmpeg executable.')
+      setHardwareExportFfmpegMessage(error?.message || t('settings.paths.hardwareFfmpeg.chooseFailed'))
     }
   }
 
   const handleSaveHardwareExportFfmpeg = async () => {
     const selectedPath = hardwareExportFfmpegPath.trim()
     if (!selectedPath) {
-      setHardwareExportFfmpegMessage('Choose an FFmpeg executable or use the bundled default.')
+      setHardwareExportFfmpegMessage(t('settings.paths.hardwareFfmpeg.chooseOrBundled'))
       return
     }
     if (!window.electronAPI?.setHardwareExportFfmpegPath) {
-      setHardwareExportFfmpegMessage('Hardware-export FFmpeg settings are not available in this environment.')
+      setHardwareExportFfmpegMessage(t('settings.paths.hardwareFfmpeg.settingsUnavailable'))
       return
     }
 
     hardwareExportFfmpegStatusGenerationRef.current += 1
     setHardwareExportFfmpegBusy('saving')
     setHardwareExportFfmpegTest(null)
-    setHardwareExportFfmpegMessage('Validating FFmpeg...')
+    setHardwareExportFfmpegMessage(t('settings.paths.hardwareFfmpeg.validating'))
     try {
       const result = await window.electronAPI.setHardwareExportFfmpegPath(selectedPath)
       if (!result?.success) {
-        setHardwareExportFfmpegMessage(result?.error || 'The selected FFmpeg executable could not be saved.')
+        setHardwareExportFfmpegMessage(result?.error || t('settings.paths.hardwareFfmpeg.saveFailed'))
         return
       }
       setHardwareExportFfmpegStatus(result.status || null)
@@ -600,11 +703,11 @@ function GeneralTab({ initialSection = null }) {
       hardwareExportFfmpegInputDirtyRef.current = false
       setHardwareExportFfmpegMessage(
         result.status?.source === 'environment'
-          ? 'Saved. VELORN_FFMPEG_PATH still takes priority for this app session.'
-          : 'Hardware-export FFmpeg saved and ready to test.'
+          ? t('settings.paths.hardwareFfmpeg.savedEnvironmentPriority')
+          : t('settings.paths.hardwareFfmpeg.savedReady')
       )
     } catch (error) {
-      setHardwareExportFfmpegMessage(error?.message || 'Could not save the hardware-export FFmpeg path.')
+      setHardwareExportFfmpegMessage(error?.message || t('settings.paths.hardwareFfmpeg.savePathFailed'))
     } finally {
       setHardwareExportFfmpegBusy('')
     }
@@ -618,7 +721,7 @@ function GeneralTab({ initialSection = null }) {
     try {
       const result = await window.electronAPI.resetHardwareExportFfmpegPath()
       if (!result?.success) {
-        setHardwareExportFfmpegMessage(result?.error || 'Could not restore the bundled FFmpeg setting.')
+        setHardwareExportFfmpegMessage(result?.error || t('settings.paths.hardwareFfmpeg.restoreFailed'))
         return
       }
       setHardwareExportFfmpegPathState('')
@@ -626,11 +729,11 @@ function GeneralTab({ initialSection = null }) {
       setHardwareExportFfmpegStatus(result.status || null)
       setHardwareExportFfmpegMessage(
         result.status?.source === 'environment'
-          ? 'Saved path cleared. VELORN_FFMPEG_PATH remains active.'
-          : 'Velorn will use its bundled FFmpeg for hardware checks and software fallback.'
+          ? t('settings.paths.hardwareFfmpeg.clearedEnvironmentActive')
+          : t('settings.paths.hardwareFfmpeg.bundledRestored')
       )
     } catch (error) {
-      setHardwareExportFfmpegMessage(error?.message || 'Could not restore the bundled FFmpeg setting.')
+      setHardwareExportFfmpegMessage(error?.message || t('settings.paths.hardwareFfmpeg.restoreFailed'))
     } finally {
       setHardwareExportFfmpegBusy('')
     }
@@ -640,21 +743,21 @@ function GeneralTab({ initialSection = null }) {
     if (!window.electronAPI?.checkNvenc) return
     hardwareExportFfmpegStatusGenerationRef.current += 1
     setHardwareExportFfmpegBusy('testing')
-    setHardwareExportFfmpegMessage('Testing the active FFmpeg and hardware encoder...')
+    setHardwareExportFfmpegMessage(t('settings.paths.hardwareFfmpeg.testing'))
     try {
       const result = await window.electronAPI.checkNvenc({ forceRefresh: true })
       setHardwareExportFfmpegTest(result)
       const status = await window.electronAPI.getHardwareExportFfmpegStatus?.()
       if (status) setHardwareExportFfmpegStatus(status)
       if (result?.available) {
-        const codecs = [result.h264 ? 'H.264' : '', result.h265 ? 'H.265' : ''].filter(Boolean).join(' and ')
-        setHardwareExportFfmpegMessage(`${codecs} hardware encoding is ready.`)
+        const codecs = [result.h264 ? 'H.264' : '', result.h265 ? 'H.265' : ''].filter(Boolean).join(' / ')
+        setHardwareExportFfmpegMessage(t('settings.paths.hardwareFfmpeg.encodingReady', { codecs }))
       } else {
-        setHardwareExportFfmpegMessage(result?.error || 'This FFmpeg does not provide a usable hardware encoder. CPU export remains available.')
+        setHardwareExportFfmpegMessage(result?.error || t('settings.paths.hardwareFfmpeg.encoderUnavailable'))
       }
     } catch (error) {
       setHardwareExportFfmpegTest(null)
-      setHardwareExportFfmpegMessage(error?.message || 'Could not test the active FFmpeg executable.')
+      setHardwareExportFfmpegMessage(error?.message || t('settings.paths.hardwareFfmpeg.testFailed'))
     } finally {
       setHardwareExportFfmpegBusy('')
     }
@@ -662,12 +765,27 @@ function GeneralTab({ initialSection = null }) {
 
   const handleSaveFilePathSettings = async () => {
     try {
-      const [outputResult, workflowResult] = await Promise.all([
+      const normalizedAnimaFactoryPath = animaLoraFactoryRootPath.trim()
+      const normalizedSdxlFactoryPath = sdxlLoraFactoryRootPath.trim()
+      const [animaStatus, sdxlStatus] = await Promise.all([
+        normalizedAnimaFactoryPath ? window.electronAPI?.validateLoraFactoryRoot?.(normalizedAnimaFactoryPath) : null,
+        normalizedSdxlFactoryPath ? window.electronAPI?.validateLoraFactoryRoot?.(normalizedSdxlFactoryPath) : null,
+      ])
+      setLoraFactoryPathStatus({ anima: animaStatus, sdxl: sdxlStatus })
+      if ((normalizedAnimaFactoryPath && !animaStatus?.isValid) || (normalizedSdxlFactoryPath && !sdxlStatus?.isValid)) {
+        return false
+      }
+      const [outputResult, workflowResult, animaFactoryResult, sdxlFactoryResult] = await Promise.all([
         window.electronAPI?.setSetting?.(OUTPUT_DIRECTORY_SETTING_KEY, outputPath.trim()),
         window.electronAPI?.setSetting?.(WORKFLOWS_DIRECTORY_SETTING_KEY, workflowPath.trim()),
+        window.electronAPI?.setSetting?.(ANIMA_LORA_FACTORY_ROOT_SETTING_KEY, normalizedAnimaFactoryPath),
+        window.electronAPI?.setSetting?.(SDXL_LORA_FACTORY_ROOT_SETTING_KEY, normalizedSdxlFactoryPath),
       ])
 
-      return outputResult?.success !== false && workflowResult?.success !== false
+      return outputResult?.success !== false
+        && workflowResult?.success !== false
+        && animaFactoryResult?.success !== false
+        && sdxlFactoryResult?.success !== false
     } catch (error) {
       console.error('Could not save file path settings:', error)
       return false
@@ -922,28 +1040,6 @@ function GeneralTab({ initialSection = null }) {
           </div>
 
           <div className="flex items-center justify-between rounded-lg border border-sf-dark-700 bg-sf-dark-900/60 px-3 py-3">
-            <div className="pr-4">
-              <label className="text-sm text-sf-text-primary">Show cloud credit balance</label>
-              <p className="text-[10px] text-sf-text-muted">
-                Display Comfy.org credits in the app header. Turning this off does not disable cloud workflows.
-              </p>
-            </div>
-            <button
-              type="button"
-              role="switch"
-              aria-checked={showCloudCreditBalance}
-              onClick={handleToggleCloudCreditBalance}
-              className={`relative h-5 w-10 flex-shrink-0 rounded-full transition-colors ${showCloudCreditBalance ? 'bg-sf-accent' : 'bg-sf-dark-600'}`}
-              title={showCloudCreditBalance ? 'Hide cloud credit balance' : 'Show cloud credit balance'}
-            >
-              <span
-                className={`absolute top-0.5 h-4 w-4 rounded-full bg-white shadow transition-all ${showCloudCreditBalance ? 'left-[calc(100%-1.25rem)]' : 'left-0.5'}`}
-                aria-hidden
-              />
-            </button>
-          </div>
-
-          <div className="flex items-center justify-between rounded-lg border border-sf-dark-700 bg-sf-dark-900/60 px-3 py-3">
             <div>
               <label className="text-sm text-sf-text-primary">{t('settings.storage.autoSave')}</label>
               <p className="text-[10px] text-sf-text-muted">{t('settings.storage.autoSaveHelp')}</p>
@@ -1010,125 +1106,230 @@ function GeneralTab({ initialSection = null }) {
       break
     case 'connection':
       activeSectionContent = (
-        <div className="space-y-4">
-          <div>
-            <label className="block text-xs text-sf-text-muted mb-1">{t('settings.connection.localPort')}</label>
-            <input
-              type="number"
-              min={1}
-              max={65535}
-              step={1}
-              value={comfyPortInput}
-              onChange={(e) => setComfyPortInput(e.target.value)}
-              onBlur={() => { void handleSaveComfyConnection() }}
-              placeholder={String(DEFAULT_COMFY_PORT)}
-              className="w-full bg-sf-dark-800 border border-sf-dark-600 rounded px-3 py-2 text-sm text-sf-text-primary focus:outline-none focus:border-sf-accent"
-            />
-            <p className="text-[10px] text-sf-text-muted mt-1">
-              {t('settings.connection.localOnlyHelp')}
-            </p>
-          </div>
-
-          <div className="flex items-center justify-between gap-2 rounded-lg border border-sf-dark-700 bg-sf-dark-900/60 px-3 py-3">
-            <div className="flex min-w-0 items-center gap-2">
-              <div className={`w-2.5 h-2.5 rounded-full ${
-                comfyConnectionState.status === 'success'
-                  ? 'bg-sf-success'
-                  : comfyConnectionState.status === 'error'
-                    ? 'bg-red-500'
-                    : comfyConnectionState.status === 'testing'
-                      ? 'bg-yellow-400 animate-pulse'
-                      : 'bg-sf-dark-500'
-              }`} />
-              <span className="text-xs text-sf-text-muted truncate">
-                {t(comfyConnectionState.messageKey, comfyConnectionState.values)}
-              </span>
-            </div>
-            <div className="flex items-center gap-1.5 flex-shrink-0">
-              <button
-                type="button"
-                onClick={() => { void handleResetComfyConnection() }}
-                className="px-3 py-1.5 bg-sf-dark-700 hover:bg-sf-dark-600 rounded text-xs text-sf-text-secondary transition-colors"
-              >
-                {t('settings.connection.reset')}
-              </button>
-              <button
-                type="button"
-                onClick={() => { void handleTestComfyConnection() }}
-                className="px-3 py-1.5 bg-sf-dark-700 hover:bg-sf-dark-600 rounded text-xs text-sf-text-secondary transition-colors"
-              >
-                {t('settings.connection.test')}
-              </button>
+        <section className="overflow-hidden rounded-xl border border-sf-dark-700 bg-sf-dark-900/35">
+          <div className="flex items-start gap-2.5 px-4 py-3.5">
+            <div className="rounded-md bg-sf-dark-800 p-2"><Server className="h-4 w-4 text-sf-accent" /></div>
+            <div>
+              <div className="text-sm font-medium text-sf-text-primary">{t('settings.connection.localGroupTitle')}</div>
+              <p className="mt-1 text-[11px] text-sf-text-muted">{t('settings.connection.localGroupHelp')}</p>
             </div>
           </div>
-
-          <div className="rounded-lg border border-sf-dark-700 bg-sf-dark-900/60 px-3 py-3">
-            <div className="flex items-start justify-between gap-3">
-              <div className="flex items-start gap-2.5">
-                <div className="rounded-md bg-sf-dark-800 p-2 flex-shrink-0">
-                  <KeyRound className="h-4 w-4 text-sf-accent" />
-                </div>
-                <div className="min-w-0">
-                  <div className="text-sm font-medium text-sf-text-primary">{t('settings.connection.cloudKeyTitle')}</div>
-                  <div className="mt-0.5 text-[11px] text-sf-text-muted">
-                    {t('settings.connection.cloudKeyHelp', { count: COMFY_PARTNER_WORKFLOWS.length })}
-                  </div>
-                  <div className="mt-1.5 text-[11px]">
-                    {comfyOrgApiKey ? (
-                      <span className="inline-flex items-center gap-1 text-green-400">
-                        <CheckCircle2 className="h-3 w-3" />
-                        {t('settings.connection.keyReady')}
-                      </span>
-                    ) : (
-                      <span className="text-yellow-300">{t('settings.connection.noKey')}</span>
-                    )}
-                  </div>
-                </div>
-              </div>
-              <div className="flex flex-col items-end gap-1.5 flex-shrink-0">
-                <button
-                  type="button"
-                  onClick={() => setApiKeyDialogOpen(true)}
-                  className="rounded bg-sf-accent px-3 py-1.5 text-xs font-medium text-white transition-colors hover:bg-sf-accent/90"
-                >
-                  {comfyOrgApiKey ? t('settings.connection.changeKey') : t('settings.connection.addKey')}
-                </button>
-                <button
-                  type="button"
-                  onClick={() => { void openComfyPartnerDashboard() }}
-                  className="inline-flex items-center gap-1 text-[11px] text-sf-text-muted hover:text-sf-text-primary"
-                >
-                  <ExternalLink className="h-3 w-3" />
-                  {t('settings.connection.getKey')}
-                </button>
-              </div>
-            </div>
-          </div>
-
-          <div className="flex items-center justify-between rounded-lg border border-sf-dark-700 bg-sf-dark-900/60 px-3 py-3">
-            <div className="pr-4">
-              <label className="text-sm text-sf-text-primary">{t('settings.connection.autoImport')}</label>
-              <p className="text-[10px] text-sf-text-muted">
-                {t('settings.connection.autoImportHelpBefore')} <span className="text-sf-text-secondary">Imported from ComfyUI/</span> {t('settings.connection.autoImportHelpAfter')}
-              </p>
-            </div>
-            <button
-              type="button"
-              role="switch"
-              aria-checked={autoImportComfyOutputs}
-              onClick={handleToggleAutoImportComfyOutputs}
-              className={`w-10 h-5 rounded-full transition-colors flex-shrink-0 relative ${autoImportComfyOutputs ? 'bg-sf-accent' : 'bg-sf-dark-600'}`}
-              title={autoImportComfyOutputs ? t('settings.connection.disableAutoImport') : t('settings.connection.enableAutoImport')}
-            >
-              <span
-                className={`absolute top-0.5 w-4 h-4 rounded-full bg-white shadow transition-all ${autoImportComfyOutputs ? 'left-[calc(100%-1.25rem)]' : 'left-0.5'}`}
-                aria-hidden
+          <div className="space-y-3 border-t border-sf-dark-700 px-4 py-4">
+            <div>
+              <label className="mb-1 block text-xs text-sf-text-muted">{t('settings.connection.localPort')}</label>
+              <input
+                type="number"
+                min={1}
+                max={65535}
+                step={1}
+                value={comfyPortInput}
+                onChange={(e) => setComfyPortInput(e.target.value)}
+                onBlur={() => { void handleSaveComfyConnection() }}
+                placeholder={String(DEFAULT_COMFY_PORT)}
+                className="w-full rounded border border-sf-dark-600 bg-sf-dark-800 px-3 py-2 text-sm text-sf-text-primary focus:border-sf-accent focus:outline-none"
               />
-            </button>
+              <p className="mt-1 text-[10px] text-sf-text-muted">{t('settings.connection.localOnlyHelp')}</p>
+            </div>
+            <div className="flex items-center justify-between gap-2 rounded-lg border border-sf-dark-700 bg-sf-dark-900/60 px-3 py-3">
+              <div className="flex min-w-0 items-center gap-2">
+                <div className={`h-2.5 w-2.5 rounded-full ${
+                  comfyConnectionState.status === 'success'
+                    ? 'bg-sf-success'
+                    : comfyConnectionState.status === 'error'
+                      ? 'bg-red-500'
+                      : comfyConnectionState.status === 'testing'
+                        ? 'animate-pulse bg-yellow-400'
+                        : 'bg-sf-dark-500'
+                }`} />
+                <span className="truncate text-xs text-sf-text-muted">
+                  {t(comfyConnectionState.messageKey, comfyConnectionState.values)}
+                </span>
+              </div>
+              <div className="flex flex-shrink-0 items-center gap-1.5">
+                <button type="button" onClick={() => { void handleResetComfyConnection() }} className="rounded bg-sf-dark-700 px-3 py-1.5 text-xs text-sf-text-secondary transition-colors hover:bg-sf-dark-600">
+                  {t('settings.connection.reset')}
+                </button>
+                <button type="button" onClick={() => { void handleTestComfyConnection() }} className="rounded bg-sf-dark-700 px-3 py-1.5 text-xs text-sf-text-secondary transition-colors hover:bg-sf-dark-600">
+                  {t('settings.connection.test')}
+                </button>
+              </div>
+            </div>
           </div>
+        </section>
+      )
+      // Compose provider credentials/routing into the same connection page.
+      // The legacy case label keeps old deep links harmless during migration.
+    case 'cloud-runtimes': {
+      const connectionContent = activeSectionContent
+      activeSectionContent = (
+        <div className="space-y-5">
+          {connectionContent}
+
+          <section className="overflow-hidden rounded-xl border border-sf-dark-700 bg-sf-dark-900/35">
+            <div className="flex items-start gap-2.5 px-4 py-3.5">
+              <div className="rounded-md bg-sf-dark-800 p-2"><Cloud className="h-4 w-4 text-sf-accent" /></div>
+              <div>
+                <div className="text-sm font-medium text-sf-text-primary">{t('settings.cloudRuntimes.title')}</div>
+                <p className="mt-1 text-[11px] text-sf-text-muted">{t('settings.cloudRuntimes.intro')}</p>
+              </div>
+            </div>
+
+            <div className="space-y-4 border-t border-sf-dark-700 px-4 py-4">
+              <div className="rounded-lg border border-sf-dark-700 bg-sf-dark-900/60 p-3">
+                <label className="mb-1 block text-xs font-medium text-sf-text-secondary">{t('settings.cloudRuntimes.importedWorkflowRuntime')}</label>
+                <select
+                  value={cloudRuntimeSettings.routing?.importedApiWorkflows || LOCAL_COMFY_RUNTIME_ID}
+                  onChange={(event) => { void handleCloudRuntimeRouting(event.target.value) }}
+                  className="w-full rounded border border-sf-dark-600 bg-sf-dark-800 px-3 py-2 text-sm text-sf-text-primary focus:border-sf-accent focus:outline-none"
+                >
+                  <option value={LOCAL_COMFY_RUNTIME_ID}>{t('settings.cloudRuntimes.localComfy')}</option>
+                  {cloudRuntimeSettings.providers.map((provider) => (
+                    <option key={provider.id} value={provider.id} disabled={!provider.hasCredential}>{provider.name}</option>
+                  ))}
+                </select>
+                <p className="mt-1 text-[10px] text-sf-text-muted">{t('settings.cloudRuntimes.routingHelp')}</p>
+              </div>
+
+              <div>
+                <div className="mb-2 text-[10px] font-semibold uppercase tracking-wide text-sf-text-muted">{t('settings.cloudRuntimes.credentialsTitle')}</div>
+                <div className="rounded-lg border border-sf-dark-700 bg-sf-dark-900/60 px-3 py-3">
+                  <div className="flex items-start justify-between gap-3">
+                    <div className="flex items-start gap-2.5">
+                      <div className="flex-shrink-0 rounded-md bg-sf-dark-800 p-2">
+                        <KeyRound className="h-4 w-4 text-sf-accent" />
+                      </div>
+                      <div className="min-w-0">
+                        <div className="text-sm font-medium text-sf-text-primary">{t('settings.connection.cloudKeyTitle')}</div>
+                        <div className="mt-0.5 text-[11px] text-sf-text-muted">
+                          {t('settings.connection.cloudKeyHelp', { count: COMFY_PARTNER_WORKFLOWS.length })}
+                        </div>
+                        <div className="mt-1.5 text-[11px]">
+                          {comfyOrgApiKey ? (
+                            <span className="inline-flex items-center gap-1 text-green-400">
+                              <CheckCircle2 className="h-3 w-3" />
+                              {t('settings.connection.keyReady')}
+                            </span>
+                          ) : (
+                            <span className="text-yellow-300">{t('settings.connection.noKey')}</span>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                    <div className="flex flex-shrink-0 flex-col items-end gap-1.5">
+                      <button type="button" onClick={() => setApiKeyDialogOpen(true)} className="rounded bg-sf-accent px-3 py-1.5 text-xs font-medium text-white transition-colors hover:bg-sf-accent/90">
+                        {comfyOrgApiKey ? t('settings.connection.changeKey') : t('settings.connection.addKey')}
+                      </button>
+                      <button type="button" onClick={() => { void openComfyPartnerDashboard() }} className="inline-flex items-center gap-1 text-[11px] text-sf-text-muted hover:text-sf-text-primary">
+                        <ExternalLink className="h-3 w-3" />
+                        {t('settings.connection.getKey')}
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {cloudRuntimeSettings.providers.map((provider) => {
+            const providerBusy = cloudRuntimeStatus.providerId === provider.id && cloudRuntimeStatus.status === 'busy'
+            return (
+              <div key={provider.id} className="space-y-3 rounded-lg border border-sf-dark-700 bg-sf-dark-900/60 p-3">
+                <div className="flex items-start justify-between gap-3">
+                  <div>
+                    <div className="text-sm font-medium text-sf-text-primary">{provider.name}</div>
+                    <p className="mt-1 text-[11px] text-sf-text-muted">{t(`settings.cloudRuntimes.providers.${provider.id}.description`, undefined, provider.description)}</p>
+                  </div>
+                  <span className={`text-[10px] ${provider.hasCredential ? 'text-green-400' : 'text-yellow-300'}`}>
+                    {provider.credentialFromEnvironment
+                      ? t('settings.cloudRuntimes.environmentCredential', { key: provider.environmentKey })
+                      : provider.hasCredential ? t('settings.cloudRuntimes.credentialReady') : t('settings.cloudRuntimes.noCredential')}
+                  </span>
+                </div>
+                <div className="flex gap-2">
+                  <input
+                    type="password"
+                    value={cloudCredentialInputs[provider.id] || ''}
+                    onChange={(event) => setCloudCredentialInputs((current) => ({ ...current, [provider.id]: event.target.value }))}
+                    placeholder={provider.hasCredential ? t('settings.cloudRuntimes.credentialSaved') : t('settings.cloudRuntimes.credentialPlaceholder', { provider: provider.name })}
+                    disabled={provider.credentialFromEnvironment}
+                    className="min-w-0 flex-1 rounded border border-sf-dark-600 bg-sf-dark-800 px-3 py-2 text-sm text-sf-text-primary placeholder-sf-text-muted focus:border-sf-accent focus:outline-none disabled:opacity-60"
+                  />
+                  <button type="button" onClick={() => { void handleSaveCloudCredential(provider.id) }} disabled={!String(cloudCredentialInputs[provider.id] || '').trim() || provider.credentialFromEnvironment || providerBusy} className="rounded bg-sf-accent px-3 py-2 text-xs font-medium text-white disabled:opacity-50">
+                    {t('settings.cloudRuntimes.save')}
+                  </button>
+                </div>
+                <div className="flex items-center justify-between gap-3">
+                  <div className="flex gap-3 text-[11px]">
+                    <a href={provider.dashboardUrl} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1 text-sf-accent hover:underline"><ExternalLink className="h-3 w-3" />{t('settings.cloudRuntimes.dashboard')}</a>
+                    <a href={provider.docsUrl} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1 text-sf-text-muted hover:text-sf-text-primary"><ExternalLink className="h-3 w-3" />{t('settings.cloudRuntimes.docs')}</a>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    {provider.hasCredential && !provider.credentialFromEnvironment && <button type="button" onClick={() => { void handleRemoveCloudCredential(provider.id) }} className="text-[11px] text-sf-text-muted hover:text-red-300">{t('settings.cloudRuntimes.remove')}</button>}
+                    <button type="button" onClick={() => { void handleTestCloudRuntime(provider.id) }} disabled={!provider.hasCredential || providerBusy} className="rounded bg-sf-dark-700 px-3 py-1.5 text-xs text-sf-text-secondary hover:bg-sf-dark-600 disabled:opacity-50">
+                      {providerBusy ? t('settings.cloudRuntimes.checking') : t('settings.cloudRuntimes.test')}
+                    </button>
+                  </div>
+                </div>
+                {cloudRuntimeStatus.providerId === provider.id && cloudRuntimeStatus.message && (
+                  <div className={`rounded border px-3 py-2 text-xs ${cloudRuntimeStatus.status === 'error' ? 'border-red-800/60 bg-red-950/30 text-red-300' : cloudRuntimeStatus.status === 'success' ? 'border-green-800/60 bg-green-950/30 text-green-300' : 'border-sf-dark-700 text-sf-text-muted'}`}>
+                    {cloudRuntimeStatus.message}
+                  </div>
+                )}
+              </div>
+            )
+              })}
+
+              <div className="flex items-center justify-between rounded-lg border border-sf-dark-700 bg-sf-dark-900/60 px-3 py-3">
+                <div className="pr-4">
+                  <label className="text-sm text-sf-text-primary">{t('settings.cloudRuntimes.showBalance')}</label>
+                  <p className="text-[10px] text-sf-text-muted">{t('settings.cloudRuntimes.showBalanceHelp')}</p>
+                </div>
+                <button
+                  type="button"
+                  role="switch"
+                  aria-checked={showCloudCreditBalance}
+                  onClick={handleToggleCloudCreditBalance}
+                  className={`relative h-5 w-10 flex-shrink-0 rounded-full transition-colors ${showCloudCreditBalance ? 'bg-sf-accent' : 'bg-sf-dark-600'}`}
+                  title={showCloudCreditBalance ? t('settings.cloudRuntimes.hideBalance') : t('settings.cloudRuntimes.showBalance')}
+                >
+                  <span className={`absolute top-0.5 h-4 w-4 rounded-full bg-white shadow transition-all ${showCloudCreditBalance ? 'left-[calc(100%-1.25rem)]' : 'left-0.5'}`} aria-hidden />
+                </button>
+              </div>
+              <p className="text-[10px] text-amber-300/80">{t('settings.cloudRuntimes.costNotice')}</p>
+            </div>
+          </section>
+
+          <section className="overflow-hidden rounded-xl border border-sf-dark-700 bg-sf-dark-900/35">
+            <div className="flex items-start gap-2.5 px-4 py-3.5">
+              <div className="rounded-md bg-sf-dark-800 p-2"><FolderOpen className="h-4 w-4 text-sf-accent" /></div>
+              <div>
+                <div className="text-sm font-medium text-sf-text-primary">{t('settings.connection.importGroupTitle')}</div>
+                <p className="mt-1 text-[11px] text-sf-text-muted">{t('settings.connection.importGroupHelp')}</p>
+              </div>
+            </div>
+            <div className="border-t border-sf-dark-700 px-4 py-4">
+              <div className="flex items-center justify-between rounded-lg border border-sf-dark-700 bg-sf-dark-900/60 px-3 py-3">
+                <div className="pr-4">
+                  <label className="text-sm text-sf-text-primary">{t('settings.connection.autoImport')}</label>
+                  <p className="text-[10px] text-sf-text-muted">
+                    {t('settings.connection.autoImportHelpBefore')} <span className="text-sf-text-secondary">Imported from ComfyUI/</span> {t('settings.connection.autoImportHelpAfter')}
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  role="switch"
+                  aria-checked={autoImportComfyOutputs}
+                  onClick={handleToggleAutoImportComfyOutputs}
+                  className={`relative h-5 w-10 flex-shrink-0 rounded-full transition-colors ${autoImportComfyOutputs ? 'bg-sf-accent' : 'bg-sf-dark-600'}`}
+                  title={autoImportComfyOutputs ? t('settings.connection.disableAutoImport') : t('settings.connection.enableAutoImport')}
+                >
+                  <span className={`absolute top-0.5 h-4 w-4 rounded-full bg-white shadow transition-all ${autoImportComfyOutputs ? 'left-[calc(100%-1.25rem)]' : 'left-0.5'}`} aria-hidden />
+                </button>
+              </div>
+            </div>
+          </section>
         </div>
       )
       break
+    }
     case 'agents': {
       const mcpUrl = mcpStatus?.url || 'http://127.0.0.1:19790/mcp'
       const codexCommand = `codex mcp add velorn --url ${mcpUrl}`
@@ -1276,20 +1477,77 @@ function GeneralTab({ initialSection = null }) {
             </div>
           </div>
 
+          <div
+            id="settings-lora-factories"
+            className={`rounded-lg border bg-sf-dark-900/60 px-3 py-3 transition-shadow ${
+              initialFocusTarget === 'lora-factories'
+                ? 'border-sf-accent/70 shadow-[0_0_0_2px_rgba(124,92,255,0.2)]'
+                : 'border-sf-dark-700'
+            }`}
+          >
+            <div className="text-sm font-medium text-sf-text-primary">{t('settings.paths.loraFactories')}</div>
+            <p className="mt-1 text-[10px] text-sf-text-muted">{t('settings.paths.loraFactoriesHelp')}</p>
+            {[
+              {
+                type: 'anima',
+                label: t('settings.paths.animaFactory'),
+                value: animaLoraFactoryRootPath,
+                setValue: setAnimaLoraFactoryRootPath,
+              },
+              {
+                type: 'sdxl',
+                label: t('settings.paths.sdxlFactory'),
+                value: sdxlLoraFactoryRootPath,
+                setValue: setSdxlLoraFactoryRootPath,
+              },
+            ].map((factory) => {
+              const status = loraFactoryPathStatus[factory.type]
+              return (
+                <div key={factory.type} className="mt-3">
+                  <label className="mb-1 block text-xs text-sf-text-muted">{factory.label}</label>
+                  <div className="flex gap-2">
+                    <input
+                      type="text"
+                      value={factory.value}
+                      onChange={(event) => {
+                        factory.setValue(event.target.value)
+                        setLoraFactoryPathStatus((previous) => ({ ...previous, [factory.type]: null }))
+                      }}
+                      placeholder={window.electronAPI?.platform === 'win32' ? 'C:\\path\\to\\LoRA-Factory' : '/path/to/LoRA-Factory'}
+                      className="min-w-0 flex-1 truncate rounded border border-sf-dark-600 bg-sf-dark-800 px-3 py-2 text-xs text-sf-text-primary focus:border-sf-accent focus:outline-none"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => { void handleChooseLoraFactoryRoot(factory.type) }}
+                      className="flex-shrink-0 rounded bg-sf-dark-700 px-3 py-2 text-xs text-sf-text-secondary transition-colors hover:bg-sf-dark-600"
+                    >
+                      {t('settings.paths.browse')}
+                    </button>
+                  </div>
+                  {factory.value && status && (
+                    <p className={`mt-1.5 text-[10px] ${status.isValid ? 'text-green-300' : 'text-red-300'}`}>
+                      {status.isValid ? t('settings.paths.factoryValid') : (status.error || t('settings.paths.factoryInvalid'))}
+                    </p>
+                  )}
+                </div>
+              )
+            })}
+          </div>
+
           <div className="rounded-lg border border-sf-dark-700 bg-sf-dark-900/60 px-3 py-3">
             <div className="flex items-start justify-between gap-3">
               <div>
-                <div className="text-sm font-medium text-sf-text-primary">Hardware export FFmpeg</div>
+                <div className="text-sm font-medium text-sf-text-primary">{t('settings.paths.hardwareFfmpeg.title')}</div>
                 <p className="mt-1 text-[10px] text-sf-text-muted">
-                  Advanced: choose an FFmpeg build with NVENC on Linux. It is used only for final H.264/H.265 hardware video encoding; Velorn keeps its bundled FFmpeg for media tools and as the safe CPU fallback.
+                  {t('settings.paths.hardwareFfmpeg.help')}
                 </p>
               </div>
               <span className="flex-shrink-0 rounded border border-sf-dark-600 bg-sf-dark-800 px-2 py-1 text-[10px] text-sf-text-secondary">
                 {hardwareExportFfmpegStatus?.source === 'environment'
-                  ? 'Environment'
+                  ? t('settings.paths.hardwareFfmpeg.sourceEnvironment')
                   : hardwareExportFfmpegStatus?.source === 'setting'
-                    ? 'Custom'
-                    : 'Bundled'}
+                    ? t('settings.paths.hardwareFfmpeg.sourceCustom')
+                    : t('settings.paths.hardwareFfmpeg.sourceBundled')}
               </span>
             </div>
 
@@ -1312,7 +1570,7 @@ function GeneralTab({ initialSection = null }) {
                 disabled={Boolean(hardwareExportFfmpegBusy)}
                 className="px-3 py-2 bg-sf-dark-700 hover:bg-sf-dark-600 rounded text-xs text-sf-text-secondary transition-colors flex-shrink-0 disabled:cursor-wait disabled:opacity-50"
               >
-                Browse
+                {t('settings.paths.browse')}
               </button>
             </div>
 
@@ -1323,7 +1581,7 @@ function GeneralTab({ initialSection = null }) {
                 disabled={Boolean(hardwareExportFfmpegBusy) || !hardwareExportFfmpegPath.trim()}
                 className="rounded bg-sf-accent px-3 py-1.5 text-xs font-medium text-white transition-colors hover:bg-sf-accent/90 disabled:cursor-not-allowed disabled:opacity-50"
               >
-                {hardwareExportFfmpegBusy === 'saving' ? 'Validating...' : 'Save path'}
+                {hardwareExportFfmpegBusy === 'saving' ? t('settings.paths.hardwareFfmpeg.validating') : t('settings.paths.hardwareFfmpeg.savePath')}
               </button>
               <button
                 type="button"
@@ -1332,7 +1590,7 @@ function GeneralTab({ initialSection = null }) {
                 className="inline-flex items-center gap-1 rounded bg-sf-dark-700 px-3 py-1.5 text-xs text-sf-text-secondary transition-colors hover:bg-sf-dark-600 disabled:cursor-wait disabled:opacity-50"
               >
                 <RefreshCcw className={`h-3 w-3 ${hardwareExportFfmpegBusy === 'testing' ? 'animate-spin' : ''}`} />
-                Test active FFmpeg
+                {t('settings.paths.hardwareFfmpeg.testActive')}
               </button>
               <button
                 type="button"
@@ -1340,14 +1598,16 @@ function GeneralTab({ initialSection = null }) {
                 disabled={Boolean(hardwareExportFfmpegBusy) || (!hardwareExportFfmpegPath && hardwareExportFfmpegStatus?.source !== 'setting')}
                 className="rounded bg-sf-dark-700 px-3 py-1.5 text-xs text-sf-text-secondary transition-colors hover:bg-sf-dark-600 disabled:cursor-not-allowed disabled:opacity-50"
               >
-                {hardwareExportFfmpegStatus?.source === 'environment' ? 'Clear saved path' : 'Use bundled FFmpeg'}
+                {hardwareExportFfmpegStatus?.source === 'environment'
+                  ? t('settings.paths.hardwareFfmpeg.clearSavedPath')
+                  : t('settings.paths.hardwareFfmpeg.useBundled')}
               </button>
             </div>
 
             {hardwareExportFfmpegStatus?.activePath && (
               <div className="mt-3 rounded border border-sf-dark-700 bg-black/20 px-2.5 py-2 text-[10px] text-sf-text-muted">
                 <div className="flex gap-1">
-                  <span className="flex-shrink-0 uppercase tracking-wider">Active:</span>
+                  <span className="flex-shrink-0 uppercase tracking-wider">{t('settings.paths.hardwareFfmpeg.active')}:</span>
                   <code className="min-w-0 break-all text-sf-text-secondary">{hardwareExportFfmpegStatus.activePath}</code>
                 </div>
                 {hardwareExportFfmpegStatus.version && (
@@ -1358,7 +1618,7 @@ function GeneralTab({ initialSection = null }) {
 
             {hardwareExportFfmpegStatus?.environmentPath && (
               <p className="mt-2 text-[10px] text-yellow-300">
-                VELORN_FFMPEG_PATH is active and takes priority over the saved path until Velorn is restarted without it.
+                {t('settings.paths.hardwareFfmpeg.environmentPriority')}
               </p>
             )}
             {hardwareExportFfmpegStatus?.warning && (
@@ -1384,7 +1644,7 @@ function GeneralTab({ initialSection = null }) {
       )
       break
     case 'workflow-setup':
-      activeSectionContent = <WorkflowSetupSection />
+      activeSectionContent = <WorkflowSetupSection focusWorkflowIds={workflowSetupFocusIds} />
       break
     case 'launcher':
       activeSectionContent = <ComfyLauncherSettingsSection onOpenLogViewer={() => setLogViewerOpen(true)} />
@@ -1795,7 +2055,7 @@ function GeneralTab({ initialSection = null }) {
   )
 }
 
-export default function SettingsModal({ isOpen, onClose, initialSection = null }) {
+export default function SettingsModal({ isOpen, onClose, initialSection = null, initialFocusTarget = '', workflowSetupFocusIds = [] }) {
   const { t } = useI18n()
   if (!isOpen) return null
 
@@ -1820,7 +2080,11 @@ export default function SettingsModal({ isOpen, onClose, initialSection = null }
         </div>
 
         <div className="flex-1 min-h-0">
-          <GeneralTab initialSection={initialSection} />
+          <GeneralTab
+            initialSection={initialSection}
+            initialFocusTarget={initialFocusTarget}
+            workflowSetupFocusIds={workflowSetupFocusIds}
+          />
         </div>
       </div>
     </div>

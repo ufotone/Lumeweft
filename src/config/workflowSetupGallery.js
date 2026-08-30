@@ -5,7 +5,12 @@
 import { ALL_WORKFLOWS, getBundledWorkflowPath } from './workflowRegistry'
 import { TOPAZ_VIDEO_UPSCALE_WORKFLOW_ID } from './topazVideoUpscaleConfig'
 import { MUSIC_VIDEO_SHOT_WORKFLOW_ID, VOCAL_EXTRACT_WORKFLOW_ID } from './musicVideoShotConfig'
-import { ELEVENLABS_TTS_WORKFLOW_ID, IRODORI_TTS_WORKFLOW_ID } from './shortFilmConfig'
+import {
+  ELEVENLABS_TTS_WORKFLOW_ID,
+  IRODORI_TTS_WORKFLOW_ID,
+  IRODORI_VOICE_CLONE_WORKFLOW_ID,
+} from './shortFilmConfig'
+import { UGC_EXACT_LIPSYNC_WORKFLOW_ID } from './generateWorkspaceConfig'
 
 function coverPath(filename) {
   return getBundledWorkflowPath(`setup-covers/${filename}`)
@@ -34,8 +39,13 @@ const VISUAL_BY_WORKFLOW_ID = {
   'wan22-i2v': {
     gradient: 'from-violet-500/35 via-indigo-900/30 to-sf-dark-950',
     icon: 'film',
-    extraBadges: ['I2V'],
+    extraBadges: ['I2V', 'GGUF', 'Q4_K_M', 'Lightning'],
     thumbnailSrc: coverPath('wan22-i2v.webp'),
+  },
+  'wan22-t2v': {
+    gradient: 'from-violet-500/35 via-fuchsia-900/25 to-sf-dark-950',
+    icon: 'film',
+    extraBadges: ['T2V', 'GGUF', 'Q4_K_M', 'Lightning'],
   },
   'ltx23-i2v': {
     gradient: 'from-sky-500/30 via-blue-900/25 to-sf-dark-950',
@@ -71,10 +81,21 @@ const VISUAL_BY_WORKFLOW_ID = {
     icon: 'music',
     extraBadges: ['I2V', 'Lip-sync', 'Director Mode'],
   },
+  [UGC_EXACT_LIPSYNC_WORKFLOW_ID]: {
+    gradient: 'from-rose-500/30 via-fuchsia-900/25 to-sf-dark-950',
+    icon: 'film',
+    extraBadges: ['I2V', 'Exact audio', 'Lip-sync'],
+    thumbnailSrc: coverPath('ltx23-i2v.webp'),
+  },
   [IRODORI_TTS_WORKFLOW_ID]: {
     gradient: 'from-fuchsia-500/25 via-rose-900/25 to-sf-dark-950',
     icon: 'audio',
     extraBadges: ['TTS', 'Local'],
+  },
+  [IRODORI_VOICE_CLONE_WORKFLOW_ID]: {
+    gradient: 'from-violet-500/25 via-fuchsia-900/25 to-sf-dark-950',
+    icon: 'audio',
+    extraBadges: ['Voice Clone', 'Reference audio', 'Local'],
   },
   [VOCAL_EXTRACT_WORKFLOW_ID]: {
     gradient: 'from-teal-500/25 via-cyan-900/25 to-sf-dark-950',
@@ -89,31 +110,31 @@ const VISUAL_BY_WORKFLOW_ID = {
   'multi-angles': {
     gradient: 'from-fuchsia-500/25 via-purple-900/25 to-sf-dark-950',
     icon: 'users',
-    extraBadges: ['Multi-shot'],
+    extraBadges: ['Qwen 2511', 'GGUF', 'Multi-shot'],
     thumbnailSrc: coverPath('multi-angles.webp'),
   },
   'multi-angles-scene': {
     gradient: 'from-rose-500/25 via-pink-900/20 to-sf-dark-950',
     icon: 'layers',
-    extraBadges: ['Multi-shot'],
+    extraBadges: ['Qwen 2511', 'GGUF', 'Multi-shot'],
     thumbnailSrc: coverPath('multi-angles-scene.webp'),
   },
   'image-edit': {
     gradient: 'from-emerald-500/25 via-green-900/20 to-sf-dark-950',
     icon: 'image',
-    extraBadges: ['Edit'],
+    extraBadges: ['Qwen 2509', 'GGUF', 'Lightning'],
     thumbnailSrc: coverPath('image-edit.webp'),
   },
   'image-edit-model-product': {
     gradient: 'from-emerald-500/25 via-green-900/20 to-sf-dark-950',
     icon: 'image',
-    extraBadges: ['Edit', 'Model+Product'],
+    extraBadges: ['Qwen 2509', 'GGUF', 'Lightning', 'Model+Product'],
     thumbnailSrc: coverPath('image-edit.webp'),
   },
   'z-image-turbo': {
     gradient: 'from-lime-500/20 via-emerald-900/25 to-sf-dark-950',
     icon: 'sparkles',
-    extraBadges: ['T2I'],
+    extraBadges: ['T2I', 'GGUF', 'Q4_K_M'],
     thumbnailSrc: coverPath('z-image-turbo.webp'),
   },
   'nano-banana-2': {
@@ -164,8 +185,10 @@ const VISUAL_BY_WORKFLOW_ID = {
  * get a clear "what does this do / when do I use it" brief.
  */
 const LONG_DESCRIPTIONS = {
-  'wan22-i2v': 'Runs locally with the WAN 2.2 14B image-to-video model. Give it a still frame and a short prompt and it produces a short animated clip. Best overall quality of the local image-to-video options, but it is the heaviest download.',
+  'wan22-i2v': 'Runs locally with the WAN 2.2 14B image-to-video High/Low Noise experts in memory-efficient Q4_K_M GGUF form. Give it a still frame and a short prompt to produce an animated clip. The existing 4-step Lightning LoRAs remain enabled; GGUF offloading makes the workflow practical on lower-VRAM machines, though it is still a large download.',
+  'wan22-t2v': 'Runs WAN 2.2 14B text-to-video locally with Q4_K_M GGUF High/Low Noise experts and the existing 4-step Lightning LoRAs. Designed for memory-aware local execution with ComfyUI-GGUF offloading.',
   'ltx23-i2v': 'Fast local image-to-video using LTX 2.3. Good for quick iterations and lighter GPUs. Lower fidelity than WAN 2.2 but much faster to generate, and it keeps everything on your machine.',
+  [UGC_EXACT_LIPSYNC_WORKFLOW_ID]: 'Recommended local UGC dialogue route. LTX 2.3 generates the motion frames, then LatentSync 1.6 corrects the mouth to the finished Irodori-TTS or ElevenLabs clip and keeps that exact waveform in the output. The setup check can install the LatentSync custom node; its checkpoints download on first use.',
   'kling-o3-i2v': 'Cloud image-to-video using the Kling 3.0 Omni model via the Comfy Partner API. Premium quality motion and coherence, especially for people and characters. Requires a Comfy Partner API key and credits.',
   'grok-video-i2v': 'Cloud image-to-video powered by xAI Grok Imagine Video (Beta). Strong at stylised and cinematic shots. Requires a Grok / Comfy Partner API key.',
   'vidu-q2-i2v': 'Cloud image-to-video with Vidu Q2 Pro Fast. Tuned for quick turnaround and consistent character motion. Requires a Comfy Partner API key.',
@@ -173,11 +196,11 @@ const LONG_DESCRIPTIONS = {
   [MUSIC_VIDEO_SHOT_WORKFLOW_ID]: 'Per-shot music video generator built on LTX 2.3 22B. Takes a reference still and an audio segment and produces a lip-synced shot. Used by Director Mode to render an entire music video one shot at a time. Heavy local workflow — needs a 24GB+ GPU and the LTX 2.3 model stack.',
   [VOCAL_EXTRACT_WORKFLOW_ID]: 'One-time preprocessing workflow that isolates vocals from a mixed song using Mel-Band RoFormer. Runs once when you import a song into a music-video project, so every shot afterward can be conditioned on clean vocals without re-running separation each time.',
   'caption-qwen-asr': 'Local caption and timed-lyrics transcription using Qwen ASR through TTS-Audio-Suite. Used by the timeline caption tool and by Music Video\'s "Transcribe to SRT" button to generate timestamped lyrics before building the director script.',
-  'multi-angles': 'One-click character turnaround. Give it one character image and it generates 8 matching camera angles so you can build consistent shot sheets or look-dev reference sets.',
-  'multi-angles-scene': 'Same idea as the character turnaround, but for environments and scenes. Produces 8 camera angles of a single scene image for coverage, storyboards, or establishing shots.',
-  'image-edit': 'Local image editing with Qwen Image Edit 2509. Paint a mask (or describe the change) and apply targeted text-prompted edits to a still image while keeping the rest intact.',
-  'image-edit-model-product': 'Specialised Qwen Image Edit graph for putting a product onto a model, or swapping a model/product while keeping the other element anchored. Great for e-commerce mockups.',
-  'z-image-turbo': 'Local text-to-image using Z Image Turbo. Extremely fast single-image generation — a good default for quick ideation and for producing reference frames to feed into the image-to-video workflows.',
+  'multi-angles': 'Qwen Image Edit 2511 character turnaround using the 2511 Multiple Angles LoRA and a memory-efficient GGUF model. Give it one character image and it generates 8 controlled camera views for shot sheets or look-dev reference sets.',
+  'multi-angles-scene': 'Qwen Image Edit 2511 scene turnaround using the 2511 Multiple Angles LoRA and a memory-efficient GGUF model. Produces 8 controlled views of one environment for coverage, storyboards, or establishing shots.',
+  'image-edit': 'Local image editing with Qwen Image Edit 2509 in memory-efficient Q4_K_M GGUF form, accelerated by the 4-step Lightning LoRA. Paint a mask (or describe the change) and apply targeted text-prompted edits while keeping the rest intact.',
+  'image-edit-model-product': 'Specialised Qwen Image Edit 2509 GGUF graph with 4-step Lightning acceleration for putting a product onto a model, or swapping a model/product while keeping the other element anchored.',
+  'z-image-turbo': 'Local text-to-image using Q4_K_M GGUF versions of Z Image Turbo and its Qwen 3 4B encoder. It keeps the fast preset behaviour while reducing model memory pressure, making it a good default for quick ideation and reference frames.',
   'nano-banana-2': 'Cloud image generation and reference editing using Google Nano Banana 2 via the Comfy Partner API. Music Video uses it for cloud keyframes when you want stronger reference-image and identity consistency. Requires an API key and credits.',
   'grok-text-to-image': 'Cloud text-to-image using xAI Grok Imagine (Beta). Strong stylistic range and text rendering. Requires a Grok / Comfy Partner API key.',
   'seedream-5-lite-image-edit': 'Cloud image edit using ByteDance Seedream 5.0 Lite. Lower cost per generation and a good fit for batch edits. Requires a Comfy Partner API key.',

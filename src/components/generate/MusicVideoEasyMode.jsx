@@ -2854,7 +2854,7 @@ export default function MusicVideoEasyMode({
           <div>
             <FieldLabel>{t('generate.director.music.fields.castReferences', {}, 'Cast References')}</FieldLabel>
             <div className="mt-1 text-sm font-semibold text-sf-text-primary">
-              {plural(yoloMusicResolvedCast.length, 'resolved person', 'resolved people')}
+              {t('generate.director.music.people.resolvedCount', { count: yoloMusicResolvedCast.length }, `${yoloMusicResolvedCast.length} resolved people`)}
             </div>
           </div>
           <div className="flex flex-wrap items-center gap-2">
@@ -2863,10 +2863,12 @@ export default function MusicVideoEasyMode({
               onClick={handleImportCastReferenceImage}
               disabled={!handleImportYoloMusicCastImage || yoloMusicCastImageImporting}
               className="inline-flex items-center justify-center gap-2 rounded-lg border border-sf-dark-600 bg-sf-dark-950 px-3 py-2 text-xs font-semibold text-sf-text-secondary transition-colors hover:border-sf-dark-500 hover:text-sf-text-primary disabled:cursor-not-allowed disabled:opacity-50"
-              title="Import an existing portrait, character sheet, or reference image into the cast."
+              title={t('generate.director.music.people.importHelp', {}, 'Import an existing portrait, character sheet, or reference image into the cast.')}
             >
               {yoloMusicCastImageImporting ? <Loader2 className="h-4 w-4 animate-spin" /> : <Upload className="h-4 w-4" />}
-              {yoloMusicCastImageImporting ? 'Importing' : 'Import Image'}
+              {yoloMusicCastImageImporting
+                ? t('generate.director.music.people.importing', {}, 'Importing')
+                : t('generate.director.music.people.importImage', {}, 'Import Image')}
             </button>
             <button
               type="button"
@@ -2874,7 +2876,7 @@ export default function MusicVideoEasyMode({
               className="inline-flex items-center justify-center gap-2 rounded-lg bg-sf-accent px-3 py-2 text-xs font-semibold text-white transition-colors hover:bg-sf-accent/90"
             >
               <UserPlus className="h-4 w-4" />
-              Create Person
+              {t('generate.director.music.people.createPerson', {}, 'Create Person')}
             </button>
           </div>
         </div>
@@ -2887,7 +2889,7 @@ export default function MusicVideoEasyMode({
           )}
           {(yoloMusicCast || []).length === 0 && (
             <div className="rounded-lg border border-dashed border-sf-dark-600 px-3 py-6 text-center text-xs text-sf-text-muted">
-              Import an existing image or create a person if the video has lip-sync performance shots.
+              {t('generate.director.music.people.empty', {}, 'Import an existing image or create a person if the video has lip-sync performance shots.')}
             </div>
           )}
           {(yoloMusicCast || []).map((entry, index) => {
@@ -2895,7 +2897,7 @@ export default function MusicVideoEasyMode({
             return (
               <div key={entry.id || index} className="grid gap-2 rounded-lg border border-sf-dark-700 bg-sf-dark-950/50 p-3 lg:grid-cols-[1fr_1fr_1fr_auto_auto]">
                 <div>
-                  <FieldLabel>Name</FieldLabel>
+                  <FieldLabel>{t('generate.director.music.people.name', {}, 'Name')}</FieldLabel>
                   <input
                     type="text"
                     value={entry?.label || ''}
@@ -2905,7 +2907,7 @@ export default function MusicVideoEasyMode({
                   />
                 </div>
                 <div>
-                  <FieldLabel>Script Slug</FieldLabel>
+                  <FieldLabel>{t('generate.director.music.people.scriptSlug', {}, 'Script Slug')}</FieldLabel>
                   <input
                     type="text"
                     value={entry?.slug || ''}
@@ -2915,9 +2917,9 @@ export default function MusicVideoEasyMode({
                   />
                 </div>
                 <div>
-                  <FieldLabel>Reference</FieldLabel>
+                  <FieldLabel>{t('generate.director.music.people.reference', {}, 'Reference')}</FieldLabel>
                   <div className="mt-1 rounded-lg border border-sf-dark-600 bg-sf-dark-950 px-3 py-2 text-xs text-sf-text-primary">
-                    {entryAsset?.name || 'No reference image'}
+                    {entryAsset?.name || t('generate.director.music.people.noReference', {}, 'No reference image')}
                   </div>
                 </div>
                 <div className="flex items-end gap-2">
@@ -2936,7 +2938,7 @@ export default function MusicVideoEasyMode({
                     type="button"
                     onClick={() => handleOpenPeopleWizard(entry)}
                     className="rounded-lg border border-sf-dark-600 px-3 py-2 text-xs text-sf-text-muted transition-colors hover:border-sf-dark-500 hover:text-sf-text-primary"
-                    title="Edit person"
+                    title={t('generate.director.music.people.editPerson', {}, 'Edit person')}
                   >
                     <Edit3 className="h-3.5 w-3.5" />
                   </button>
@@ -2945,16 +2947,16 @@ export default function MusicVideoEasyMode({
                     onClick={() => handleYoloMusicCastRemove(entry.id)}
                     className="rounded-lg border border-sf-dark-600 px-3 py-2 text-xs text-sf-text-muted transition-colors hover:border-red-400/60 hover:text-red-200"
                   >
-                    Remove
+                    {t('generate.director.music.people.remove', {}, 'Remove')}
                   </button>
                 </div>
                 <div className="lg:col-span-5">
-                  <FieldLabel>Notes for Director Script</FieldLabel>
+                  <FieldLabel>{t('generate.director.music.people.directorNotes', {}, 'Notes for Director Script')}</FieldLabel>
                   <input
                     type="text"
                     value={entry?.notes || ''}
                     onChange={(event) => handleYoloMusicCastNotesChange?.(entry.id, event.target.value)}
-                    placeholder="Optional: female voice, harsh vocal, guitarist, never sings"
+                    placeholder={t('generate.director.music.people.directorNotesPlaceholder', {}, 'Optional: female voice, harsh vocal, guitarist, never sings')}
                     className="mt-1 w-full rounded-lg border border-sf-dark-600 bg-sf-dark-950 px-3 py-2 text-xs text-sf-text-primary outline-none focus:border-sf-accent"
                   />
                 </div>
@@ -2978,15 +2980,15 @@ export default function MusicVideoEasyMode({
           <div>
             <FieldLabel>{t('generate.director.music.fields.coveragePlan', {}, 'Coverage Plan')}</FieldLabel>
             <div className="mt-1 text-sm font-semibold text-sf-text-primary">
-              {plural(coveragePlan.sections.length, 'section')}: {coverageSummary}
+              {t('generate.director.music.script.sectionCount', { count: coveragePlan.sections.length }, `${coveragePlan.sections.length} sections`)}: {coverageSummary}
             </div>
             <p className="mt-1 max-w-3xl text-xs leading-5 text-sf-text-secondary">
-              The LLM brief will return one combined director script with labeled coverage sections. B-roll sections are guided to share one start-middle-end story, with environment and detail shots supporting the same arc.
+              {t('generate.director.music.script.coverageHelp', {}, 'The LLM brief will return one combined director script with labeled coverage sections. B-roll sections are guided to share one start-middle-end story, with environment and detail shots supporting the same arc.')}
             </p>
           </div>
           {coveragePreset === 'custom' && (
             <span className="rounded-full border border-sf-accent/40 bg-sf-accent/10 px-2 py-1 text-[10px] font-semibold uppercase text-sf-accent">
-              Custom
+              {t('generate.director.music.script.custom', {}, 'Custom')}
             </span>
           )}
         </div>
@@ -2998,14 +3000,14 @@ export default function MusicVideoEasyMode({
               onClick={() => applyCoveragePreset(option.id)}
               className={`rounded-lg border p-3 text-left transition-colors ${buttonClass(coveragePreset === option.id)}`}
             >
-              <div className="text-sm font-semibold">{option.label}</div>
-              <p className="mt-1 text-xs leading-5 text-sf-text-muted">{option.helper}</p>
+              <div className="text-sm font-semibold">{t(`generate.director.music.script.presets.${option.id}.label`, {}, option.label)}</div>
+              <p className="mt-1 text-xs leading-5 text-sf-text-muted">{t(`generate.director.music.script.presets.${option.id}.help`, {}, option.helper)}</p>
             </button>
           ))}
         </div>
         <div className="mt-4 grid gap-3 lg:grid-cols-[minmax(0,1fr)_auto_auto_auto] lg:items-end">
           <div>
-            <FieldLabel>Performance Passes</FieldLabel>
+            <FieldLabel>{t('generate.director.music.script.performancePasses', {}, 'Performance Passes')}</FieldLabel>
             <div className="mt-2 grid grid-cols-4 gap-2">
               {PERFORMANCE_PASS_OPTIONS.map((count) => (
                 <button
@@ -3026,7 +3028,7 @@ export default function MusicVideoEasyMode({
               onChange={(event) => updateStoryBroll(event.target.checked)}
               className="h-4 w-4 accent-sf-accent"
             />
-            Story b-roll
+            {t('generate.director.music.script.storyBroll', {}, 'Story b-roll')}
           </label>
           <label className={`flex min-h-[38px] items-center gap-2 rounded-lg border px-3 py-2 text-xs font-semibold transition-colors ${buttonClass(includeEnvironmentalBroll)}`}>
             <input
@@ -3035,7 +3037,7 @@ export default function MusicVideoEasyMode({
               onChange={(event) => updateEnvironmentalBroll(event.target.checked)}
               className="h-4 w-4 accent-sf-accent"
             />
-            Environmental
+            {t('generate.director.music.script.environmental', {}, 'Environmental')}
           </label>
           <label className={`flex min-h-[38px] items-center gap-2 rounded-lg border px-3 py-2 text-xs font-semibold transition-colors ${buttonClass(includeDetailBroll)}`}>
             <input
@@ -3044,7 +3046,7 @@ export default function MusicVideoEasyMode({
               onChange={(event) => updateDetailBroll(event.target.checked)}
               className="h-4 w-4 accent-sf-accent"
             />
-            Detail inserts
+            {t('generate.director.music.script.detailInserts', {}, 'Detail inserts')}
           </label>
         </div>
       </div>
@@ -3054,10 +3056,10 @@ export default function MusicVideoEasyMode({
             <div>
               <div className="flex items-center gap-2 text-sm font-semibold text-sf-text-primary">
                 <Clipboard className="h-4 w-4 text-sf-accent" />
-                Copy LLM brief
+                {t('generate.director.music.script.copyBriefTitle', {}, 'Copy LLM brief')}
               </div>
               <p className="mt-1 text-xs leading-5 text-sf-text-secondary">
-                The brief includes song timing, cast slugs, required script format, b-roll story guidance, camera motion, character movement, and emotion cues.
+                {t('generate.director.music.script.copyBriefHelp', {}, 'The brief includes song timing, cast slugs, required script format, b-roll story guidance, camera motion, character movement, and emotion cues.')}
               </p>
             </div>
             <button
@@ -3065,22 +3067,24 @@ export default function MusicVideoEasyMode({
               onClick={handleCopyBrief}
               className="rounded-lg bg-sf-accent px-3 py-2 text-xs font-semibold text-white transition-colors hover:bg-sf-accent/90"
             >
-              Copy Brief
+              {t('generate.director.music.script.copyBrief', {}, 'Copy Brief')}
             </button>
           </div>
           <div className="mt-4 rounded-lg border border-emerald-500/30 bg-emerald-500/10 p-3">
             <div className="text-xs font-semibold text-emerald-200">
-              {timedLineCount > 0 ? 'SRT timing included' : 'Timing not ready yet'}
+              {timedLineCount > 0
+                ? t('generate.director.music.script.timingIncluded', {}, 'SRT timing included')
+                : t('generate.director.music.script.timingNotReady', {}, 'Timing not ready yet')}
             </div>
             <p className="mt-1 text-xs leading-5 text-sf-text-secondary">
               {timedLineCount > 0
-                ? `The brief can reference ${plural(timedLineCount, 'timed lyric line')}.`
-                : 'Prepare timing in Step 1 before you ask for a timing-accurate script.'}
+                ? t('generate.director.music.script.timedLines', { count: timedLineCount }, `The brief can reference ${timedLineCount} timed lyric lines.`)
+                : t('generate.director.music.script.prepareTiming', {}, 'Prepare timing in Step 1 before you ask for a timing-accurate script.')}
             </p>
           </div>
           <div className="mt-4 rounded-lg border border-sf-dark-700 bg-sf-dark-950/70 p-3 text-xs leading-5 text-sf-text-secondary">
-            <div><span className="text-sf-text-muted">Audio:</span> {getMusicVideoAudioKindOption(yoloMusicAudioKind)?.label || 'Not selected'}</div>
-            <div><span className="text-sf-text-muted">Cast:</span> {yoloMusicResolvedCast.length > 0 ? yoloMusicResolvedCast.map((entry) => entry.slug || entry.label).join(', ') : 'No resolved cast yet'}</div>
+            <div><span className="text-sf-text-muted">{t('generate.director.music.script.audio', {}, 'Audio')}:</span> {t(`generate.director.music.audioKinds.${yoloMusicAudioKind}.label`, {}, getMusicVideoAudioKindOption(yoloMusicAudioKind)?.label || t('generate.director.music.script.notSelected', {}, 'Not selected'))}</div>
+            <div><span className="text-sf-text-muted">{t('generate.director.music.script.cast', {}, 'Cast')}:</span> {yoloMusicResolvedCast.length > 0 ? yoloMusicResolvedCast.map((entry) => entry.slug || entry.label).join(', ') : t('generate.director.music.script.noCast', {}, 'No resolved cast yet')}</div>
           </div>
           {briefStatus && <div className="mt-3 text-xs text-emerald-200">{briefStatus}</div>}
         </div>
@@ -3090,33 +3094,35 @@ export default function MusicVideoEasyMode({
             <div>
               <div className="flex items-center gap-2 text-sm font-semibold text-sf-text-primary">
                 <FileText className="h-4 w-4 text-sf-accent" />
-                Paste director script
+                {t('generate.director.music.script.pasteTitle', {}, 'Paste director script')}
               </div>
               <p className="mt-1 text-xs leading-5 text-sf-text-secondary">
-                This script becomes the plan. Shot type, start time, keyframe prompt, and motion prompt drive the next steps.
+                {t('generate.director.music.script.pasteHelp', {}, 'This script becomes the plan. Shot type, start time, keyframe prompt, and motion prompt drive the next steps.')}
               </p>
             </div>
             <button
               type="button"
               onClick={() => {
-                if (!yoloMusicScript.trim() || window.confirm('Replace the current director script with the template?')) {
+                if (!yoloMusicScript.trim() || window.confirm(t('generate.director.music.script.replaceConfirm', {}, 'Replace the current director script with the template?'))) {
                   setYoloMusicScript(MUSIC_VIDEO_SCRIPT_TEMPLATE)
                 }
               }}
               className="rounded-lg border border-sf-dark-600 px-3 py-2 text-xs text-sf-text-secondary transition-colors hover:border-sf-dark-500 hover:text-sf-text-primary"
             >
-              Template
+              {t('generate.director.music.script.template', {}, 'Template')}
             </button>
           </div>
           <textarea
             value={yoloMusicScript}
             onChange={(event) => setYoloMusicScript(event.target.value)}
-            placeholder="Paste the LLM director script here."
+            placeholder={t('generate.director.music.script.placeholder', {}, 'Paste the LLM director script here.')}
             className="mt-4 min-h-[330px] w-full resize-y rounded-lg border border-sf-dark-600 bg-sf-dark-950 px-3 py-2 font-mono text-xs leading-5 text-sf-text-primary outline-none focus:border-sf-accent"
           />
           <div className="mt-3 flex flex-wrap items-center justify-between gap-2">
             <div className="text-xs text-sf-text-muted">
-              {parseStatus || (yoloActivePlanIsStale ? 'Script changed since the last parse.' : 'Ready when the script has shots.')}
+              {parseStatus || (yoloActivePlanIsStale
+                ? t('generate.director.music.script.changed', {}, 'Script changed since the last parse.')
+                : t('generate.director.music.script.ready', {}, 'Ready when the script has shots.'))}
             </div>
             <button
               type="button"
@@ -3124,7 +3130,7 @@ export default function MusicVideoEasyMode({
               disabled={!canBuildPlan}
               className="rounded-lg bg-sf-accent px-3 py-2 text-xs font-semibold text-white transition-colors hover:bg-sf-accent/90 disabled:cursor-not-allowed disabled:opacity-50"
             >
-              Parse Script
+              {t('generate.director.music.script.parse', {}, 'Parse Script')}
             </button>
           </div>
         </div>
@@ -3139,24 +3145,24 @@ export default function MusicVideoEasyMode({
         t('generate.director.music.keyframes.description', {}, 'Each parsed script shot gets one starting image. The script, not a separate shot preset list, controls what gets made.')
       )}
       <div className="grid gap-3 md:grid-cols-3">
-        <Stat label="Script shots" value={plannedShotCount} />
-        <Stat label="Queue variants" value={queueVariantCount} />
-        <Stat label="Ready keyframes" value={yoloStoryboardReadyCount} />
+        <Stat label={t('generate.director.music.common.scriptShots', {}, 'Script shots')} value={plannedShotCount} />
+        <Stat label={t('generate.director.music.keyframes.queueVariants', {}, 'Queue variants')} value={queueVariantCount} />
+        <Stat label={t('generate.director.music.common.readyKeyframes', {}, 'Ready keyframes')} value={yoloStoryboardReadyCount} />
       </div>
       <div className="rounded-lg border border-sf-dark-700 bg-sf-dark-900/70 p-4">
         <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
           <div>
             <div className="flex items-center gap-2 text-sm font-semibold text-sf-text-primary">
               <Film className="h-4 w-4 text-sf-accent" />
-              Keyframe jobs from your director script
+              {t('generate.director.music.keyframes.jobsTitle', {}, 'Keyframe jobs from your director script')}
             </div>
             <p className="mt-1 text-xs leading-5 text-sf-text-secondary">
-              The keyframe prompt on each shot becomes the still-image prompt for that exact beat.
+              {t('generate.director.music.keyframes.jobsHelp', {}, 'The keyframe prompt on each shot becomes the still-image prompt for that exact beat.')}
             </p>
           </div>
           <div className="flex flex-col gap-2 md:items-end">
             <div className="flex flex-wrap items-center gap-1.5 md:justify-end">
-              <span className="mr-1 text-[10px] uppercase tracking-wider text-sf-text-muted">Keyframe model</span>
+              <span className="mr-1 text-[10px] uppercase tracking-wider text-sf-text-muted">{t('generate.director.music.keyframes.model', {}, 'Keyframe model')}</span>
               {keyframeWorkflowOptions.map((option) => (
                 <button
                   key={`music-keyframe-model-${option.id}`}
@@ -3177,7 +3183,7 @@ export default function MusicVideoEasyMode({
               className="inline-flex items-center justify-center gap-2 rounded-lg bg-sf-accent px-3 py-2 text-xs font-semibold text-white transition-colors hover:bg-sf-accent/90 disabled:cursor-not-allowed disabled:opacity-50"
             >
               {isQueuingKeyframes ? <Loader2 className="h-4 w-4 animate-spin" /> : <Wand2 className="h-4 w-4" />}
-              Create Keyframes
+              {t('generate.director.music.keyframes.create', {}, 'Create Keyframes')}
             </button>
           </div>
         </div>
@@ -3188,7 +3194,7 @@ export default function MusicVideoEasyMode({
             : ' is used for new or regenerated keyframes.'}
           {selectedKeyframeWorkflowId === 'image-edit' && yoloMusicResolvedCast.length === 0 && (
             <span className="mt-1 block text-amber-200">
-              Qwen Image Edit needs a cast/reference image for performer shots. Reference-free b-roll automatically uses local Z-Image Turbo.
+              {t('generate.director.music.keyframes.referenceHelp', {}, 'Qwen Image Edit needs a cast/reference image for performer shots. Reference-free b-roll automatically uses local Z-Image Turbo.')}
             </span>
           )}
           {customKeyframeWorkflowSelected && (
@@ -3212,7 +3218,7 @@ export default function MusicVideoEasyMode({
         </div>
         {yoloActivePlanIsStale && (
           <div className="mt-3 rounded-lg border border-amber-400/30 bg-amber-400/10 p-3 text-xs text-amber-100">
-            The director script changed after the plan was parsed. Parse the script again before queueing.
+            {t('generate.director.music.keyframes.stale', {}, 'The director script changed after the plan was parsed. Parse the script again before queueing.')}
           </div>
         )}
         {keyframeStatus && (
@@ -3229,9 +3235,9 @@ export default function MusicVideoEasyMode({
         <div className="space-y-3 rounded-lg border border-sf-dark-700 bg-sf-dark-900/70 p-4">
           <div className="flex flex-col gap-2 md:flex-row md:items-center md:justify-between">
             <div>
-              <div className="text-sm font-semibold text-sf-text-primary">Shot keyframes</div>
+              <div className="text-sm font-semibold text-sf-text-primary">{t('generate.director.music.keyframes.shotsTitle', {}, 'Shot keyframes')}</div>
               <p className="mt-1 text-xs leading-5 text-sf-text-secondary">
-                Preview a shot to inspect the image, edit its prompt, or rerun that keyframe at the current output settings.
+                {t('generate.director.music.keyframes.shotsHelp', {}, 'Preview a shot to inspect the image, edit its prompt, or rerun that keyframe at the current output settings.')}
               </p>
             </div>
             <div className="flex flex-wrap items-center gap-2">
@@ -3242,7 +3248,7 @@ export default function MusicVideoEasyMode({
                 disabled={isQueuingKeyframes || yoloDependencyCheckInProgress || !customKeyframeReady}
                 className="rounded-lg border border-sf-dark-600 px-3 py-2 text-xs font-semibold text-sf-text-secondary transition-colors hover:border-sf-dark-500 hover:text-sf-text-primary disabled:cursor-not-allowed disabled:opacity-50"
               >
-                Regenerate All
+                {t('generate.director.music.common.regenerateAll', {}, 'Regenerate All')}
               </button>
             </div>
           </div>
@@ -3608,18 +3614,18 @@ export default function MusicVideoEasyMode({
         t('generate.director.music.videos.description', {}, 'Each parsed shot can be generated or rerun on its own using the matching keyframe and song timing.')
       )}
       <div className="grid gap-3 md:grid-cols-3">
-        <Stat label="Script shots" value={plannedShotCount} />
-        <Stat label="Ready keyframes" value={yoloStoryboardReadyCount} />
-        <Stat label="Ready videos" value={videoReadyCount} />
+        <Stat label={t('generate.director.music.common.scriptShots', {}, 'Script shots')} value={plannedShotCount} />
+        <Stat label={t('generate.director.music.common.readyKeyframes', {}, 'Ready keyframes')} value={yoloStoryboardReadyCount} />
+        <Stat label={t('generate.director.music.common.readyVideos', {}, 'Ready videos')} value={videoReadyCount} />
       </div>
       {renderAdvancedVideoSettings()}
       {plannedShotCount > 0 && (
         <div className="space-y-3 rounded-lg border border-sf-dark-700 bg-sf-dark-900/70 p-4">
           <div className="flex flex-col gap-2 md:flex-row md:items-center md:justify-between">
             <div>
-              <div className="text-sm font-semibold text-sf-text-primary">Shot videos</div>
+              <div className="text-sm font-semibold text-sf-text-primary">{t('generate.director.music.videos.shotsTitle', {}, 'Shot videos')}</div>
               <p className="mt-1 text-xs leading-5 text-sf-text-secondary">
-                Preview a shot to inspect the video, edit its motion prompt, or rerun it through {selectedVideoWorkflowLabel}.
+                {t('generate.director.music.videos.shotsHelp', { model: selectedVideoWorkflowLabel }, `Preview a shot to inspect the video, edit its motion prompt, or rerun it through ${selectedVideoWorkflowLabel}.`)}
               </p>
             </div>
             <div className="flex flex-wrap items-center gap-2">
@@ -3630,7 +3636,7 @@ export default function MusicVideoEasyMode({
                 disabled={!canQueueVideos || isQueuingVideos || yoloDependencyCheckInProgress}
                 className="rounded-lg border border-sf-dark-600 px-3 py-2 text-xs font-semibold text-sf-text-secondary transition-colors hover:border-sf-dark-500 hover:text-sf-text-primary disabled:cursor-not-allowed disabled:opacity-50"
               >
-                Regenerate All
+                {t('generate.director.music.common.regenerateAll', {}, 'Regenerate All')}
               </button>
             </div>
           </div>
@@ -3729,7 +3735,7 @@ export default function MusicVideoEasyMode({
           {selectedShotRow && (
             <div className="space-y-3">
               <div className="rounded-lg border border-yellow-500/30 bg-yellow-500/10 p-3 text-xs leading-5 text-yellow-100">
-                Not happy with a shot? Select it here, adjust the motion prompt if needed, then rerun just that shot. Use this area for fixes, alternate takes, or trying a different model or resolution without rebuilding the whole music video.
+                {t('generate.director.music.videos.alternateHelp', {}, 'Not happy with a shot? Select it here, adjust the motion prompt if needed, then rerun just that shot. Use this area for fixes, alternate takes, or trying a different model or resolution without rebuilding the whole music video.')}
               </div>
               <div className="rounded-lg border border-sf-dark-700 bg-sf-dark-950/60 p-3">
                 <div className="flex flex-col gap-2 md:flex-row md:items-start md:justify-between">
@@ -3763,7 +3769,7 @@ export default function MusicVideoEasyMode({
                         className="inline-flex items-center justify-center gap-2 rounded-lg border border-sf-dark-600 px-3 py-2 text-xs font-semibold text-sf-text-secondary transition-colors hover:border-sf-dark-500 hover:text-sf-text-primary disabled:cursor-not-allowed disabled:opacity-50"
                       >
                         <Upload className="h-4 w-4" />
-                        Replace Video
+                        {t('generate.director.music.videos.replace', {}, 'Replace Video')}
                       </button>
                     )}
                   </div>
@@ -3772,31 +3778,31 @@ export default function MusicVideoEasyMode({
                   <div>
                     {hasMultipleSelectedShots ? (
                       <div className="rounded-lg border border-sf-dark-700 bg-sf-dark-900 px-3 py-2 text-xs leading-5 text-sf-text-secondary">
-                        Motion prompt editing is available when a single shot is selected.
+                        {t('generate.director.music.videos.singleEdit', {}, 'Motion prompt editing is available when a single shot is selected.')}
                       </div>
                     ) : (
                       <>
                         <label className="block text-xs text-sf-text-secondary">
-                          <span className="text-[10px] uppercase tracking-wider text-sf-text-muted">Edit shot motion prompt</span>
+                          <span className="text-[10px] uppercase tracking-wider text-sf-text-muted">{t('generate.director.music.videos.editMotion', {}, 'Edit shot motion prompt')}</span>
                           <textarea
                             value={selectedShotRow.shot.videoBeat || selectedShotRow.shot.beat || selectedShotRow.shot.shotPrompt || ''}
                             onChange={(event) => handleYoloShotVideoBeatChange?.(selectedShotRow.scene.id, selectedShotRow.shot.id, event.target.value)}
                             rows={5}
                             className="mt-1 w-full resize-y rounded-lg border border-sf-dark-600 bg-sf-dark-900 px-3 py-2 text-xs leading-5 text-sf-text-primary outline-none focus:border-sf-accent"
-                            placeholder="Describe the motion/action for this one video rerun..."
+                            placeholder={t('generate.director.music.videos.motionPlaceholder', {}, 'Describe the motion/action for this one video rerun...')}
                           />
                         </label>
                         <p className="mt-1 text-[10px] leading-4 text-sf-text-muted">
-                          This changes the selected shot's video prompt for new renders only. It does not rewrite the original director script.
+                          {t('generate.director.music.videos.motionHelp', {}, "This changes the selected shot's video prompt for new renders only. It does not rewrite the original director script.")}
                         </p>
                       </>
                     )}
                   </div>
                   <div>
-                    <div className="text-[10px] uppercase tracking-wider text-sf-text-muted">Timing</div>
+                    <div className="text-[10px] uppercase tracking-wider text-sf-text-muted">{t('generate.director.music.videos.timing', {}, 'Timing')}</div>
                     <div className="mt-1 rounded-lg border border-sf-dark-700 bg-sf-dark-900 px-3 py-2 text-xs leading-5 text-sf-text-secondary">
-                      <div>Start: {(Number(selectedShotRow.shot.audioStart) || 0).toFixed(2)}s</div>
-                      <div>Length: {(Number(selectedShotRow.shot.length || selectedShotRow.shot.durationSeconds) || 0).toFixed(1)}s</div>
+                      <div>{t('generate.director.music.videos.start', {}, 'Start')}: {(Number(selectedShotRow.shot.audioStart) || 0).toFixed(2)}s</div>
+                      <div>{t('generate.director.music.videos.length', {}, 'Length')}: {(Number(selectedShotRow.shot.length || selectedShotRow.shot.durationSeconds) || 0).toFixed(1)}s</div>
                       {selectedShotRow.shot.scriptLyricMoment && (
                         <div className="mt-1 italic text-sf-text-muted">"{selectedShotRow.shot.scriptLyricMoment}"</div>
                       )}

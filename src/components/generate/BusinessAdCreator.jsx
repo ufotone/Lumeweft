@@ -1502,25 +1502,25 @@ export default function BusinessAdCreator({
           </div>
           <div className="grid grid-cols-1 gap-3 md:grid-cols-3">
             <div className="rounded-lg border border-sf-dark-700 bg-sf-dark-800/40 px-3 py-2">
-              <div className="text-[10px] uppercase tracking-wider text-sf-text-muted">Ad length</div>
+              <div className="text-[10px] uppercase tracking-wider text-sf-text-muted">{t('generate.director.business.script.adLength', {}, 'Ad length')}</div>
               <div className="mt-1 text-xs text-sf-text-primary">{commercialLength} seconds</div>
             </div>
             <label className="text-xs text-sf-text-secondary">
-              <span className="text-[10px] uppercase tracking-wider text-sf-text-muted">How many shots?</span>
+              <span className="text-[10px] uppercase tracking-wider text-sf-text-muted">{t('generate.director.business.script.shotCount', {}, 'How many shots?')}</span>
               <select value={shotCount} onChange={(e) => updateShotCount(e.target.value)} className="mt-1 w-full rounded-lg border border-sf-dark-600 bg-sf-dark-800 px-3 py-2 text-xs text-sf-text-primary focus:border-sf-accent focus:outline-none">
                 {SHOT_COUNT_OPTIONS.map((count) => <option key={count} value={count}>{count} shots</option>)}
               </select>
               <span className="mt-1 block text-[10px] text-sf-text-muted">{getShotHint(commercialLength)}</span>
             </label>
             <div className="rounded-lg border border-sf-dark-700 bg-sf-dark-800/40 px-3 py-2">
-              <div className="text-[10px] uppercase tracking-wider text-sf-text-muted">Model route</div>
+              <div className="text-[10px] uppercase tracking-wider text-sf-text-muted">{t('generate.director.business.script.modelRoute', {}, 'Model route')}</div>
               <div className="mt-1 text-xs text-sf-text-primary">{selectedKeyframeWorkflow.label} keyframes + {selectedVideoWorkflow.label} video</div>
             </div>
           </div>
           <div className="rounded-xl border border-sf-dark-700 bg-sf-dark-800/40 p-3">
             <div className="flex flex-wrap items-start justify-between gap-3">
               <div>
-                <div className="text-[10px] uppercase tracking-[0.14em] text-sf-accent">Optional: use your own LLM</div>
+                <div className="text-[10px] uppercase tracking-[0.14em] text-sf-accent">{t('generate.director.business.script.ownLlm', {}, 'Optional: use your own LLM')}</div>
                 <p className="mt-1 max-w-3xl text-[11px] leading-relaxed text-sf-text-muted">
                   No Velorn API key or setup required. Copy this prompt into ChatGPT, Claude, Gemini, or another LLM, then paste the result back into the editable Director Script below.
                 </p>
@@ -1589,7 +1589,7 @@ export default function BusinessAdCreator({
           <div className="rounded-xl border border-sf-dark-700 bg-sf-dark-800/40 p-3">
             <div className="flex flex-wrap items-center justify-between gap-3">
               <div>
-                <div className="text-[10px] uppercase tracking-[0.14em] text-sf-accent">Keyframe model</div>
+                <div className="text-[10px] uppercase tracking-[0.14em] text-sf-accent">{t('generate.director.business.keyframes.model', {}, 'Keyframe model')}</div>
                 <div className="mt-1 text-sm font-semibold text-sf-text-primary">Using {selectedKeyframeWorkflow.label}</div>
               </div>
               <div className="grid min-w-[260px] flex-1 grid-cols-1 gap-2 sm:grid-cols-2">
@@ -1610,7 +1610,7 @@ export default function BusinessAdCreator({
             {renderCustomKeyframeWorkflowPanel()}
           </div>
           {planShots.length === 0 ? (
-            <div className="rounded-lg border border-yellow-500/30 bg-yellow-500/10 px-3 py-2 text-xs text-yellow-200">Build the script plan first.</div>
+            <div className="rounded-lg border border-yellow-500/30 bg-yellow-500/10 px-3 py-2 text-xs text-yellow-200">{t('generate.director.business.keyframes.buildFirst', {}, 'Build the script plan first.')}</div>
           ) : (
             <>
               <div className="grid grid-cols-1 gap-2 md:grid-cols-2 xl:grid-cols-4">
@@ -1675,7 +1675,7 @@ export default function BusinessAdCreator({
                     </span>
                   </div>
                   <label className="mt-3 block text-xs text-sf-text-secondary">
-                    <span className="text-[10px] uppercase tracking-wider text-sf-text-muted">Edit shot keyframe prompt</span>
+                    <span className="text-[10px] uppercase tracking-wider text-sf-text-muted">{t('generate.director.business.keyframes.editPrompt', {}, 'Edit shot keyframe prompt')}</span>
                     <textarea
                       value={selectedShotRow.shot.imageBeat || selectedShotRow.shot.beat || ''}
                       onChange={(e) => handleYoloShotImageBeatChange(selectedShotRow.scene.id, selectedShotRow.shot.id, e.target.value)}
@@ -1684,17 +1684,17 @@ export default function BusinessAdCreator({
                     />
                   </label>
                   <div className="mt-3 flex flex-wrap items-center gap-2">
-                    <button type="button" disabled={isQueuingKeyframes || yoloDependencyCheckInProgress || keyframeReferenceMissing || customKeyframeNeedsSetup} onClick={() => { setKeyframeStatus(`Queued ${selectedKeyframeWorkflow.label} keyframe regeneration for Shot ${selectedShotIndex + 1}.`); void handleQueueYoloShotStoryboard(selectedShotRow.scene.id, selectedShotRow.shot.id, { resolutionOverride: outputResolution, ...getKeyframeReferenceOverrides(), storyboardWorkflowIdOverride: selectedKeyframeWorkflow.workflowId }) }} className="rounded-lg bg-sf-accent px-3 py-2 text-xs text-white hover:bg-sf-accent-hover disabled:cursor-not-allowed disabled:opacity-50">Regenerate Selected Shot</button>
-                    <button type="button" disabled={isQueuingKeyframes || yoloDependencyCheckInProgress || planShots.length === 0 || keyframeReferenceMissing || customKeyframeNeedsSetup} onClick={handleRegenerateAllKeyframes} className="rounded-lg border border-sf-dark-600 px-3 py-2 text-xs text-sf-text-secondary hover:border-sf-dark-500 hover:text-sf-text-primary disabled:cursor-not-allowed disabled:opacity-50">Regenerate All</button>
-                    <button type="button" onClick={() => { setYoloTakesPerAngle(3); handleYoloShotTakesChange(selectedShotRow.scene.id, selectedShotRow.shot.id, 3); setKeyframeStatus('Variation mode set to 3 takes. Click regenerate to queue three seed variations for the selected shot.') }} className="rounded-lg border border-sf-dark-600 px-3 py-2 text-xs text-sf-text-secondary hover:border-sf-dark-500 hover:text-sf-text-primary">Make 3 Variations</button>
+                    <button type="button" disabled={isQueuingKeyframes || yoloDependencyCheckInProgress || keyframeReferenceMissing || customKeyframeNeedsSetup} onClick={() => { setKeyframeStatus(`Queued ${selectedKeyframeWorkflow.label} keyframe regeneration for Shot ${selectedShotIndex + 1}.`); void handleQueueYoloShotStoryboard(selectedShotRow.scene.id, selectedShotRow.shot.id, { resolutionOverride: outputResolution, ...getKeyframeReferenceOverrides(), storyboardWorkflowIdOverride: selectedKeyframeWorkflow.workflowId }) }} className="rounded-lg bg-sf-accent px-3 py-2 text-xs text-white hover:bg-sf-accent-hover disabled:cursor-not-allowed disabled:opacity-50">{t('generate.director.business.keyframes.regenerateSelected', {}, 'Regenerate Selected Shot')}</button>
+                    <button type="button" disabled={isQueuingKeyframes || yoloDependencyCheckInProgress || planShots.length === 0 || keyframeReferenceMissing || customKeyframeNeedsSetup} onClick={handleRegenerateAllKeyframes} className="rounded-lg border border-sf-dark-600 px-3 py-2 text-xs text-sf-text-secondary hover:border-sf-dark-500 hover:text-sf-text-primary disabled:cursor-not-allowed disabled:opacity-50">{t('generate.director.business.keyframes.regenerateAll', {}, 'Regenerate All')}</button>
+                    <button type="button" onClick={() => { setYoloTakesPerAngle(3); handleYoloShotTakesChange(selectedShotRow.scene.id, selectedShotRow.shot.id, 3); setKeyframeStatus('Variation mode set to 3 takes. Click regenerate to queue three seed variations for the selected shot.') }} className="rounded-lg border border-sf-dark-600 px-3 py-2 text-xs text-sf-text-secondary hover:border-sf-dark-500 hover:text-sf-text-primary">{t('generate.director.business.keyframes.makeVariations', {}, 'Make 3 Variations')}</button>
                     <span className="text-[10px] text-sf-text-muted">{keyframeStatus}</span>
                   </div>
                 </div>
               )}
               <div className="flex flex-wrap items-center justify-between gap-2">
-                <button type="button" onClick={() => setStep('script')} className="rounded-lg border border-sf-dark-600 px-3 py-2 text-xs text-sf-text-secondary hover:border-sf-dark-500 hover:text-sf-text-primary">Back</button>
+                <button type="button" onClick={() => setStep('script')} className="rounded-lg border border-sf-dark-600 px-3 py-2 text-xs text-sf-text-secondary hover:border-sf-dark-500 hover:text-sf-text-primary">{t('generate.director.common.back', {}, 'Back')}</button>
                 <div className="flex gap-2">
-                  <button type="button" disabled={yoloDependencyCheckInProgress || keyframeReferenceMissing || customKeyframeNeedsSetup} onClick={() => { setKeyframeStatus(`Queued ${selectedKeyframeWorkflow.label} keyframes for all planned shots.`); void handleQueueYoloStoryboards({ resolutionOverride: outputResolution, ...getKeyframeReferenceOverrides(), storyboardWorkflowIdOverride: selectedKeyframeWorkflow.workflowId, sourceLabel: `Business Ad Creator ${selectedKeyframeWorkflow.label} keyframe pass` }) }} className="rounded-lg border border-sf-dark-600 px-3 py-2 text-xs text-sf-text-secondary hover:border-sf-dark-500 hover:text-sf-text-primary disabled:opacity-50">Create Keyframes</button>
+                  <button type="button" disabled={yoloDependencyCheckInProgress || keyframeReferenceMissing || customKeyframeNeedsSetup} onClick={() => { setKeyframeStatus(`Queued ${selectedKeyframeWorkflow.label} keyframes for all planned shots.`); void handleQueueYoloStoryboards({ resolutionOverride: outputResolution, ...getKeyframeReferenceOverrides(), storyboardWorkflowIdOverride: selectedKeyframeWorkflow.workflowId, sourceLabel: `Business Ad Creator ${selectedKeyframeWorkflow.label} keyframe pass` }) }} className="rounded-lg border border-sf-dark-600 px-3 py-2 text-xs text-sf-text-secondary hover:border-sf-dark-500 hover:text-sf-text-primary disabled:opacity-50">{t('generate.director.business.keyframes.create', {}, 'Create Keyframes')}</button>
                   <button type="button" disabled={yoloStoryboardReadyCount === 0} onClick={() => setStep('videos')} className="rounded-lg bg-sf-accent px-3 py-2 text-xs text-white hover:bg-sf-accent-hover disabled:cursor-not-allowed disabled:opacity-50">
                     Next: Videos + Timeline
                   </button>
@@ -1722,9 +1722,9 @@ export default function BusinessAdCreator({
           <div className="rounded-xl border border-sf-dark-700 bg-sf-dark-800/40 p-3">
             <div className="flex flex-wrap items-start justify-between gap-3">
               <div>
-                <div className="text-[10px] uppercase tracking-[0.14em] text-sf-accent">Video model pass</div>
+                <div className="text-[10px] uppercase tracking-[0.14em] text-sf-accent">{t('generate.director.business.videos.modelPass', {}, 'Video model pass')}</div>
                 <div className="mt-1 text-sm font-semibold text-sf-text-primary">Viewing {selectedVideoWorkflow.label}</div>
-                <p className="mt-1 text-xs text-sf-text-muted">Use the same keyframes to create another complete model pass for comparison in editing.</p>
+                <p className="mt-1 text-xs text-sf-text-muted">{t('generate.director.business.videos.modelPassHelp', {}, 'Use the same keyframes to create another complete model pass for comparison in editing.')}</p>
               </div>
               <span className="rounded-full border border-sf-dark-600 px-2 py-1 text-[10px] text-sf-text-muted">{outputResolutionLabel} / {videoFps} fps</span>
             </div>
@@ -1818,7 +1818,7 @@ export default function BusinessAdCreator({
                 <span className="rounded-full border border-sf-dark-600 px-2 py-1 text-[10px] text-sf-text-muted">{selectedVideoWorkflow.label}</span>
               </div>
               <label className="mt-3 block text-xs text-sf-text-secondary">
-                <span className="text-[10px] uppercase tracking-wider text-sf-text-muted">Edit shot motion prompt</span>
+                <span className="text-[10px] uppercase tracking-wider text-sf-text-muted">{t('generate.director.business.videos.editPrompt', {}, 'Edit shot motion prompt')}</span>
                 <textarea
                   value={selectedVideoRow.shot.videoBeat || selectedVideoRow.shot.beat || ''}
                   onChange={(e) => handleYoloShotVideoBeatChange(selectedVideoRow.scene.id, selectedVideoRow.shot.id, e.target.value)}
@@ -1828,7 +1828,7 @@ export default function BusinessAdCreator({
               </label>
               <div className="mt-3 flex flex-wrap items-center gap-2">
                 <button type="button" disabled={isQueuingVideos || yoloDependencyCheckInProgress} onClick={() => { setVideoStatus(`Queued ${selectedVideoWorkflow.label} video regeneration for Shot ${selectedVideoIndex + 1}.`); void handleQueueYoloShotVideo(selectedVideoRow.scene.id, selectedVideoRow.shot.id, { planOverride: yoloActivePlan, skipStaleCheck: true, targetWorkflowIds: [videoWorkflowId], resolutionOverride: outputResolution }) }} className="rounded-lg bg-sf-accent px-3 py-2 text-xs text-white hover:bg-sf-accent-hover disabled:cursor-not-allowed disabled:opacity-50">Regenerate Shot With {selectedVideoWorkflow.label}</button>
-                <button type="button" onClick={() => { setYoloTakesPerAngle(3); handleYoloShotTakesChange(selectedVideoRow.scene.id, selectedVideoRow.shot.id, 3); setVideoStatus('Variation mode set to 3 takes. Click regenerate to queue three video seed variations after keyframes exist.') }} className="rounded-lg border border-sf-dark-600 px-3 py-2 text-xs text-sf-text-secondary hover:border-sf-dark-500 hover:text-sf-text-primary">Make 3 Variations</button>
+                <button type="button" onClick={() => { setYoloTakesPerAngle(3); handleYoloShotTakesChange(selectedVideoRow.scene.id, selectedVideoRow.shot.id, 3); setVideoStatus('Variation mode set to 3 takes. Click regenerate to queue three video seed variations after keyframes exist.') }} className="rounded-lg border border-sf-dark-600 px-3 py-2 text-xs text-sf-text-secondary hover:border-sf-dark-500 hover:text-sf-text-primary">{t('generate.director.business.keyframes.makeVariations', {}, 'Make 3 Variations')}</button>
                 <span className="text-[10px] text-sf-text-muted">{videoStatus}</span>
               </div>
             </div>

@@ -40,11 +40,13 @@ import { COMFY_IFRAME_LOADED_EVENT, OPEN_COMFY_TAB_EVENT } from './config/genera
 // PreviewPanel) and ExportPanel stay eager: the editor is the default tab,
 // and ExportPanel hosts the renderer-side export engine that MCP-driven
 // exports rely on.
-const GenerateWorkspace = lazy(() => import('./components/GenerateWorkspace'))
+const loadGenerateWorkspace = () => import('./components/GenerateWorkspace')
+const GenerateWorkspace = lazy(loadGenerateWorkspace)
 const FlowAIWorkspace = lazy(() => import('./components/FlowAIWorkspace'))
 const AgentWorkspace = lazy(() => import('./components/AgentWorkspace'))
 const MOGWorkspace = lazy(() => import('./components/MOGWorkspace'))
-const StockPanel = lazy(() => import('./components/StockPanel'))
+const loadStockPanel = () => import('./components/StockPanel')
+const StockPanel = lazy(loadStockPanel)
 
 const WORKSPACE_LOADING_FALLBACK = (
   <div className="flex-1 flex items-center justify-center bg-sf-dark-950 text-xs text-sf-text-muted">
@@ -69,11 +71,14 @@ function formatDownloadBytes(bytes) {
 function App() {
   const [settingsModalOpen, setSettingsModalOpen] = useState(false)
   const [settingsInitialSection, setSettingsInitialSection] = useState(null)
+  const [settingsFocusTarget, setSettingsFocusTarget] = useState('')
+  const [workflowSetupFocusIds, setWorkflowSetupFocusIds] = useState([])
   const [gettingStartedOpen, setGettingStartedOpen] = useState(false)
   const [selectedItem, setSelectedItem] = useState({ type: 'shot', id: '2.1' })
   const [mainTab, setMainTab] = useState('editor')
   const [hasMountedFlowAi, setHasMountedFlowAi] = useState(false)
   const [flowAiReloadNonce, setFlowAiReloadNonce] = useState(0)
+  const [flowAiTemplateRequest, setFlowAiTemplateRequest] = useState(null)
   const [hasMountedGenerate, setHasMountedGenerate] = useState(false)
   const [bottomEditorView, setBottomEditorView] = useState('timeline')
   const [activeTimelineToolLabel, setActiveTimelineToolLabel] = useState('Move tool')
@@ -341,10 +346,10 @@ function App() {
 
   // CANVAS used to mount immediately after project-open even while its tab was
   // hidden. That means a runtime error in the canvas could black out the whole app
-  // during project selection. Lazy-mount it on first visit so hidden-tab
-  // failures cannot take down the main editor.
+  // during project selection. Entering Backstage also mounts it in the
+  // background so recipe cards open without a second full-screen lazy-load.
   useEffect(() => {
-    if (mainTab === 'flow-ai') {
+    if (mainTab === 'flow-ai' || mainTab === 'generate') {
       setHasMountedFlowAi(true)
     }
     if (mainTab === 'generate') {
@@ -465,6 +470,43 @@ function App() {
   useEffect(() => {
     initialize()
   }, [initialize])
+
+  // Generate and Stock are lazy chunks. Waiting until the first tab click to
+  // start reading and evaluating them can leave the workspace on the Suspense
+  // fallback, especially when switching from the already-heavy CANVAS workspace
+  // in a packaged build. Warm the modules after project hydration, while keeping
+  // the components themselves unmounted so queue listeners, Pexels requests, and
+  // other runtime work still start only on the first real visit.
+  useEffect(() => {
+    if (!currentProject) return undefined
+
+    let cancelled = false
+    const preload = () => {
+      if (cancelled) return
+      if (!hasMountedGenerate) {
+        loadGenerateWorkspace().catch((error) => {
+          console.warn('Failed to preload Generate workspace:', error)
+        })
+      }
+      loadStockPanel().catch((error) => {
+        console.warn('Failed to preload Stock workspace:', error)
+      })
+    }
+
+    if (typeof window.requestIdleCallback === 'function') {
+      const idleId = window.requestIdleCallback(preload, { timeout: 1200 })
+      return () => {
+        cancelled = true
+        window.cancelIdleCallback?.(idleId)
+      }
+    }
+
+    const timer = window.setTimeout(preload, 350)
+    return () => {
+      cancelled = true
+      window.clearTimeout(timer)
+    }
+  }, [currentProject, hasMountedGenerate])
   
   // Auto-save functionality. Saves only when something actually changed —
   // the save path serializes the whole project and captures a playhead
@@ -580,8 +622,17 @@ function App() {
     setGettingStartedOpen(false)
   }, [])
 
-  const openSettingsModal = useCallback((section = null) => {
+  const openSettingsModal = useCallback((section = null, options = {}) => {
+    const nextFocusIds = section === WORKFLOW_SETUP_SECTION_ID
+      ? Array.from(new Set(
+        (Array.isArray(options?.workflowIds) ? options.workflowIds : [])
+          .map((workflowId) => String(workflowId || '').trim())
+          .filter(Boolean)
+      ))
+      : []
     setSettingsInitialSection(section)
+    setSettingsFocusTarget(String(options?.focusTarget || ''))
+    setWorkflowSetupFocusIds(nextFocusIds)
     setSettingsModalOpen(true)
   }, [])
 
@@ -789,20 +840,36 @@ function App() {
             }}
           />
         </div>
-        {/* Generate tab – mounted on first visit, then kept mounted so
+        {/* Generate/Backstage – one shared runtime is mounted on first visit,
+            then kept mounted so
             queue/progress survives tab switches. MCP music-video tools open
             this tab via the comfystudio-open-generate-tab event before their
             readiness probe, so first mount happens before they need it. */}
         {hasMountedGenerate && (
           <div
             className="flex-1 flex flex-col min-h-0 overflow-hidden bg-sf-dark-950"
-            style={{ display: mainTab === 'generate' ? 'flex' : 'none' }}
+            style={{
+              display: mainTab === 'generate'
+                && !(flowAiTemplateRequest && (flowAiTemplateRequest.returnTab || 'generate') === mainTab)
+                ? 'flex'
+                : 'none',
+            }}
           >
             <WorkspaceErrorBoundary>
               <Suspense fallback={WORKSPACE_LOADING_FALLBACK}>
                 <GenerateWorkspace
                   key={`generate-workspace-${projectSessionKey}`}
-                  onOpenWorkflowSetup={() => openSettingsModal(WORKFLOW_SETUP_SECTION_ID)}
+                  onOpenWorkflowSetup={(options) => openSettingsModal(WORKFLOW_SETUP_SECTION_ID, options)}
+                  onOpenDirectorRecipe={(recipe) => {
+                    setHasMountedFlowAi(true)
+                    setFlowAiTemplateRequest({
+                      requestId: `${Date.now()}-${recipe?.templateId || 'recipe'}`,
+                      templateId: recipe?.templateId,
+                      title: recipe?.title,
+                      returnTab: 'generate',
+                      returnMode: recipe?.returnMode || 'director',
+                    })
+                  }}
                 />
               </Suspense>
             </WorkspaceErrorBoundary>
@@ -811,17 +878,28 @@ function App() {
         {hasMountedFlowAi && (
           <div
             className="flex-1 flex flex-col min-h-0 overflow-hidden bg-sf-dark-950"
-            style={{ display: mainTab === 'flow-ai' ? 'flex' : 'none' }}
+            style={{
+              display: mainTab === 'flow-ai'
+                || (flowAiTemplateRequest && (flowAiTemplateRequest.returnTab || 'generate') === mainTab)
+                ? 'flex'
+                : 'none',
+            }}
           >
             <WorkspaceErrorBoundary
               key={`flow-ai-workspace-${projectSessionKey}-${flowAiReloadNonce}`}
               onRetry={reloadFlowAiWorkspace}
-              retryLabel="Reload CANVAS"
+              retryLabel={flowAiTemplateRequest ? 'Reload Recipe' : 'Reload CANVAS'}
+              onEscape={flowAiTemplateRequest ? () => setFlowAiTemplateRequest(null) : null}
+              escapeLabel={flowAiTemplateRequest?.returnMode === 'backstage' ? 'Back to Backstage' : 'Back to Director'}
             >
               <Suspense fallback={WORKSPACE_LOADING_FALLBACK}>
                 <FlowAIWorkspace
-                  onOpenWorkflowSetup={() => openSettingsModal(WORKFLOW_SETUP_SECTION_ID)}
+                  onOpenWorkflowSetup={(options) => openSettingsModal(WORKFLOW_SETUP_SECTION_ID, options)}
+                  onOpenSettings={(section, options) => openSettingsModal(section, options)}
                   onReloadWorkspace={reloadFlowAiWorkspace}
+                  templateRequest={flowAiTemplateRequest}
+                  recipeOnlyMode={Boolean(flowAiTemplateRequest && (flowAiTemplateRequest.returnTab || 'generate') === mainTab)}
+                  onExitRecipe={() => setFlowAiTemplateRequest(null)}
                 />
               </Suspense>
             </WorkspaceErrorBoundary>
@@ -846,7 +924,7 @@ function App() {
         {mainTab === "stock" && (
           <WorkspaceErrorBoundary>
             <Suspense fallback={WORKSPACE_LOADING_FALLBACK}>
-              <StockPanel />
+              <StockPanel onOpenApiSettings={() => openSettingsModal('stock')} />
             </Suspense>
           </WorkspaceErrorBoundary>
         )}
@@ -1140,8 +1218,12 @@ function App() {
         onClose={() => {
           setSettingsModalOpen(false)
           setSettingsInitialSection(null)
+          setSettingsFocusTarget('')
+          setWorkflowSetupFocusIds([])
         }}
         initialSection={settingsInitialSection}
+        initialFocusTarget={settingsFocusTarget}
+        workflowSetupFocusIds={workflowSetupFocusIds}
       />
       <GettingStartedModal
         isOpen={gettingStartedOpen}

@@ -194,6 +194,34 @@
       "small-h265": "Smaller MP4 for sharing, slower decode.",
       "prores-hq": "Large editor-friendly MOV master."
     },
+    "presetNames": {
+      "balanced-mp4": "Balanced MP4",
+      "fast-nvenc": "Fast {{hardware}}",
+      "proxy-review": "Proxy Review",
+      "small-h265": "Small H.265",
+      "prores-hq": "ProRes HQ"
+    },
+    "formatOptions": {
+      "mp4": "MP4 (H.264/H.265)",
+      "webm": "WebM (VP9)",
+      "prores": "MOV (ProRes)",
+      "audio": "Audio Only (WAV/MP3/M4A)",
+      "pngSequence": "PNG Image Sequence",
+      "gifSoon": "GIF (Preview - Soon)"
+    },
+    "rangeOptions": { "full": "Full Timeline", "inout": "In/Out Range" },
+    "encoderPresetOptions": {
+      "ultrafast": "Ultra Fast", "superfast": "Super Fast", "veryfast": "Very Fast",
+      "faster": "Faster", "fast": "Fast", "medium": "Medium", "slow": "Slow",
+      "slower": "Slower", "veryslow": "Very Slow"
+    },
+    "qualityModeOptions": { "crf": "Automatic (CRF)", "bitrate": "Restrict to bitrate" },
+    "keyframeOptions": { "auto": "Automatic", "manual": "Every" },
+    "resolutionOptions": {
+      "project": "Project Settings", "custom": "Custom...",
+      "timelineHalf": "Half Timeline Resolution", "timelineThird": "Third Timeline Resolution",
+      "timelineQuarter": "Quarter Timeline Resolution"
+    },
     "filename": "Filename",
     "format": "Format",
     "range": "Range",
@@ -213,6 +241,10 @@
     "quality": "Quality",
     "checkSetup": "Check setup",
     "installRtx": "Install RTX runtime",
+    "rtxChecking": "Checking the direct NVIDIA RTX runtime...",
+    "rtxInstalling": "Installing the optional NVIDIA RTX runtime...",
+    "rtxReady": "Direct RTX engine ready{{gpu}}.",
+    "rtxRuntimeHelp": "Runs directly on NVIDIA RTX. ComfyUI is not required. Optional runtime is about 1 GB.",
     "videoCodec": "Video Codec",
     "proresProfile": "ProRes Profile",
     "encoderPreset": "Encoder Preset",
@@ -288,9 +320,186 @@
       "audio": "Audio mixdown runs offline; long timelines increase export time."
     }
   },
+  "canvas": {
+    "subtitle": "A curated canvas for local ComfyUI and cloud partner workflows.",
+    "subtitleRecipe": "Choose a preset recipe, provide the required inputs, and let Lumeweft handle the internal workflow.",
+    "documents": "Documents", "advancedFlows": "Advanced flows", "presetRecipe": "Preset recipe",
+    "node": "Node", "nodeCount": "{{count}} nodes", "nodePalette": "Node Palette", "portKey": "Port Key",
+    "required": "Required", "on": "On", "off": "Off", "estimated": "Est.", "checking": "Checking…",
+    "createLora": "Create LoRA…", "recipeInfo": "Recipe info",
+    "actions": {
+      "new": "New", "duplicate": "Duplicate", "delete": "Delete", "clear": "Clear", "save": "Save",
+      "stop": "Stop", "runFlow": "Run Flow", "stopFlow": "Stop Flow", "runSelection": "Run Selection",
+      "runNode": "Run Node", "runSelectedNode": "Run selected node", "copyText": "Copy Text", "random": "Random",
+      "reload": "Reload", "reloadHelp": "Reload CANVAS rendering if the graph is blank or failed to draw",
+      "workflowSetup": "Workflow Setup", "openWorkflowSetup": "Open Workflow Setup",
+      "openFactorySettings": "Open LoRA Factory settings", "backToDirector": "Back to Director", "backToBackstage": "Back to Backstage",
+      "disconnectEdge": "Disconnect edge", "dismissNotice": "Dismiss completion notice",
+      "closeInformation": "Close information", "closeOriginalImage": "Close original image"
+    },
+    "preview": {
+      "building": "Building motion preview", "preparing": "Preparing motion preview",
+      "noSource": "No source asset yet", "noSourceHelp": "Choose an image or video to feed this branch.",
+      "noStyle": "No style reference yet", "noStyleHelp": "Pick a reference image to guide the look.",
+      "generatingImage": "Generating image preview", "runForImage": "Run node to see image output",
+      "latestWillAppear": "The latest result will appear here.", "imageVariantsHelp": "Latest generated image variants preview here.",
+      "generatingVideo": "Generating video preview", "runForVideo": "Run node to see video output",
+      "motionAfterRender": "A live motion preview will appear after render.", "spriteHelp": "Sprite-based motion preview appears here.",
+      "upscalingVideo": "Upscaling video preview", "runForUpscale": "Run node to see upscaled output",
+      "topazWillAppear": "The Topaz result will appear here when it finishes.", "upscaleHelp": "Connect a video and the upscaled clip will preview here.",
+      "generatingAudio": "Generating audio preview", "runForAudio": "Run node to see audio output",
+      "waveformUpdates": "Waveform preview updates when the result lands.", "waveformHelp": "Waveform preview appears here after render.",
+      "awaitingAssets": "Awaiting final assets", "awaitingAssetsHelp": "Connected image, video, and audio results preview here."
+    },
+    "assets": {
+      "browser": "Asset Browser", "counts": "{{assets}} assets · {{folders}} folders", "refresh": "Refresh Asset Browser",
+      "refreshHelp": "Refresh assets and remove references to local files deleted outside Lumeweft",
+      "assignTo": "Assign browser selection to", "root": "Assets root", "openRoot": "Open Assets root",
+      "search": "Search project assets…", "chooseExisting": "Choose an existing project asset",
+      "replaceExisting": "Replace with an existing project asset", "selectExisting": "Select existing asset",
+      "selectOne": "Select an asset…", "noneSelected": "No project asset selected",
+      "noMatching": "No matching project assets yet. Use “Choose image file…” below to import one.",
+      "chooseImage": "Choose image", "chooseFile": "Choose file…", "replaceFile": "Replace file…",
+      "chooseFromFile": "Choose an image from file", "replaceFromFile": "Replace image from file…",
+      "loadFromFile": "Load image from file…", "clearAssigned": "Clear assigned image",
+      "chooseSourceImage": "Choose a source image", "sourceImage": "source image", "projectAsset": "project asset",
+      "usingInRecipe": "Using in recipe", "useIn": "Use in {{target}}", "noSearchResults": "No matching project assets.",
+      "folderEmpty": "This folder is empty.", "originalImage": "Original image"
+    },
+    "ports": { "inputTitle": "Input: {{label}}", "outputTitle": "Output: {{label}}", "in": "In", "out": "Out" },
+    "portTypes": { "text": "Text", "image": "Image", "video": "Video", "audio": "Audio", "style": "Style" },
+    "nodes": {
+      "prompt": { "label": "Prompt", "description": "Reusable text prompt block for image, video, or music nodes." },
+      "image-input": { "label": "Image Input", "description": "Pick an image or video asset from the current project." },
+      "style-reference": { "label": "Style Reference", "description": "Feed one or more reference images into edit-capable image nodes." },
+      "prompt-assist": { "label": "Prompt Assist", "description": "Refine a rough brief into a stronger prompt with Gemini." },
+      "text-viewer": { "label": "Text Viewer", "description": "Inspect text in the graph and pass it downstream unchanged." },
+      "image-gen": { "label": "Image Gen", "description": "Run a built-in local or cloud image workflow." },
+      "video-gen": { "label": "Video Gen", "description": "Run a built-in local or cloud image-to-video workflow." },
+      "video-upscale": { "label": "Upscale Video", "description": "Run a cloud video upscale workflow on an upstream video clip." },
+      "music-gen": { "label": "Music", "description": "Generate music from tags and optional lyrics." },
+      "output": { "label": "Asset Output", "description": "Send final image, video, or audio results into the Assets panel." }
+    },
+    "templates": {
+      "blank": { "label": "Blank Canvas" }, "character-sheet": { "label": "H3 Character Sheet" },
+      "anima-lora-dataset": { "label": "Anima LoRA Factory" }, "sdxl-lora-dataset": { "label": "SDXL LoRA Factory" },
+      "text-to-video": { "label": "Story Flow" }, "music-cue": { "label": "Music Cue" },
+      "style-edit": { "label": "Image Edit With References" }, "image-to-video": { "label": "Image → Video" },
+      "start-last-frame-video": { "label": "Start + Last → Video" }, "media-to-prompt": { "label": "Image / Video → Prompt" }
+    },
+    "nodeMessages": {
+      "noPrompt": "No prompt yet.", "noMusicTags": "No music tags yet.", "runForPrompt": "Run to generate a refined prompt.",
+      "connectText": "Connect text to inspect it here.", "connectedAssets": "{{count}} connected assets",
+      "connectFinalBranches": "Connect final image, video, or audio branches here.",
+      "autoSort": "Blank folder name auto-sorts images, videos, and audio into media folders.",
+      "imageVariants": "{{count}} image variants", "outputAssets": "{{count}} output assets"
+    },
+    "recipe": {
+      "step1": "1 · Input", "step2": "2 · Automatic processing", "step3": "3 · Results",
+      "characterImage": "Character image", "characterImageHelp": "The original identity, clothing, proportions, and colors are preserved across the generated views.",
+      "designSetFolder": "Export Design Set folder", "designSetFolderHelp": "Choose the destination before generation. When all eight views finish, CANVAS automatically exports the complete training set here and reuses it for the LoRA Factory.",
+      "changeOutputFolder": "Change output folder…", "chooseOutputFolder": "Choose output folder…", "automaticExport": "Automatic export",
+      "chooseOutputRequired": "Choose an output folder to enable generation.", "maskedEdit": "Edit a masked area before generating angles",
+      "maskedEditHelp": "Optional. Use this to replace a logo, prop, clothing detail, or design while keeping every unmasked pixel unchanged.",
+      "maskPrompt": "What should replace the white mask area?", "maskImage": "Black-and-white mask",
+      "maskImageHelp": "White areas are replaced; black areas remain unchanged.", "visualReference": "Visual reference",
+      "visualReferenceHelp": "Optional reference for a logo, prop, clothing item, or design.",
+      "prepareSource": "Prepare source", "validateEditInputs": "Validate the image and optional edit inputs.", "useOriginalImage": "Use the original character image.",
+      "generateViews": "Generate views", "generateViewsHelp": "Create eight consistent 45-degree camera angles.",
+      "saveResults": "Save results", "saveResultsHelp": "Then automatically export the Design Set to the selected folder.",
+      "generateAgain": "Generate again", "generateTrainingImages": "Generate training images", "fixSetup": "Fix required setup",
+      "chooseCharacterFirst": "Choose a character image before running this recipe.", "chooseDesignSetFirst": "Choose the Export Design Set folder in Step 1 before running this recipe.",
+      "maskRequired": "The optional masked edit is on, so a mask image is required.", "completeSetup": "Complete Workflow Setup before running this recipe.",
+      "factoryHandoff": "Factory handoff", "factoryHandoffHelp": "The Step 1 Design Set is handed to {{factory}} and launched automatically after generation. You can still choose an existing training-image folder instead.",
+      "chooseExistingDataset": "Choose existing dataset…", "launchFactory": "Launch / retry Factory", "datasetReady": "Dataset ready",
+      "outputSelected": "Output folder selected. Run generation to populate it", "selectExistingHelp": "Select the folder that contains the existing training images.",
+      "resultsPlaceholder": "Generated views will appear here", "resultsSavedHelp": "They are also saved automatically in the project Assets panel.",
+      "useMaskedInpaint": "Use masked Inpaint before angles", "useMaskedInpaintHelp": "When off, this stage is skipped and requires no Inpaint processing. White mask areas are replaced using the prompt and optional reference image.",
+      "needsAttention": "Needs attention", "editingMask": "Editing the masked area", "generatingAngles": "Generating eight camera angles",
+      "preparing": "Preparing the recipe", "viewsReady": "{{count}} training images ready", "ready": "Ready to generate",
+      "chooseToBegin": "Choose a character image to begin", "incompletePreset": "This preset is missing part of its internal recipe. Recreate it from the preset menu or open the advanced flow view.",
+      "input": "Recipe input", "recipeStep": "Recipe step", "stepFailed": "{{step}} failed",
+      "inpaintOnStatus": "On — connect a mask, then run to edit before multiple-angle generation.",
+      "inpaintOffStatus": "Off — the original character image will pass through unchanged.",
+      "maskEditOnStatus": "On — choose a mask and describe the replacement."
+    },
+    "console": {
+      "title": "Process Console", "processing": "CANVAS is processing", "preparingFactory": "Preparing LoRA Factory",
+      "factoryRunning": "LoRA Factory is running", "lineCount": "{{count}} log lines", "copy": "Copy process log", "clear": "Clear process log",
+      "liveOutput": "Live output", "running": "● Running", "idle": "○ Idle",
+      "empty": "Run CANVAS or launch a LoRA Factory to see progress and process output here."
+    },
+    "inspector": {
+      "title": "Inspector", "recipeAssets": "Recipe Assets", "recipeHelp": "Browse, preview, refresh, and assign project assets without exposing the internal flow.",
+      "selectedHelp": "Edit the selected node and run branches directly from here.", "emptyHelp": "Select a node to edit it.",
+      "resize": "Resize inspector panel", "resizeHelp": "Drag to resize the inspector. Double-click to reset.",
+      "pickNode": "Pick a node on the canvas to edit prompts, workflow choices, input assets, and runtime settings.",
+      "textViewerHelp": "This node passes text through unchanged so you can inspect it before the next step.",
+      "cloudRuntime": "Runs through ComfyUI partner-node credits.", "localRuntime": "Runs on your local ComfyUI instance and GPU.",
+      "workflowReadiness": "Workflow readiness", "estimatedCost": "Estimated cost", "pricingGuide": "Pricing guide",
+      "pricingHelp": "Approximate per-second rate from the ComfyUI partner nodes pricing guide. Multiply by clip length for a rough total.",
+      "currentEstimate": "Current Topaz job estimate", "upscaleHelp": "Connect a Video edge from an upstream render, then run this node to import a new upscaled clip without replacing the source asset.",
+      "mediaPromptorHelp": "Connect an Image Input node using its Image or Video port. Video references are uploaded and analyzed as a full temporal reference, not reduced to one frame.",
+      "promptAssistHelp": "Connect a Prompt node for the rough idea, and optionally connect an Image Input or generated frame as visual context.",
+      "connectedResults": "Connected results go to:", "blankFolderHelp": "Blank means images go to CANVAS Images, videos to CANVAS Videos, and audio to CANVAS Audio.",
+      "assetOutputHelp": "This node marks final results for the Assets panel. It has one input each for image, video, and audio. Use multiple Asset Output nodes if you want separate folders or more than one final result of the same media type.",
+      "noConnectedAssets": "No connected assets yet."
+    },
+    "fields": {
+      "label": "Label", "promptText": "Prompt Text", "resolvedText": "Resolved Text", "projectAsset": "Project Asset",
+      "videoFrameTime": "Video Frame Time (seconds)", "workflow": "Workflow", "systemPromptOverride": "System Prompt Override",
+      "targetDuration": "Target Duration (seconds)", "outputLanguage": "Output Language", "imageAnalysis": "Image Analysis",
+      "videoAnalysis": "Video Analysis", "referenceFrameTime": "Reference Frame Time (seconds)", "seed": "Seed",
+      "latestOutput": "Latest Output", "inlinePromptOverride": "Inline Prompt Override", "negativePrompt": "Negative Prompt",
+      "width": "Width", "height": "Height", "variants": "Variants", "duration": "Duration (s)", "fps": "FPS",
+      "wanQuality": "WAN Quality Preset", "topazModel": "Topaz Model", "targetResolution": "Target Resolution",
+      "upscaleCreativity": "Upscale Creativity", "musicTags": "Music Tags", "inlineLyrics": "Inline Lyrics / Text",
+      "keyScale": "Key / Scale", "bpm": "BPM", "assetFolder": "Asset Folder (optional)",
+      "creativeDirection": "Creative Direction (optional)", "inlineBrief": "Inline Brief"
+    },
+    "placeholders": { "geminiDefault": "Optional. Leave blank to use the bundled Gemini workflow default.", "connectedPrompt": "Optional. Leave blank to use the connected Prompt node.", "runForText": "Run the node to generate prompt text.", "shots": "Shots", "creativeDirection": "Optional. Describe the action, staging, dialogue, or mood the references should perform." },
+    "options": { "english": "English", "chinese": "Chinese", "faceLock": "Face Lock", "balanced": "Balanced" },
+    "information": {
+      "author": "Author", "license": "License", "threeSteps": "Create the LoRA in three steps",
+      "step1Title": "Choose the Design Set folder, then generate", "step1Help": "In Step 1 of the recipe, choose the character image and export folder before running CANVAS. The output folder is required so the completed set can be exported automatically.",
+      "step2Title": "Review the automatically exported Design Set", "step2Help": "After the eight-angle flow completes, CANVAS copies the source or corrected image and all generated views with stable numbered filenames. Use the button below only to export the current results again or recover from a copy error.",
+      "step3Help": "Download and extract the official Factory if needed. After automatic export, Lumeweft launches it automatically, reuses the Anima/SDXL model selected by the existing ComfyUI flow, fills the Design Set and model paths, and downloads only missing role files into the ComfyUI model folders. Then review captions/tags and press Start LoRA Training.",
+      "changeDesignSet": "Change Design Set folder…", "chooseDesignSet": "Choose Design Set folder…", "document": "Document",
+      "exportAgain": "Export current results again…", "designSetFolder": "Design Set folder", "trainIn": "Train in {{factory}}",
+      "downloadInstructions": "Download / instructions", "launchFactory": "Launch / retry Factory…",
+      "modelLicenseHelp": "Automatic downloads use each model's own license. Anima model weights are not covered by the Factory software's Apache-2.0 license.",
+      "externalTrainingHelp": "Training runs in the official external Factory, not inside CANVAS. Its first launch builds a separate Python environment and can take time. The finished Factory can convert the trained LoRA for ComfyUI use.",
+      "originalSource": "Original source", "close": "Close", "originalSize": "Original size",
+      "documents": {
+        "character-sheet": { "title": "H3 Character Sheet", "description": "Adapted for CANVAS from the H3 Character Sheet Generator workflow. Model and workflow terms are separate and both must be reviewed.", "notice": "" },
+        "anima-lora-dataset": { "title": "Anima LoRA Factory", "description": "CANVAS uses its existing Qwen multiple-angle workflow to prepare eight character views, then exports those images for use in the original Anima LoRA Factory GUI.", "notice": "The Apache-2.0 license applies to the factory software. Anima base models, training images, generated images, and third-party dependencies can have separate terms." },
+        "sdxl-lora-dataset": { "title": "SDXL LoRA Factory", "description": "CANVAS uses its existing Qwen multiple-angle workflow to prepare eight character views, then exports those images for use in the original SDXL LoRA Factory GUI.", "notice": "The Apache-2.0 license applies to the factory software. SDXL checkpoints, training images, generated images, and third-party dependencies can have separate terms." }
+      }
+    },
+    "analysisModes": {
+      "comprehensive": "Comprehensive", "subjectIdentity": "Subject / Identity", "actionEmotion": "Action / Emotion",
+      "faceExpression": "Face & Expression Focus", "propInteraction": "Prop & Object Interaction", "lightingCamera": "Lighting & Camera",
+      "cinematicComposition": "Cinematic Composition", "styleAesthetics": "Style & Aesthetics", "colorTexture": "Color Palette & Texture",
+      "motionFocus": "Motion Focus", "cameraTracking": "Camera Tracking", "temporalFlow": "Temporal Flow",
+      "physicsMomentum": "Physics & Momentum", "backgroundDynamics": "Background Dynamics"
+    },
+    "status": {
+      "default": "CANVAS writes into the same project assets pipeline used by Generate.", "missingApiKey": "Missing API key",
+      "dependenciesMissing": "{{nodes}} nodes / {{models}} models missing", "allSet": "All set",
+      "openProjectFirst": "Open or create a project before loading an image into CANVAS.", "desktopImagePicker": "The Image Loader file dialog is available in the desktop build.",
+      "imageLoaded": "Loaded {{name}} into the project and connected it to the CANVAS node.", "imageLoadFailed": "Could not load the selected image.",
+      "assetConnected": "Connected {{name}} to the CANVAS node.", "noLocalFile": "This asset does not have a local file that can be opened in File Explorer.",
+      "revealFailed": "Could not open this asset in the system file manager.", "desktopAssetCheck": "Checking local asset files is available in the desktop build.",
+      "assetsUpToDate": "Asset Browser is up to date. No missing local files were found.", "assetRefreshFailed": "Could not refresh the Asset Browser.",
+      "desktopDatasetPicker": "Choosing an existing LoRA dataset is available in the desktop build.", "desktopOutputPicker": "Choosing the Design Set output folder is available in the desktop build.",
+      "desktopDatasetExport": "LoRA dataset export is available in the desktop build.", "interruptRequested": "Interrupt requested. Waiting for ComfyUI to stop…",
+      "saved": "Saved CANVAS changes to the current project."
+    }
+  },
   "topTabs": {
     "editor": "Editor",
     "generate": "Generate",
+    "backstage": "Backstage",
     "agent": "Agent",
     "flow-ai": "CANVAS",
     "mog": "MoGraph",
@@ -355,7 +564,7 @@
     "sections": {
       "storage": { "title": "Projects & Storage", "description": "Choose where projects live and control auto-save behavior." },
       "stock": { "title": "Stock (Pexels)", "description": "Manage stock-media search credentials." },
-      "connection": { "title": "ComfyUI Connection", "description": "Configure the local ComfyUI endpoint, partner API key, and advanced tab visibility." },
+      "connection": { "title": "Connections & Runtimes", "description": "Configure local ComfyUI, cloud providers, credentials, routing, and credit display." },
       "agents": { "title": "Agents (MCP)", "description": "Connect Claude, Codex, Cursor, or other MCP clients to the open project." },
       "launcher": { "title": "ComfyUI Launcher", "description": "Let Velorn start, stop, and restart your local ComfyUI process." },
       "paths": { "title": "File Paths", "description": "Review output and workflow path settings." },
@@ -400,6 +609,8 @@
       }
     },
     "connection": {
+      "localGroupTitle": "Local ComfyUI",
+      "localGroupHelp": "Configure and test the ComfyUI server running on this computer.",
       "localPort": "Local ComfyUI Port",
       "localOnlyHelp": "Local-only mode. Remote/LAN ComfyUI is disabled in this build.",
       "reset": "Reset",
@@ -411,6 +622,8 @@
       "changeKey": "Change key",
       "addKey": "Add API key",
       "getKey": "Get a key",
+      "importGroupTitle": "Generation result import",
+      "importGroupHelp": "Choose how results generated directly in the embedded ComfyUI tab are brought into the current project.",
       "autoImport": "Auto-import ComfyUI tab generations",
       "autoImportHelpBefore": "When enabled, successful custom prompts observed while the embedded ComfyUI tab is active are imported into the current project's",
       "autoImportHelpAfter": "folder. Detected frame sequences are stitched into a single MP4 at the project's framerate.",
@@ -429,6 +642,46 @@
         "connectFailed": "Could not connect to {{endpoint}}.",
         "resetFailed": "Could not reset local ComfyUI port.",
         "resetEndpoint": "Reset to local endpoint: {{endpoint}}"
+      }
+    },
+    "cloudRuntimes": {
+      "title": "Cloud Runtimes",
+      "intro": "Connect execution providers here. Credential plaintext stays in OS-protected storage and is never exposed to workflow JSON or the renderer.",
+      "credentialsTitle": "Service credentials",
+      "importedWorkflowRuntime": "Imported API workflow runtime",
+      "localComfy": "Local ComfyUI",
+      "routingHelp": "This currently applies only to workflows imported in ComfyUI API format. Built-in and creator workflows keep their existing route.",
+      "loadFailed": "Could not load cloud runtime settings.",
+      "saving": "Saving credential securely…",
+      "saved": "Credential saved securely.",
+      "saveFailed": "Could not save the credential.",
+      "removed": "Credential removed.",
+      "removeFailed": "Could not remove the credential.",
+      "testing": "Testing connection…",
+      "connected": "Connection successful.",
+      "testFailed": "Could not connect to the provider.",
+      "routeFailed": "Could not update runtime routing.",
+      "environmentCredential": "Using {{key}}",
+      "credentialReady": "Credential ready",
+      "noCredential": "Not configured",
+      "credentialSaved": "Credential saved securely",
+      "credentialPlaceholder": "Paste your {{provider}} API key",
+      "save": "Save",
+      "remove": "Remove",
+      "test": "Test connection",
+      "checking": "Checking…",
+      "dashboard": "Dashboard / API key",
+      "docs": "API docs",
+      "showBalance": "Show selected provider balance",
+      "showBalanceHelp": "Display the selected external runtime's balance in the app header. Floyo shows available FloTime and Partner Nodes funds.",
+      "hideBalance": "Hide provider balance",
+      "costNotice": "Cloud runs may consume provider credits. Lumeweft imports completed outputs into the current project.",
+      "runBannerTitle": "{{provider}} cloud execution",
+      "runBannerHelp": "This run may consume provider credits. Completed outputs will be imported into this project.",
+      "providers": {
+        "floyo": {
+          "description": "Run ComfyUI API workflows on Floyo cloud GPUs."
+        }
       }
     },
     "agents": {
@@ -505,7 +758,48 @@
       "outputDirectory": "Output Directory",
       "selectOutputDirectory": "Select Output Directory",
       "workflowsDirectory": "Workflows Directory",
-      "selectWorkflowsDirectory": "Select Workflows Directory"
+      "selectWorkflowsDirectory": "Select Workflows Directory",
+      "loraFactories": "LoRA Factory environments",
+      "loraFactoriesHelp": "Choose each extracted official Factory folder containing start.bat. CANVAS uses these saved paths without asking every time.",
+      "animaFactory": "Anima LoRA Factory folder",
+      "sdxlFactory": "SDXL LoRA Factory folder",
+      "selectAnimaFactory": "Select the extracted Anima LoRA Factory folder",
+      "selectSdxlFactory": "Select the extracted SDXL LoRA Factory folder",
+      "browse": "Browse",
+      "factoryValid": "Factory environment found (start.bat is present).",
+      "factoryInvalid": "Choose the extracted Factory folder containing start.bat.",
+      "hardwareFfmpeg": {
+        "title": "Hardware export FFmpeg",
+        "help": "Advanced: choose an FFmpeg build with NVENC on Linux. It is used only for final H.264/H.265 hardware video encoding; Lumeweft keeps its bundled FFmpeg for media tools and as the safe CPU fallback.",
+        "sourceEnvironment": "Environment",
+        "sourceCustom": "Custom",
+        "sourceBundled": "Bundled",
+        "selectTitle": "Select FFmpeg for hardware export",
+        "executable": "FFmpeg executable",
+        "filePickerUnavailable": "File picker is not available in this environment.",
+        "pathSelected": "Path selected. Save it to validate and activate it.",
+        "chooseFailed": "Could not choose an FFmpeg executable.",
+        "chooseOrBundled": "Choose an FFmpeg executable or use the bundled default.",
+        "settingsUnavailable": "Hardware-export FFmpeg settings are not available in this environment.",
+        "validating": "Validating FFmpeg...",
+        "savePath": "Save path",
+        "saveFailed": "The selected FFmpeg executable could not be saved.",
+        "savedEnvironmentPriority": "Saved. VELORN_FFMPEG_PATH still takes priority for this app session.",
+        "savedReady": "Hardware-export FFmpeg saved and ready to test.",
+        "savePathFailed": "Could not save the hardware-export FFmpeg path.",
+        "restoreFailed": "Could not restore the bundled FFmpeg setting.",
+        "clearedEnvironmentActive": "Saved path cleared. VELORN_FFMPEG_PATH remains active.",
+        "bundledRestored": "Lumeweft will use its bundled FFmpeg for hardware checks and software fallback.",
+        "testing": "Testing the active FFmpeg and hardware encoder...",
+        "encodingReady": "{{codecs}} hardware encoding is ready.",
+        "encoderUnavailable": "This FFmpeg does not provide a usable hardware encoder. CPU export remains available.",
+        "testFailed": "Could not test the active FFmpeg executable.",
+        "testActive": "Test active FFmpeg",
+        "clearSavedPath": "Clear saved path",
+        "useBundled": "Use bundled FFmpeg",
+        "active": "Active",
+        "environmentPriority": "VELORN_FFMPEG_PATH is active and takes priority over the saved path until Lumeweft is restarted without it."
+      }
     },
     "workflowSetup": {
       "manager": "Workflow Setup Manager",
@@ -833,7 +1127,12 @@
     }
   },
   "generate": {
-    "mode": { "generate": "Generate", "director": "Director", "prompter": "Recipes", "history": "History" },
+    "mode": { "generate": "Generate", "director": "Director", "backstage": "Backstage", "prompter": "Recipes", "history": "History" },
+    "backstage": {
+      "title": "Backstage",
+      "description": "Prepare voices, training data, and trained assets before production.",
+      "backToWorkflows": "Back to backstage workflows"
+    },
     "prompter": {
       "saveTitle": "Save a generation recipe",
       "saveDescription": "Paste a successful prompt or capture the current ComfyUI workflow, then mark how it is used.",
@@ -848,6 +1147,8 @@
       "removeThumbnail": "Remove thumbnail",
       "image": "Image",
       "video": "Video",
+      "audio": "Audio / Music",
+      "audioThumbnailAlt": "Audio or music recipe",
       "pasteClipboard": "Paste from clipboard",
       "save": "Save",
       "savedTitle": "Saved generation recipes",
@@ -893,7 +1194,8 @@
     "history": {
       "tabs": { "history": "Generation history", "recipes": "Recipes" },
       "title": "Generation history",
-      "description": "Review outputs as versions of the same generation, reuse their prompts, or reopen the executed workflow.",
+      "description": "Compare versions of the same generation. Deleting also removes related generated assets and project-local output files.",
+      "audioThumbnailAlt": "Generated audio or music",
       "versionCount": "{{count}} versions",
       "active": "Active",
       "copy": "Copy prompt",
@@ -905,12 +1207,15 @@
       "collapse": "Collapse",
       "expand": "Expand",
       "export": "Save",
+      "deleteSelected": "Delete selected + outputs",
       "exportRecord": "Save this complete generation record to a file",
       "delete": "Delete",
-      "deleteVersion": "Delete this version from history",
-      "deleteRecord": "Delete this entire generation record",
-      "confirmDeleteVersion": "Delete version {{number}} from history? Generated asset files will not be deleted.",
-      "confirmDeleteRecord": "Delete all generation history for “{{title}}”? Generated asset files will not be deleted.",
+      "deleteVersion": "Delete this version and its outputs",
+      "deleteRecord": "Delete this entire record and its outputs",
+      "selectRecord": "Select {{title}}",
+      "confirmDeleteVersion": "Delete version {{number}} and its {{count}} related generated asset(s)? Generated files inside the project will also be deleted and cannot be restored. Input and reference assets are kept.",
+      "confirmDeleteRecord": "Delete all history for “{{title}}” and its {{count}} related generated asset(s)? Generated files inside the project will also be deleted and cannot be restored. Input and reference assets are kept.",
+      "confirmDeleteSelected": "Delete {{count}} selected generation record(s) and {{assetCount}} related generated asset(s)? Generated files inside the project will also be deleted and cannot be restored. Input and reference assets are kept.",
       "empty": "Completed Lumeweft generations will appear here.",
       "messages": {
         "copied": "Prompt copied to the clipboard.",
@@ -923,9 +1228,11 @@
         "repairNotNeeded": "No model references needed repair.",
         "repairAmbiguous": "{{count}} issue(s) were left unchanged because no unique safe replacement was found.",
         "repairFailed": "Could not repair the workflow.",
-        "versionDeleted": "Deleted the version from generation history. Its assets were kept.",
-        "recordDeleted": "Deleted the generation record. Its assets were kept.",
-        "deleteFailed": "Could not save the generation history deletion.",
+        "versionDeleted": "Deleted the version, related assets, and generated files.",
+        "recordDeleted": "Deleted the generation history, related assets, and generated files.",
+        "selectedDeleted": "Deleted {{count}} selected generation record(s) and their related outputs.",
+        "deleteFailed": "Could not delete the generation history and related outputs.",
+        "deleteFilesFailed": "Could not delete {{count}} related file(s). Make sure they are not in use, then try again. History and asset records were kept.",
         "exported": "Saved the complete generation record as a Lumeweft history file.",
         "versionExported": "Saved the version as a Lumeweft history version.",
         "exportFailed": "Could not save generation history to a file."
@@ -935,10 +1242,26 @@
       "tabs": { "featured": "Featured", "custom": "My Workflows", "templates": "Templates", "community": "Community" },
       "searchTemplates": "Search ComfyUI templates, models, tags...",
       "searchWorkflows": "Search workflows, providers, tags...",
-      "filters": { "all": "All", "image": "Image", "video": "Video", "image-to-video": "Image to Video (I2V)", "text-to-video": "Text to Video (T2V)", "text-to-image": "Text to Image (T2I)", "image-edit": "Image to Image (I2I)", "video-tools": "Video Tools", "audio": "Audio", "utility": "Utility" },
+      "filters": { "all": "All", "create": "Create", "image": "Image", "video": "Video", "image-to-video": "Image to Video (I2V)", "text-to-video": "Text to Video (T2V)", "text-to-image": "Text to Image (T2I)", "image-edit": "Image to Image (I2I)", "video-tools": "Video Tools", "audio": "Audio", "utility": "Utility" },
       "sources": { "all": "All", "local": "Local", "cloud": "Cloud" },
       "sort": { "popular": "Most used", "newest": "Newest" },
-      "showingWorkflows": "Showing {{count}} {{tab}} workflows"
+      "showingWorkflows": "Showing {{count}} {{tab}} workflows",
+      "card": { "cloud": "Cloud", "custom": "Custom", "local": "Local", "noCover": "No cover", "preview": "Preview" },
+      "creatorLauncher": {
+        "title": "Choose a creator workflow",
+        "cards": {
+          "ugc-ad-creator": { "title": "UGC Creator", "subtitle": "Creator-style ad", "description": "Creator-style social ads with hooks, dialogue, product demos, unboxings, try-ons, and reactions.", "badge": "Beta", "runtimeLabel": "Creator guide" },
+          "irodori-voice-clone-creator": { "title": "Irodori Voice Studio", "subtitle": "Voice design or voice clone", "description": "Design a new Japanese voice from prompt parts or clone a speaker from optional reference audio, then review the result.", "badge": "Local", "runtimeLabel": "Irodori-TTS" },
+          "business-ad-creator": { "title": "Business Ad Creator", "subtitle": "Offer to ad", "description": "Offer-first ads for local businesses, online shops, services, events, and small teams.", "badge": "Beta", "runtimeLabel": "Small business" },
+          "music-video-template": { "title": "Music Video Creation", "subtitle": "Lyrics to shots", "description": "Guided music video planning and generation.", "badge": "Easy", "runtimeLabel": "Lyrics + LTX" },
+          "short-film-easy-mode": { "title": "Short Film Creation", "subtitle": "Script to scene coverage", "description": "Guided short film planning with characters, locations, voices, shot coverage, keyframes, and videos.", "badge": "Easy", "runtimeLabel": "Script + voices + LTX" },
+          "anima-lora-factory-director": { "title": "ANIMA (SDXL) LoRA Factory", "subtitle": "Dataset to trained LoRA", "description": "Prepare a new eight-angle training set or choose an existing dataset, then launch the factory.", "badge": "Training", "runtimeLabel": "Dedicated recipe" },
+          "sdxl-lora-factory-director": { "title": "SDXL LoRA Factory", "subtitle": "Dataset to trained LoRA", "description": "Prepare a new eight-angle training set or choose an existing dataset, then launch the factory.", "badge": "Training", "runtimeLabel": "Dedicated recipe" }
+        }
+      },
+      "backstageLauncher": {
+        "title": "Choose a preparation or training workflow"
+      }
     },
     "community": {
       "sources": {
@@ -1109,7 +1432,7 @@
       "inputSource": "Input Source", "search": "Search assets...", "assets": "Assets", "searchingAll": "Searching all folders", "assignTo": "Assign selected asset to", "nothingSelected": "Nothing selected", "noMatches": "No matching assets", "noneHere": "No {{type}} assets here", "tryDifferent": "Try a different search or folder name", "importHelp": "Open another folder or import media in the Assets tab", "selectInput": "Select an input asset or use a timeline frame (right-click preview → Extend with AI)"
     },
     "queue": {
-      "title": "Queue", "expand": "Expand queue panel", "collapse": "Collapse panel", "clear": "Clear Queue", "video": "Queue Video", "image": "Queue Image", "audio": "Queue Audio", "keyframes": "Queue {{mode}} Keyframes", "referenceImage": "Reference image", "pickLocalImage": "Choose a local image", "selectReferenceImage": "Select reference image", "replace": "Replace", "prompt": "Prompt", "promptPlaceholder": "Describe the motion, scene, and camera direction...", "restoreOriginal": "Original", "translateEnglish": "English", "translateChinese": "简体中文", "translating": "Translating...", "translateHelp": "Translate from the app language on this device; same-language translation is disabled"
+      "title": "Queue", "expand": "Expand queue panel", "collapse": "Collapse panel", "clear": "Clear Queue", "video": "Queue Video", "image": "Queue Image", "audio": "Queue Audio", "keyframes": "Queue {{mode}} Keyframes", "referenceImage": "Reference image", "pickLocalImage": "Choose a local image", "selectReferenceImage": "Select reference image", "replace": "Replace", "prompt": "Prompt", "promptPlaceholder": "Describe the motion, scene, and camera direction...", "restoreOriginal": "Original", "translateEnglish": "English", "translateChinese": "简体中文", "translating": "Translating...", "translateHelp": "Translate from the app language on this device; same-language translation is disabled", "deleteResultTitle": "Delete generation result?", "deleteResult": "Delete result", "keepResult": "Keep", "deleteFailedResultConfirm": "Remove this failed generation result from the list.", "deleteResultWithFilesConfirm": "Delete this generation result and its {{count}} related asset(s). Generated files inside the project will also be deleted and cannot be restored. Input and reference assets are kept.", "deleteResultFilesFailed": "Could not delete {{count}} related file(s). Make sure they are not in use, then try again."
     },
     "messages": { "title": "Generation message", "selectReference": "Please select a reference image{{timeline}} first", "orTimelineFrame": " or use a timeline frame", "openProjectForImage": "Open or create a project before importing a reference image.", "imageRegisterFailed": "Could not register the imported image.", "imageImportFailed": "Could not import the reference image.", "translationFailed": "Could not translate the prompt." },
     "dependencies": {
@@ -1125,6 +1448,7 @@
         "startComfy": "Start ComfyUI",
         "backToWorkflows": "Back to create workflows", "step": "Step {{number}}", "back": "Back", "next": "Next", "aspectRatio": "Aspect ratio", "resolution": "Resolution", "outputResolution": "Output resolution", "fps": "Frames per second", "fpsShort": "FPS"
       },
+      "info": { "buildPlanFirst": "Build a plan first before queueing.", "mode": "Mode", "directorBeta": "Director Mode beta", "creation": "Creation", "musicVideo": "Music Video", "shortFilm": "Short Film", "keyframeSource": "Keyframe source", "videoSource": "Video source", "requestedFps": "Requested video FPS", "keyframeWorkflow": "Keyframe workflow", "keyframeRuntime": "Keyframe runtime", "videoDefault": "Video default", "videoRuntime": "Video runtime", "videoQueueTarget": "Video queue target", "videoTargetTier": "Video target tier", "scenes": "Scenes", "plannedVariants": "Planned variants", "queueVariants": "Queue variants", "keyframesReady": "Keyframes ready" },
       "business": {
         "navTitle": "Business Ad Creator", "assistant": "Lumeweft asks",
         "steps": { "setup": "Setup", "references": "References", "script": "Script", "keyframes": "Keyframes", "videos": "Videos + Timeline" },
@@ -1135,8 +1459,8 @@
         "aspectHelp": { "vertical_9x16": "Portrait: 720x1280 or 1080x1920.", "landscape_16x9": "Landscape: 1280x720 or 1920x1080.", "square_1x1": "Square: 720x720 or 1080x1080." },
         "output": { "fast": "Faster and lighter.", "sharp": "Sharper output, more work for local video.", "currentFrame": "Current frame size:", "fps24": "Cinematic default.", "fps25": "PAL-friendly delivery.", "fps30": "Smoother motion.", "seconds": "{{seconds}} seconds", "current": "Current output:" },
         "references": { "title": "Do you have product, people, or location references?", "description": "Optional, but best results come from real product photos, staff/customer references, storefront shots, or brand environments.", "product": "Product or service reference", "productHelp": "Use product photos, menu items, finished work, before/after examples, or service proof shots.", "noProduct": "No product/service asset selected", "talent": "Talent reference", "talentHelp": "Recommended: character sheet with front, side, 3/4 view, expressions, and wardrobe.", "noTalent": "No talent asset selected", "environment": "Environment reference", "environmentHelp": "Optional location, room, surface, lighting, or set design reference for the ad world.", "noEnvironment": "No environment asset selected" },
-        "script": { "kicker": "Script plan", "title": "Proposed script and storyboard plan.", "description": "This script is structured Director text. You can edit it manually before building the plan." },
-        "keyframes": { "kicker": "Storyboard review" }, "videos": { "kicker": "Video review", "description": "Completed videos will appear here one by one. You can select a shot video, edit only its motion prompt, then regenerate just that clip." },
+        "script": { "kicker": "Script plan", "title": "Proposed script and storyboard plan.", "description": "This script is structured Director text. You can edit it manually before building the plan.", "adLength": "Ad length", "shotCount": "How many shots?", "modelRoute": "Model route", "ownLlm": "Optional: use your own LLM" },
+        "keyframes": { "kicker": "Storyboard review", "model": "Keyframe model", "buildFirst": "Build the script plan first.", "editPrompt": "Edit shot keyframe prompt", "regenerateSelected": "Regenerate Selected Shot", "regenerateAll": "Regenerate All", "makeVariations": "Make 3 Variations", "create": "Create Keyframes" }, "videos": { "kicker": "Video review", "description": "Completed videos will appear here one by one. You can select a shot video, edit only its motion prompt, then regenerate just that clip.", "modelPass": "Video model pass", "modelPassHelp": "Use the same keyframes to create another complete model pass for comparison in editing.", "editPrompt": "Edit shot motion prompt" },
         "actions": { "nextReferences": "Next: References", "regenerateScript": "Regenerate script from brief", "startAnother": "Start Another Ad" }
       },
       "music": {
@@ -1145,20 +1469,58 @@
         "song": { "title": "Choose the song source.", "description": "Import your song or vocal stem in the Assets panel first, then select it here. Advanced audio modes are available when needed.", "outputHelp": "These settings apply to both keyframes and videos.", "selectAudio": "Select audio from this project", "noAudio": "No audio assets in this project yet. Import song audio in Assets first.", "hideAdvanced": "Hide Advanced", "advancedAudio": "Advanced Audio", "selectFromAssets": "Select audio from Assets panel", "addAudioHelp": "Add audio in the Assets panel, then pick it from the list below.", "genreHelp": "Included in the copied Director Script brief so the LLM does not infer the visual style from lyrics alone." },
         "audioKinds": { "mixed_track": { "label": "Finished song (full mix)", "help": "Lumeweft assumes a normal finished song by default. Lip-sync and b-roll routing still come from the director script." }, "vocal_stem": { "label": "Vocal stem (isolated vocals)", "help": "A clean vocal-only file. No preprocessing needed." }, "instrumental": { "label": "Instrumental (no vocals)", "help": "Music only. Lip-sync will be disabled for all shots." } },
         "timing": { "notice": "Preparing lyric timing might take a moment.", "noticeHelp": "Wait for this step to finish before copying the LLM brief so the script uses the real song timings.", "title": "Lyrics Timing", "preparing": "Preparing", "prepare": "Prepare Timing", "engine": "Timing Engine", "language": "ASR Language", "source": "Lyrics source", "alignHelp": "Paste plain lyrics below. Lumeweft listens to the selected audio for timing, then writes your lyrics as SRT.", "transcribeHelp": "Lumeweft listens to the selected audio and writes timed SRT output.", "transcribe": "Transcribe Song", "align": "Align My Lyrics", "srtOutput": "SRT Output", "srtPlaceholder": "Timed lyrics will appear here after transcription or alignment.", "engines": { "auto": { "label": "Auto", "help": "Local Whisper first; ComfyUI fallback." }, "local": { "label": "Local Whisper", "help": "Runs locally without ComfyUI." }, "comfyui": { "label": "ComfyUI", "help": "Uses the Qwen3-ASR workflow." } } },
-        "people": { "title": "Define who appears on camera.", "description": "Add reference images for artists, band members, or performers so the script can route shots by Artist fields." },
-        "script": { "title": "Create the director script.", "description": "Copy a ready-made LLM brief with timing, cast, and format rules, then paste the returned script here." },
-        "keyframes": { "title": "Create keyframes from the script.", "description": "Each parsed script shot gets one starting image. The script, not a separate shot preset list, controls what gets made." },
-        "videos": { "title": "Generate videos from the script.", "description": "Each parsed shot can be generated or rerun on its own using the matching keyframe and song timing." }
+        "people": { "title": "Define who appears on camera.", "description": "Add reference images for artists, band members, or performers so the script can route shots by Artist fields.", "resolvedCount": "{{count}} resolved people", "importHelp": "Import an existing portrait, character sheet, or reference image into the cast.", "importing": "Importing", "importImage": "Import Image", "createPerson": "Create Person", "empty": "Import an existing image or create a person if the video has lip-sync performance shots.", "name": "Name", "scriptSlug": "Script Slug", "reference": "Reference", "noReference": "No reference image", "editPerson": "Edit person", "remove": "Remove", "directorNotes": "Notes for Director Script", "directorNotesPlaceholder": "Optional: female voice, harsh vocal, guitarist, never sings" },
+        "script": { "title": "Create the director script.", "description": "Copy a ready-made LLM brief with timing, cast, and format rules, then paste the returned script here.", "sectionCount": "{{count}} sections", "coverageHelp": "The LLM brief will return one combined director script with labeled coverage sections. B-roll sections are guided to share one start-middle-end story, with environment and detail shots supporting the same arc.", "custom": "Custom", "presets": { "simple": { "label": "Simple", "help": "One timing-accurate director script." }, "standard": { "label": "Standard", "help": "Main script, one vocal performance pass, and story b-roll." }, "editorial": { "label": "Editorial", "help": "Main script, two vocal performance passes, story, environment, and detail coverage." } }, "performancePasses": "Performance Passes", "storyBroll": "Story b-roll", "environmental": "Environmental", "detailInserts": "Detail inserts", "copyBriefTitle": "Copy LLM brief", "copyBriefHelp": "The brief includes song timing, cast slugs, required script format, b-roll story guidance, camera motion, character movement, and emotion cues.", "copyBrief": "Copy Brief", "timingIncluded": "SRT timing included", "timingNotReady": "Timing not ready yet", "timedLines": "The brief can reference {{count}} timed lyric lines.", "prepareTiming": "Prepare timing in Step 1 before you ask for a timing-accurate script.", "audio": "Audio", "cast": "Cast", "notSelected": "Not selected", "noCast": "No resolved cast yet", "pasteTitle": "Paste director script", "pasteHelp": "This script becomes the plan. Shot type, start time, keyframe prompt, and motion prompt drive the next steps.", "replaceConfirm": "Replace the current director script with the template?", "template": "Template", "placeholder": "Paste the LLM director script here.", "changed": "Script changed since the last parse.", "ready": "Ready when the script has shots.", "parse": "Parse Script" },
+        "common": { "scriptShots": "Script shots", "readyKeyframes": "Ready keyframes", "readyVideos": "Ready videos", "regenerateAll": "Regenerate All" },
+        "keyframes": { "title": "Create keyframes from the script.", "description": "Each parsed script shot gets one starting image. The script, not a separate shot preset list, controls what gets made.", "queueVariants": "Queue variants", "jobsTitle": "Keyframe jobs from your director script", "jobsHelp": "The keyframe prompt on each shot becomes the still-image prompt for that exact beat.", "model": "Keyframe model", "create": "Create Keyframes", "referenceHelp": "Qwen Image Edit needs a cast/reference image for performer shots. Reference-free b-roll automatically uses local Z-Image Turbo.", "stale": "The director script changed after the plan was parsed. Parse the script again before queueing.", "shotsTitle": "Shot keyframes", "shotsHelp": "Preview a shot to inspect the image, edit its prompt, or rerun that keyframe at the current output settings." },
+        "videos": { "title": "Generate videos from the script.", "description": "Each parsed shot can be generated or rerun on its own using the matching keyframe and song timing.", "shotsTitle": "Shot videos", "shotsHelp": "Preview a shot to inspect the video, edit its motion prompt, or rerun it through {{model}}.", "alternateHelp": "Not happy with a shot? Select it here, adjust the motion prompt if needed, then rerun just that shot. Use this area for fixes, alternate takes, or trying a different model or resolution without rebuilding the whole music video.", "replace": "Replace Video", "singleEdit": "Motion prompt editing is available when a single shot is selected.", "editMotion": "Edit shot motion prompt", "motionPlaceholder": "Describe the motion/action for this one video rerun...", "motionHelp": "This changes the selected shot's video prompt for new renders only. It does not rewrite the original director script.", "timing": "Timing", "start": "Start", "length": "Length" }
+      },
+      "irodoriClone": {
+        "kicker": "Local Voice Studio",
+        "title": "Irodori Voice Studio",
+        "description": "Generate Japanese speech in standard reference-free, VoiceDesign, or reference voice-clone mode.",
+        "dialogue": { "title": "Dialogue to speak", "placeholder": "Example: 😊Hello. ⏸️Today I have something new to show you.", "emojiPicker": "Expression and delivery Emoji Picker", "emojiHelp": "Cues are inserted at the cursor. Combine multiple cues and ⏸️ pauses as needed." },
+        "voiceDesign": {
+          "title": "Voice prompt builder",
+          "help": "Build a voice prompt by clicking a preset, speaker, pitch, delivery, pace, mood, and sound quality.",
+          "presets": "Voice presets",
+          "standardMode": "No reference · Standard TTS",
+          "designMode": "VoiceDesign",
+          "cloneMode": "Reference voice clone",
+          "enableStandard": "Standard voice",
+          "standardHelp": "Read the dialogue directly with the existing Irodori v3 model.",
+          "enableDesign": "Design a voice",
+          "designHelp": "Apply presets and voice parts through VoiceDesign.",
+          "disabledByReference": "Reference audio is selected, so its speaker identity takes priority. Clear the reference to enable VoiceDesign.",
+          "disabledByStandard": "Standard voice is active. Choose Design a voice to enable VoiceDesign.",
+          "prompt": "Completed voice prompt",
+          "promptHelp": "This Japanese description is sent directly to the VoiceDesign caption. Emoji delivery cues in the dialogue can be used at the same time.",
+          "presetNames": { "calmFemale": "Calm female voice", "articulateMale": "Articulate male voice", "gentleNarrator": "Gentle narrator", "brightYoungFemale": "Bright young female", "warmLowMale": "Warm low male", "neutralAnnouncer": "Neutral announcer" },
+          "groups": { "speaker": "Speaker", "pitch": "Pitch", "delivery": "Delivery", "pace": "Pace", "mood": "Mood", "sound": "Sound quality" },
+          "parts": { "youngFemale": "Young female", "adultFemale": "Adult female", "youngMale": "Young male", "adultMale": "Adult male", "neutral": "Gender-neutral", "high": "High", "slightlyHigh": "Slightly high", "middle": "Mid-range", "slightlyLow": "Slightly low", "low": "Low", "calm": "Calm", "articulate": "Articulate", "gentle": "Gentle", "whisper": "Whisper", "narration": "Narration", "confident": "Confident", "slow": "Slow", "normal": "Normal", "brisk": "Brisk", "peaceful": "Peaceful", "bright": "Bright", "friendly": "Friendly", "restrained": "Restrained", "serious": "Serious", "clear": "Clear", "close": "Close-mic", "soft": "Soft resonance" }
+        },
+        "reference": { "title": "Reference audio (optional)", "choose": "Choose audio from Project Assets", "none": "No reference", "chooseFromBrowser": "Choose from Asset Browser", "upload": "Upload audio", "browserTitle": "Asset Browser", "browserHelp": "Choose reference audio from Project Assets or the configured ComfyUI Input folder.", "closeBrowser": "Close Asset Browser", "projectAssetsTab": "Project Assets", "comfyInputTab": "ComfyUI Input", "searchComfyInput": "Search audio in ComfyUI Input…", "refreshComfyInput": "Refresh", "scanningComfyInput": "Scanning ComfyUI Input…", "useComfyInput": "Import to project and use", "importingComfyInput": "Importing to project…", "noComfyInputAudio": "No supported audio was found in ComfyUI Input.", "noComfyInputMatches": "No matching audio was found.", "browserCount": "{{count}} audio assets", "search": "Search existing audio…", "noAssets": "There is no audio in Project Assets. Upload an audio file to add one.", "noMatches": "No matching audio assets.", "empty": "Without a reference, the voice prompt above designs a new voice.", "emptyStandard": "The dialogue is read directly as a standard reference-free voice.", "normalize": "Normalize reference audio (-16 dB)", "maxSeconds": "Maximum reference seconds" },
+        "advanced": { "title": "Advanced settings", "randomSeed": "Randomize seed" },
+        "actions": { "generate": "Generate voice", "generating": "Generating…" },
+        "messages": { "enterText": "Enter the dialogue to speak.", "selectReference": "Select reference audio.", "enterVoicePrompt": "Enter a voice prompt when no reference audio is selected.", "queueing": "Adding voice generation to the queue…", "queued": "Queued. The finished audio will appear in Generated results automatically.", "notQueued": "The job could not be queued.", "failed": "Voice generation could not be started." },
+        "results": { "title": "Generated results", "untitled": "Irodori Voice Studio", "saved": "Saved to Project Assets", "take": "Take", "empty": "No generated audio yet", "emptyHelp": "When the job finishes, an audio player will appear here automatically." }
       },
       "shortFilm": {
         "steps": { "story": "Story", "characters": "Characters", "locations": "Locations", "script": "Script", "voices": "Voices", "shotPlan": "Shot Plan", "keyframes": "Keyframes", "videos": "Videos", "assemble": "Assemble" },
         "fields": { "title": "Title", "premise": "Premise", "creativeDirection": "Creative direction", "runtime": "Runtime" },
         "story": { "title": "Define the short film.", "description": "This builds the LLM brief. After the script exists, the script becomes the source of truth.", "directionHelp": "Tone, genre, pacing, and style live here so the LLM has direction before it writes the actual script.", "outputPrefix": "Output will be prepared as", "outputAt": "at" },
         "voiceModes": { "text_to_speech": "Text to Speech", "text_to_dialogue": "Text to Dialogue", "speech_to_speech": "Speech to Speech" },
-        "characters": { "title": "Cast characters." }, "locations": { "title": "Build location sheets." },
-        "script": { "title": "Write or paste the script.", "brief": "LLM brief", "briefHelp": "Includes premise, creative direction, cast, locations, and required format.", "screenplay": "Screenplay / director script", "screenplayHelp": "This becomes the source of truth for voices, shots, keyframes, and assembly." },
-        "voices": { "title": "Generate character voices." }, "shotPlan": { "title": "Review visual coverage." }, "keyframes": { "title": "Create keyframes." }, "videos": { "title": "Generate shot videos." }, "assemble": { "title": "Assemble the edit." },
-        "sidebar": { "current": "Current concept", "principle": "Working principle", "principleHelp": "The script drives story, dialogue, timing, and shot choice. Characters provide faces and voices. Location sheets provide the visual world memory.", "routing": "Model routing", "titleLabel": "TITLE", "cast": "CAST", "locations": "LOCATIONS", "voices": "VOICES", "output": "OUTPUT", "characterCount": "{{count}} characters", "locationCount": "{{count}} locations", "ltxHelp": "Default for short generated video shots.", "voiceHelp": "The selected ElevenLabs or Irodori-TTS workflow turns dialogue into editable audio clips.", "locationSheets": "Location sheets", "locationSheetsHelp": "Reference images for consistent spaces and angles.", "notes": "Open implementation notes", "notesHelp": "Voices, keyframes, and video renders are wired. Timeline assembly is the next pass." }
+        "common": { "slug": "Slug", "shot": "Shot {{number}}" },
+        "status": { "ready": "ready", "failed": "failed", "pending": "pending", "missing": "missing", "needs_keyframe": "needs keyframe", "voice_ready": "voice ready", "needs_voice": "needs voice" },
+        "characters": { "title": "Cast characters.", "description": "Character slugs keep faces, wardrobe, dialogue, and voice profiles connected.", "add": "Add Character", "character": "Character", "remove": "Remove character", "role": "Role", "visualNotes": "Visual notes", "reference": "Face / wardrobe reference", "chooseImage": "Choose character image", "voiceSource": "Voice source", "voicePreset": "Voice preset", "voiceNotes": "Voice notes", "irodoriHelp": "The local v3 base voice is varied by seed; voice notes remain available to guide the shot performance.", "elevenLabsHelp": "Matches the bundled ElevenLabs voice selector." },
+        "locations": { "title": "Build location sheets.", "description": "Each location can carry reference angles so keyframes stay in the same world.", "add": "Add Location", "name": "Location name", "remove": "Remove location", "continuity": "Continuity description", "references": { "hero": "Hero reference", "wide": "Wide reference", "reverse": "Reverse reference", "detail": "Detail reference" }, "choose": { "hero": "Choose hero image", "wide": "Choose wide image", "reverse": "Choose reverse image", "detail": "Choose detail image" } },
+        "script": { "title": "Write or paste the script.", "description": "Copy the brief into an LLM, paste the returned screenplay here, then generate a coverage review.", "brief": "LLM brief", "briefHelp": "Includes premise, creative direction, cast, locations, and required format.", "copyBrief": "Copy Brief", "screenplay": "Screenplay / director script", "screenplayHelp": "This becomes the source of truth for voices, shots, keyframes, and assembly.", "generatePlan": "Generate Shot Plan" },
+        "voices": { "title": "Generate character voices.", "description": "Dialogue lines are routed through each character voice profile. Text to Speech creates one editable audio clip per line.", "engine": "TTS engine", "workflow": "Audio workflow", "providers": { "elevenlabs": { "label": "ElevenLabs", "runtime": "Cloud", "description": "Uses the bundled ComfyUI partner workflow and named ElevenLabs voice presets." }, "irodori": { "label": "Irodori-TTS", "runtime": "Local", "description": "Runs the latest local Irodori-TTS v3 model in ComfyUI with automatic dialogue duration." } }, "modes": { "text_to_speech": "One character line at a time with a locked voice profile.", "text_to_dialogue": "Multi-character scene dialogue from one screenplay section.", "speech_to_speech": "Use a guide performance and convert it into the cast voice." }, "activeIrodori": "Text to Speech uses local Irodori-TTS v3. The other voice modes are placeholders for later.", "activeElevenLabs": "Text to Speech uses the ElevenLabs ComfyUI partner workflow. The other voice modes are placeholders for later.", "dialogueLines": "Dialogue lines", "detectedLines": "{{count}} detected lines from the script.", "queue": "Queue Voices", "empty": "No dialogue detected yet. Use CHARACTER: \"line\" or screenplay speaker blocks." },
+        "shotPlan": { "title": "Review visual coverage.", "description": "This is the script as a production checklist: wides, close-ups, reactions, inserts, and cutaways.", "clear": "Clear Plan", "rebuild": "Rebuild From Script", "plannedShots": "Planned shots", "dialogueLines": "Dialogue lines", "locations": "Locations", "empty": "Generate a shot plan after pasting the screenplay.", "done": "Done", "edit": "Edit", "fields": { "title": "Shot title", "type": "Shot type", "duration": "Duration", "location": "Location", "character": "Character reference", "noCharacter": "No specific character", "dialogueAudio": "Dialogue audio", "noDialogueAudio": "No dialogue audio", "dialogueAudioValue": "Dialogue audio: \"{{text}}\"", "keyframePrompt": "Keyframe prompt", "motionPrompt": "Motion prompt" } },
+        "keyframes": { "title": "Create keyframes.", "description": "Each approved shot gets one starting image using character refs plus location sheet refs.", "create": "Create Keyframes", "renderer": "Keyframe renderer", "runtime": { "local": "Local", "cloud": "Cloud" }, "workflows": { "image-edit": "Fully local keyframes. Uses the best character or location reference image as the edit source.", "nano-banana-2": "Cloud keyframes. Can generate from the shot prompt and optional character/location references." } },
+        "videos": { "title": "Generate shot videos.", "description": "LTX 2.3 uses each approved keyframe as the first frame. Dialogue shots use the matching generated voice clip when it exists.", "queue": "Queue Videos", "model": "Video model", "readyVideos": "Ready videos", "renderSize": "Video render size", "renderSizeHelp": "New LTX 2.3 video jobs use this size. Use 720p for speed, 1080p for cleaner final shots.", "routing": "Routing principle", "routingHelp": "Silent shots queue as LTX 2.3 image-to-video. Dialogue shots queue as LTX 2.3 image-and-audio-to-video once their voice clips are ready.", "alternateHelp": "Not happy with a short-film shot? Select it above, edit the full video prompt here, then rerun just that shot as an alternate take.", "runSelected": "Run Selected Shot", "needsKeyframe": "This shot needs a keyframe before video can run.", "needsVoice": "This dialogue shot needs its generated voice clip before video can run.", "editPrompt": "Edit full video prompt", "shotInfo": "Shot info", "keyframe": "Keyframe", "voice": "Voice", "resetPrompt": "Reset To Default Prompt", "promptHelp": "This does not rewrite the screenplay or shot plan. It only changes the next render queued from this selected-shot panel." },
+        "assemble": { "title": "Assemble the edit." },
+        "sidebar": { "current": "Current concept", "principle": "Working principle", "principleHelp": "The script drives story, dialogue, timing, and shot choice. Characters provide faces and voices. Location sheets provide the visual world memory.", "routing": "Model routing", "titleLabel": "TITLE", "cast": "CAST", "locations": "LOCATIONS", "voices": "VOICES", "output": "OUTPUT", "characterCount": "{{count}} characters", "locationCount": "{{count}} locations", "ltxHelp": "Default for short generated video shots.", "voiceHelp": "The selected ElevenLabs or Irodori-TTS workflow turns dialogue into editable audio clips.", "irodoriLocal": "Irodori-TTS · Local", "elevenLabsCloud": "ElevenLabs · Cloud", "irodoriHelp": "Local v3 dialogue. Missing nodes and model files are guided through Workflow Setup.", "locationSheets": "Location sheets", "locationSheetsHelp": "Reference images for consistent spaces and angles.", "notes": "Open implementation notes", "notesHelp": "Voices, keyframes, and video renders are wired. Timeline assembly is the next pass." }
       },
       "ugc": {
         "steps": {
@@ -1166,6 +1528,10 @@
           "number": "Step {{number}}",
           "setup": "The Vibe",
           "references": "References",
+          "script": "Script Review",
+          "voiceover": "Voice",
+          "keyframes": "Keyframes",
+          "videos": "Videos + Timeline",
           "generate": "Generate"
         },
         "header": {
@@ -1212,6 +1578,23 @@
           "premium-creator": "Premium Creator",
           "funny-chaotic": "Funny"
         },
+        "productionMode": {
+          "title": "Production mode",
+          "description": "Choose a fast one-shot render or a fully editable shot workflow with selectable dialogue language and TTS.",
+          "oneShot": "One-shot generation",
+          "oneShotHelp": "Generate the complete ad as one clip.",
+          "localJapanese": "Local Japanese shots",
+          "localJapaneseHelp": "Japanese script, Irodori-TTS, local keyframes, and LTX lip-sync.",
+          "localRoute": "Local route: Japanese dialogue → Irodori-TTS → Qwen Image Edit keyframes → LTX 2.3 ID-LoRA lip-sync.",
+          "editableShots": "Editable shots",
+          "editableShotsHelp": "Choose English or Japanese dialogue, select a TTS engine, and edit every shot.",
+          "dialogueLanguage": "Dialogue language",
+          "japanese": "Japanese",
+          "english": "English",
+          "ttsEngine": "TTS engine",
+          "japaneseOnly": "Japanese only",
+          "editableRoute": "{{language}} dialogue → {{tts}} → keyframes → exact-audio lip-sync."
+        },
         "setup": {
           "kicker": "The Vibe",
           "title": "Make it look like a friend posted it.",
@@ -1230,13 +1613,17 @@
           "canvas": "Canvas",
           "duration": "How long?",
           "seconds": "seconds",
+          "secondsShort": "s",
+          "durationHelp": "Recommended {{min}}-{{max}}s. One-shot generation caps at 15s.",
           "quality": "Quality",
           "frameRate": "Frame rate",
           "frameRateHelp": "Locked to 25 fps — LTX 2.3's native rate for clean motion and lip-sync.",
           "details": "Add detail",
           "optionalDefaults": "optional - good defaults already set",
           "detailsHelp": "All optional. Leave them and the workflow fills in sensible defaults; add any to steer the result. You can also tweak every line later in Script Review.",
-          "minimumHelp": "Format, hook, product, and tone are all you need — fine-tune the full script on the Generate step."
+          "minimumHelp": "Format, hook, product, and tone are all you need — fine-tune the full script on the Generate step.",
+          "aspectOptions": { "vertical_9x16": "9:16 - TikTok - Reels", "square_1x1": "1:1 - Feed post", "landscape_16x9": "16:9 - YouTube" },
+          "detailsFields": { "brand": "Brand", "audience": "Who's scrolling past? (your audience)", "reason": "Why should they stop scrolling?", "proof": "The proof moment - what convinces people it's real?", "creatorDirection": "Creator direction", "location": "Room / location", "cta": "Final line / CTA", "cameraRules": "Camera rules" }
         },
         "references": {
           "kicker": "Drop-ins",
@@ -1268,7 +1655,11 @@
           "generateFirst": "Generate at least one video first.",
           "tooltip": "Preview the ready clips back-to-back in this phone.",
           "stop": "Stop",
-          "edit": "Preview Edit"
+          "edit": "Preview Edit",
+          "roughCut": "rough cut {{current}}/{{total}}",
+          "shotCaption": "Shot {{number}}: {{caption}}",
+          "defaultCaption": "this is the one everyone keeps asking me about #ad",
+          "originalSound": "original sound - your ad, but make it feel native"
         },
         "summary": {
           "title": "The brief so far",
@@ -1282,13 +1673,23 @@
         },
         "why": {
           "title": "Why this works",
-          "description": "UGC ads work when they feel native to the feed. The defaults here favor handheld framing, real skin tones, clear product handling, and editable shot-by-shot control."
+          "description": "UGC ads work when they feel native to the feed. The defaults here favor handheld framing, real skin tones, clear product handling, and editable shot-by-shot control.",
+          "dialogueBeats": "dialogue beats",
+          "productMoments": "product moments",
+          "editableClips": "editable clips"
         },
         "actions": {
           "back": "Back",
           "nextReferences": "Next: add references",
           "buildPrompt": "Build Prompt",
+          "reviewScript": "Review Script",
+          "prepareJapaneseVoice": "Prepare Japanese Voice",
+          "prepareVoice": "Prepare Voice",
           "startAnother": "Start Another Ad"
+        },
+        "voiceover": {
+          "irodoriHelp": "Japanese lines are generated locally with Irodori-TTS. The recommended Exact Audio route keeps each finished clip and syncs its matching shot to that waveform.",
+          "languageChanged": "Language changed. Review the updated dialogue and prepare the voice plan again."
         },
         "generate": {
           "kicker": "One-Shot",
@@ -1313,7 +1714,16 @@
           "ltxButton": "Generate (LTX 2.3 local, {{seconds}}s)",
           "modelHelp": "Seedance (cloud) uses your references to lock the product and creator with true scene cuts. LTX 2.3 (local) auto-composes a first frame from your references, then animates it — one continuous shot, kept on your own GPU. (No references? LTX falls back to prompt-only.)",
           "readyPrefix": "Your ad is ready — hit play in the",
-          "readySuffix": "to watch it. Saved to your project assets too; drag it onto the timeline to edit or export. Not happy? Tweak the prompt and generate again."
+          "readySuffix": "to watch it. Saved to your project assets too; drag it onto the timeline to edit or export. Not happy? Tweak the prompt and generate again.",
+          "resultsTitle": "Generated results",
+          "resultsHelp": "Completed one-shot videos appear here automatically and are also saved in Project Assets.",
+          "resultsCount": "{{count}} ready",
+          "untitledResult": "UGC generated video",
+          "savedToAssets": "Saved to Project Assets",
+          "resultNumber": "Result {{number}}",
+          "readyMessage": "The video is ready to review here. It is also available in Project Assets, where you can drag it onto the timeline for editing or export.",
+          "noResults": "No completed video yet",
+          "noResultsHelp": "After a queued one-shot finishes and is imported, its playable asset will appear here automatically."
         }
       }
     }
@@ -1327,6 +1737,8 @@
     "search": "Search",
     "home": "Home",
     "homeHelp": "Back to popular/trending",
+    "apiSettings": "API settings",
+    "apiSettingsHelp": "Open the Pexels API key settings",
     "apiRequired": "Pexels API key required",
     "apiInstructions": ", then add it in Settings (left panel → Settings).",
     "refreshKey": "I've added my key — refresh",
@@ -1494,6 +1906,9 @@
     }
   },
   "apiKey": {
+    "providersTitle": "Cloud API keys",
+    "providersSubtitle": "Configure Comfy.org or Floyo from one place.",
+    "provider": "Provider",
     "title": "Cloud Workflows · Comfy.org API key",
     "subtitle": "Unlocks the cloud-rendered workflows that ship with Velorn.",
     "unlocks": "Unlocks",
@@ -1509,6 +1924,15 @@
     "checking": "Checking with Comfy.org…",
     "checkingShort": "Checking…",
     "accepted": "Key accepted by Comfy.org.",
+    "floyoAccepted": "Key accepted by Floyo.",
+    "securelyStored": "Stored in OS-protected storage",
+    "floyoFeatureRun": "Run imported ComfyUI API workflows",
+    "floyoFeatureUpload": "Upload workflow inputs and import completed outputs",
+    "floyoFeatureBalance": "Show available FloTime and Partner Nodes balance",
+    "floyoCoverage": "Floyo runs may consume FloTime and Partner Nodes funds, depending on the workflow.",
+    "useFloyo": "Use Floyo for imported API workflows",
+    "useFloyoHelp": "Makes Floyo the execution destination for workflows imported in ComfyUI API format.",
+    "floyoStorage": "The Floyo key is encrypted with OS-protected storage. Plaintext is sent only from Lumeweft's main process to Floyo over HTTPS.",
     "pasteFirst": "Paste a key first.",
     "pasteBeforeSave": "Paste your Comfy.org API key before saving.",
     "validateFailed": "Could not validate right now.",

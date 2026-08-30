@@ -1,6 +1,6 @@
 {
-  "generatedAt": "2026-04-14T18:11:21.081Z",
-  "totalModels": 20,
+  "generatedAt": "2026-08-30T04:29:06.605Z",
+  "totalModels": 63,
   "models": [
     {
       "filename": "ace_1.5_vae.safetensors",
@@ -18,7 +18,7 @@
       "downloadUrl": "https://huggingface.co/Comfy-Org/ace_step_1.5_ComfyUI_files/resolve/main/split_files/vae/ace_1.5_vae.safetensors",
       "sourceUrl": "https://huggingface.co/Comfy-Org/ace_step_1.5_ComfyUI_files/blob/main/split_files/vae/ace_1.5_vae.safetensors",
       "licenseUrl": "https://huggingface.co/ACE-Step/Ace-Step1.5",
-      "sizeBytes": null,
+      "sizeBytes": 337431732,
       "sha256": null,
       "autoInstallSupported": true,
       "notes": "Required by the built-in music generation workflow."
@@ -55,6 +55,8 @@
         "vae_name"
       ],
       "workflows": [
+        "longcat-image-edit",
+        "longcat-text-to-image",
         "z-image-turbo"
       ],
       "downloadUrl": "https://huggingface.co/Comfy-Org/z_image_turbo/resolve/main/split_files/vae/ae.safetensors",
@@ -64,6 +66,153 @@
       "sha256": "afc8e28272cd15db3919bacdb6918ce9c1ed22e96cb12c4d5ed0fba823529e38",
       "autoInstallSupported": true,
       "notes": "Flux-compatible VAE used by Z Image Turbo."
+    },
+    {
+      "filename": "ernie-image-prompt-enhancer.safetensors",
+      "targetSubdir": "text_encoders",
+      "folder": "models/text_encoders",
+      "loaders": [
+        "CLIPLoader"
+      ],
+      "inputKeys": [
+        "clip_name"
+      ],
+      "workflows": [
+        "ernie-image-turbo"
+      ],
+      "downloadUrl": "https://huggingface.co/Comfy-Org/ERNIE-Image/resolve/main/text_encoders/ernie-image-prompt-enhancer.safetensors",
+      "sourceUrl": "https://huggingface.co/Comfy-Org/ERNIE-Image/blob/main/text_encoders/ernie-image-prompt-enhancer.safetensors",
+      "licenseUrl": "https://huggingface.co/Comfy-Org/ERNIE-Image",
+      "sizeBytes": 6877439999,
+      "sha256": null,
+      "autoInstallSupported": true,
+      "notes": "Prompt enhancement encoder used by the bundled Ernie Image Turbo workflow."
+    },
+    {
+      "filename": "ernie-image-turbo.safetensors",
+      "targetSubdir": "diffusion_models",
+      "folder": "models/diffusion_models",
+      "loaders": [
+        "UNETLoader"
+      ],
+      "inputKeys": [
+        "unet_name"
+      ],
+      "workflows": [
+        "ernie-image-turbo"
+      ],
+      "downloadUrl": "https://huggingface.co/Comfy-Org/ERNIE-Image/resolve/main/diffusion_models/ernie-image-turbo.safetensors",
+      "sourceUrl": "https://huggingface.co/Comfy-Org/ERNIE-Image/blob/main/diffusion_models/ernie-image-turbo.safetensors",
+      "licenseUrl": "https://huggingface.co/Comfy-Org/ERNIE-Image",
+      "sizeBytes": 16067025480,
+      "sha256": null,
+      "autoInstallSupported": true,
+      "notes": "Primary local model used by the bundled Ernie Image Turbo workflow."
+    },
+    {
+      "filename": "film_net_fp16.safetensors",
+      "targetSubdir": "frame_interpolation",
+      "folder": "models/frame_interpolation",
+      "loaders": [
+        "FrameInterpolationModelLoader"
+      ],
+      "inputKeys": [
+        "model_name"
+      ],
+      "workflows": [
+        "frame-interpolation"
+      ],
+      "downloadUrl": "https://huggingface.co/Comfy-Org/frame_interpolation/resolve/main/frame_interpolation/film_net_fp16.safetensors",
+      "sourceUrl": "https://huggingface.co/Comfy-Org/frame_interpolation/blob/main/frame_interpolation/film_net_fp16.safetensors",
+      "licenseUrl": "https://huggingface.co/Comfy-Org/frame_interpolation",
+      "sizeBytes": 68882302,
+      "sha256": null,
+      "autoInstallSupported": true,
+      "notes": "FILM model used by the bundled frame interpolation workflow."
+    },
+    {
+      "filename": "Flux_2-Turbo-LoRA_comfyui.safetensors",
+      "targetSubdir": "loras",
+      "folder": "models/loras",
+      "loaders": [
+        "LoraLoaderModelOnly"
+      ],
+      "inputKeys": [
+        "lora_name"
+      ],
+      "workflows": [
+        "flux2-text-to-image"
+      ],
+      "downloadUrl": "https://huggingface.co/Comfy-Org/flux2-dev/resolve/main/split_files/loras/Flux_2-Turbo-LoRA_comfyui.safetensors",
+      "sourceUrl": "https://huggingface.co/Comfy-Org/flux2-dev/blob/main/split_files/loras/Flux_2-Turbo-LoRA_comfyui.safetensors",
+      "licenseUrl": "https://huggingface.co/fal/FLUX.2-dev-Turbo",
+      "sizeBytes": 2760814880,
+      "sha256": "011487390b8020baf22a9d543930c90d74a4809b7241bee6b0622777b17b413b",
+      "autoInstallSupported": true,
+      "notes": "Speed LoRA used by the bundled Flux 2 text-to-image workflow."
+    },
+    {
+      "filename": "flux2_dev_fp8mixed.safetensors",
+      "targetSubdir": "diffusion_models",
+      "folder": "models/diffusion_models",
+      "loaders": [
+        "UNETLoader"
+      ],
+      "inputKeys": [
+        "unet_name"
+      ],
+      "workflows": [
+        "flux2-text-to-image"
+      ],
+      "downloadUrl": "https://huggingface.co/Comfy-Org/flux2-dev/resolve/main/split_files/diffusion_models/flux2_dev_fp8mixed.safetensors",
+      "sourceUrl": "https://huggingface.co/Comfy-Org/flux2-dev/blob/main/split_files/diffusion_models/flux2_dev_fp8mixed.safetensors",
+      "licenseUrl": "https://huggingface.co/black-forest-labs/FLUX.2-dev",
+      "sizeBytes": 35455599592,
+      "sha256": null,
+      "autoInstallSupported": true,
+      "notes": "Primary local model used by the bundled Flux 2 text-to-image workflow."
+    },
+    {
+      "filename": "flux2-vae.safetensors",
+      "targetSubdir": "vae",
+      "folder": "models/vae",
+      "loaders": [
+        "VAELoader"
+      ],
+      "inputKeys": [
+        "vae_name"
+      ],
+      "workflows": [
+        "ernie-image-turbo"
+      ],
+      "downloadUrl": "https://huggingface.co/Comfy-Org/ERNIE-Image/resolve/main/vae/flux2-vae.safetensors",
+      "sourceUrl": "https://huggingface.co/Comfy-Org/ERNIE-Image/blob/main/vae/flux2-vae.safetensors",
+      "licenseUrl": "https://huggingface.co/Comfy-Org/ERNIE-Image",
+      "sizeBytes": 336213556,
+      "sha256": null,
+      "autoInstallSupported": true,
+      "notes": "Flux 2 VAE used by the bundled Ernie Image Turbo workflow."
+    },
+    {
+      "filename": "full_encoder_small_decoder.safetensors",
+      "targetSubdir": "vae",
+      "folder": "models/vae",
+      "loaders": [
+        "VAELoader"
+      ],
+      "inputKeys": [
+        "vae_name"
+      ],
+      "workflows": [
+        "flux2-text-to-image"
+      ],
+      "downloadUrl": "https://huggingface.co/black-forest-labs/FLUX.2-small-decoder/resolve/main/full_encoder_small_decoder.safetensors",
+      "sourceUrl": "https://huggingface.co/black-forest-labs/FLUX.2-small-decoder/blob/main/full_encoder_small_decoder.safetensors",
+      "licenseUrl": "https://huggingface.co/black-forest-labs/FLUX.2-small-decoder",
+      "sizeBytes": 249519092,
+      "sha256": "ea4273f02d1fafbf8e1d1c2cf6018ed8748652eb0bf34f2dd91171f16f15ab62",
+      "autoInstallSupported": true,
+      "notes": "VAE used by the bundled Flux 2 text-to-image workflow."
     },
     {
       "filename": "gemma_3_12B_it_fp4_mixed.safetensors",
@@ -76,15 +225,253 @@
         "text_encoder"
       ],
       "workflows": [
-        "ltx23-i2v"
+        "ltx23-i2v",
+        "ltx23-ia2v",
+        "ltx23-latentsync",
+        "ltx23-t2v",
+        "short-film-dialogue-ltx23-ia2v"
       ],
       "downloadUrl": "https://huggingface.co/Comfy-Org/ltx-2/resolve/main/split_files/text_encoders/gemma_3_12B_it_fp4_mixed.safetensors",
       "sourceUrl": "https://huggingface.co/Comfy-Org/ltx-2/blob/main/split_files/text_encoders/gemma_3_12B_it_fp4_mixed.safetensors",
       "licenseUrl": "https://huggingface.co/google/gemma-3-12b-it-qat-q4_0-unquantized",
-      "sizeBytes": null,
+      "sizeBytes": 9447702218,
       "sha256": null,
       "autoInstallSupported": true,
       "notes": "Used by the LTX 2.3 workflow text encoder loader."
+    },
+    {
+      "filename": "gemma_3_12B_it_fp8_scaled.safetensors",
+      "targetSubdir": "text_encoders",
+      "folder": "models/text_encoders",
+      "loaders": [
+        "DualCLIPLoader"
+      ],
+      "inputKeys": [
+        "clip_name1"
+      ],
+      "workflows": [
+        "music-video-shot-ltx23"
+      ],
+      "downloadUrl": null,
+      "sourceUrl": null,
+      "licenseUrl": null,
+      "sizeBytes": null,
+      "sha256": null,
+      "autoInstallSupported": false,
+      "notes": "No curated download recipe is available yet for this model."
+    },
+    {
+      "filename": "gemma-3-12b-it-abliterated_lora_rank64_bf16.safetensors",
+      "targetSubdir": "loras",
+      "folder": "models/loras",
+      "loaders": [
+        "LoraLoader"
+      ],
+      "inputKeys": [
+        "lora_name"
+      ],
+      "workflows": [
+        "ltx23-i2v",
+        "ltx23-latentsync"
+      ],
+      "downloadUrl": null,
+      "sourceUrl": null,
+      "licenseUrl": null,
+      "sizeBytes": null,
+      "sha256": null,
+      "autoInstallSupported": false,
+      "notes": "No curated download recipe is available yet for this model."
+    },
+    {
+      "filename": "irodori-tts-500m-v2-VoiceDesign.safetensors",
+      "targetSubdir": "checkpoints",
+      "folder": "models/checkpoints",
+      "loaders": [
+        "jupo.IrodoriTTS.ModelLoader"
+      ],
+      "inputKeys": [
+        "model"
+      ],
+      "workflows": [
+        "irodori-voice-clone"
+      ],
+      "downloadUrl": "https://huggingface.co/Aratako/Irodori-TTS-500M-v2-VoiceDesign/resolve/main/model.safetensors",
+      "sourceUrl": "https://huggingface.co/Aratako/Irodori-TTS-500M-v2-VoiceDesign/blob/main/model.safetensors",
+      "licenseUrl": "https://huggingface.co/Aratako/Irodori-TTS-500M-v2-VoiceDesign",
+      "sizeBytes": 2045071384,
+      "sha256": "8b703c28e88f160dee0258b1136f8fe1ea68c063b45fc28375b5a134d6ce1131",
+      "autoInstallSupported": true,
+      "notes": "Japanese VoiceDesign checkpoint for reference-free voice, tone, emotion, and speaking-style prompts."
+    },
+    {
+      "filename": "irodori-tts-500m-v3.safetensors",
+      "targetSubdir": "checkpoints",
+      "folder": "models/checkpoints",
+      "loaders": [
+        "jupo.IrodoriTTS.ModelLoader"
+      ],
+      "inputKeys": [
+        "model"
+      ],
+      "workflows": [
+        "irodori-tts",
+        "irodori-voice-clone"
+      ],
+      "downloadUrl": "https://huggingface.co/Aratako/Irodori-TTS-500M-v3/resolve/main/model.safetensors",
+      "sourceUrl": "https://huggingface.co/Aratako/Irodori-TTS-500M-v3/blob/main/model.safetensors",
+      "licenseUrl": "https://huggingface.co/Aratako/Irodori-TTS-500M-v3",
+      "sizeBytes": 2048269748,
+      "sha256": "8dbd537f8edebcce7fddc2a093fd8bd649cfb87741800ddf417f52bdfeb55b70",
+      "autoInstallSupported": true,
+      "notes": "Latest local Irodori-TTS v3 checkpoint used by Short Film Creation. Existing copies in checkpoint subfolders are detected by filename."
+    },
+    {
+      "filename": "longcat_image_bf16.safetensors",
+      "targetSubdir": "diffusion_models",
+      "folder": "models/diffusion_models",
+      "loaders": [
+        "UNETLoader"
+      ],
+      "inputKeys": [
+        "unet_name"
+      ],
+      "workflows": [
+        "longcat-text-to-image"
+      ],
+      "downloadUrl": "https://huggingface.co/Comfy-Org/LongCat-Image/resolve/main/split_files/diffusion_models/longcat_image_bf16.safetensors",
+      "sourceUrl": "https://huggingface.co/Comfy-Org/LongCat-Image/blob/main/split_files/diffusion_models/longcat_image_bf16.safetensors",
+      "licenseUrl": "https://huggingface.co/Comfy-Org/LongCat-Image",
+      "sizeBytes": 12541383144,
+      "sha256": "7c83c314a3d879d43e5700072033256000f46a56900ae48b209a77ac1921488b",
+      "autoInstallSupported": true,
+      "notes": "Primary local text-to-image model used by the bundled LongCat workflow."
+    },
+    {
+      "filename": "longcat_image_edit_bf16.safetensors",
+      "targetSubdir": "diffusion_models",
+      "folder": "models/diffusion_models",
+      "loaders": [
+        "UNETLoader"
+      ],
+      "inputKeys": [
+        "unet_name"
+      ],
+      "workflows": [
+        "longcat-image-edit"
+      ],
+      "downloadUrl": null,
+      "sourceUrl": null,
+      "licenseUrl": null,
+      "sizeBytes": null,
+      "sha256": null,
+      "autoInstallSupported": false,
+      "notes": "No curated download recipe is available yet for this model."
+    },
+    {
+      "filename": "ltx_2.3_22b_distilled_1.1_lora_dynamic_fro09_avg_rank_111_bf16.safetensors",
+      "targetSubdir": "loras",
+      "folder": "models/loras",
+      "loaders": [
+        "LoraLoaderModelOnly"
+      ],
+      "inputKeys": [
+        "lora_name"
+      ],
+      "workflows": [
+        "ltx23-i2v",
+        "ltx23-latentsync"
+      ],
+      "downloadUrl": "https://huggingface.co/Lightricks/LTX-2.3/resolve/main/ltx-2.3-22b-distilled-lora-384-1.1.safetensors",
+      "sourceUrl": "https://huggingface.co/Lightricks/LTX-2.3/blob/main/ltx-2.3-22b-distilled-lora-384-1.1.safetensors",
+      "licenseUrl": "https://huggingface.co/Lightricks/LTX-2.3",
+      "sizeBytes": 7605507256,
+      "sha256": null,
+      "autoInstallSupported": true,
+      "notes": "Downloaded from the official Lightricks repo and saved under the filename expected by the bundled image-to-video workflow."
+    },
+    {
+      "filename": "ltx-2-19b-lora-camera-control-dolly-out.safetensors",
+      "targetSubdir": "loras",
+      "folder": "models/loras",
+      "loaders": [
+        "Power Lora Loader (rgthree)"
+      ],
+      "inputKeys": [
+        "lora"
+      ],
+      "workflows": [
+        "music-video-shot-ltx23"
+      ],
+      "downloadUrl": null,
+      "sourceUrl": null,
+      "licenseUrl": null,
+      "sizeBytes": null,
+      "sha256": null,
+      "autoInstallSupported": false,
+      "notes": "No curated download recipe is available yet for this model."
+    },
+    {
+      "filename": "LTX-2-Image2Vid-Adapter.safetensors",
+      "targetSubdir": "loras",
+      "folder": "models/loras",
+      "loaders": [
+        "Power Lora Loader (rgthree)"
+      ],
+      "inputKeys": [
+        "lora"
+      ],
+      "workflows": [
+        "music-video-shot-ltx23"
+      ],
+      "downloadUrl": null,
+      "sourceUrl": null,
+      "licenseUrl": null,
+      "sizeBytes": null,
+      "sha256": null,
+      "autoInstallSupported": false,
+      "notes": "No curated download recipe is available yet for this model."
+    },
+    {
+      "filename": "ltx-2.3_text_projection_bf16.safetensors",
+      "targetSubdir": "text_encoders",
+      "folder": "models/text_encoders",
+      "loaders": [
+        "DualCLIPLoader"
+      ],
+      "inputKeys": [
+        "clip_name2"
+      ],
+      "workflows": [
+        "music-video-shot-ltx23"
+      ],
+      "downloadUrl": null,
+      "sourceUrl": null,
+      "licenseUrl": null,
+      "sizeBytes": null,
+      "sha256": null,
+      "autoInstallSupported": false,
+      "notes": "No curated download recipe is available yet for this model."
+    },
+    {
+      "filename": "LTX-2.3-22b-AV-LoRA-talking-head-v1.safetensors",
+      "targetSubdir": "loras",
+      "folder": "models/loras",
+      "loaders": [
+        "Power Lora Loader (rgthree)"
+      ],
+      "inputKeys": [
+        "lora"
+      ],
+      "workflows": [
+        "music-video-shot-ltx23"
+      ],
+      "downloadUrl": null,
+      "sourceUrl": null,
+      "licenseUrl": null,
+      "sizeBytes": null,
+      "sha256": null,
+      "autoInstallSupported": false,
+      "notes": "No curated download recipe is available yet for this model."
     },
     {
       "filename": "ltx-2.3-22b-dev-fp8.safetensors",
@@ -99,15 +486,40 @@
         "ckpt_name"
       ],
       "workflows": [
-        "ltx23-i2v"
+        "ltx23-i2v",
+        "ltx23-ia2v",
+        "ltx23-latentsync",
+        "ltx23-t2v",
+        "short-film-dialogue-ltx23-ia2v"
       ],
       "downloadUrl": "https://huggingface.co/Lightricks/LTX-2.3-fp8/resolve/main/ltx-2.3-22b-dev-fp8.safetensors",
       "sourceUrl": "https://huggingface.co/Lightricks/LTX-2.3-fp8/blob/main/ltx-2.3-22b-dev-fp8.safetensors",
       "licenseUrl": "https://huggingface.co/Lightricks/LTX-2.3-fp8",
-      "sizeBytes": null,
+      "sizeBytes": 29145431166,
       "sha256": null,
       "autoInstallSupported": true,
       "notes": "Main checkpoint used by the bundled LTX 2.3 workflow."
+    },
+    {
+      "filename": "ltx-2.3-22b-distilled_transformer_only_fp8_scaled.safetensors",
+      "targetSubdir": "diffusion_models",
+      "folder": "models/diffusion_models",
+      "loaders": [
+        "UNETLoader"
+      ],
+      "inputKeys": [
+        "unet_name"
+      ],
+      "workflows": [
+        "music-video-shot-ltx23"
+      ],
+      "downloadUrl": null,
+      "sourceUrl": null,
+      "licenseUrl": null,
+      "sizeBytes": null,
+      "sha256": null,
+      "autoInstallSupported": false,
+      "notes": "No curated download recipe is available yet for this model."
     },
     {
       "filename": "ltx-2.3-22b-distilled-lora-384.safetensors",
@@ -120,20 +532,22 @@
         "lora_name"
       ],
       "workflows": [
-        "ltx23-i2v"
+        "ltx23-ia2v",
+        "ltx23-t2v",
+        "short-film-dialogue-ltx23-ia2v"
       ],
       "downloadUrl": "https://huggingface.co/Lightricks/LTX-2.3/resolve/main/ltx-2.3-22b-distilled-lora-384-1.1.safetensors",
       "sourceUrl": "https://huggingface.co/Lightricks/LTX-2.3/blob/main/ltx-2.3-22b-distilled-lora-384-1.1.safetensors",
       "licenseUrl": "https://huggingface.co/Lightricks/LTX-2.3",
-      "sizeBytes": null,
+      "sizeBytes": 7605507256,
       "sha256": null,
       "autoInstallSupported": true,
       "notes": "Downloaded from the official Lightricks repo and saved under the workflow-expected filename."
     },
     {
       "filename": "ltx-2.3-spatial-upscaler-x2-1.1.safetensors",
-      "targetSubdir": "upscale_models",
-      "folder": "models/upscale_models",
+      "targetSubdir": "latent_upscale_models",
+      "folder": "models/latent_upscale_models",
       "loaders": [
         "LatentUpscaleModelLoader"
       ],
@@ -141,15 +555,340 @@
         "model_name"
       ],
       "workflows": [
-        "ltx23-i2v"
+        "ltx23-i2v",
+        "ltx23-ia2v",
+        "ltx23-latentsync",
+        "ltx23-t2v",
+        "music-video-shot-ltx23",
+        "short-film-dialogue-ltx23-ia2v"
       ],
       "downloadUrl": "https://huggingface.co/Lightricks/LTX-2.3/resolve/main/ltx-2.3-spatial-upscaler-x2-1.1.safetensors",
       "sourceUrl": "https://huggingface.co/Lightricks/LTX-2.3/blob/main/ltx-2.3-spatial-upscaler-x2-1.1.safetensors",
       "licenseUrl": "https://huggingface.co/Lightricks/LTX-2.3",
-      "sizeBytes": null,
+      "sizeBytes": 995743560,
       "sha256": null,
       "autoInstallSupported": true,
       "notes": "Required for the bundled LTX 2.3 upscaling step."
+    },
+    {
+      "filename": "Ltx2.3-Licon-VBVR-I2V-96000-R32.safetensors",
+      "targetSubdir": "loras",
+      "folder": "models/loras",
+      "loaders": [
+        "Power Lora Loader (rgthree)"
+      ],
+      "inputKeys": [
+        "lora"
+      ],
+      "workflows": [
+        "music-video-shot-ltx23"
+      ],
+      "downloadUrl": null,
+      "sourceUrl": null,
+      "licenseUrl": null,
+      "sizeBytes": null,
+      "sha256": null,
+      "autoInstallSupported": false,
+      "notes": "No curated download recipe is available yet for this model."
+    },
+    {
+      "filename": "LTX23_audio_vae_bf16.safetensors",
+      "targetSubdir": "vae",
+      "folder": "models/vae",
+      "loaders": [
+        "VAELoaderKJ"
+      ],
+      "inputKeys": [
+        "vae_name"
+      ],
+      "workflows": [
+        "music-video-shot-ltx23"
+      ],
+      "downloadUrl": null,
+      "sourceUrl": null,
+      "licenseUrl": null,
+      "sizeBytes": null,
+      "sha256": null,
+      "autoInstallSupported": false,
+      "notes": "No curated download recipe is available yet for this model."
+    },
+    {
+      "filename": "LTX23_video_vae_bf16.safetensors",
+      "targetSubdir": "vae",
+      "folder": "models/vae",
+      "loaders": [
+        "VAELoader"
+      ],
+      "inputKeys": [
+        "vae_name"
+      ],
+      "workflows": [
+        "music-video-shot-ltx23"
+      ],
+      "downloadUrl": null,
+      "sourceUrl": null,
+      "licenseUrl": null,
+      "sizeBytes": null,
+      "sha256": null,
+      "autoInstallSupported": false,
+      "notes": "No curated download recipe is available yet for this model."
+    },
+    {
+      "filename": "MelBandRoformer_fp16.safetensors",
+      "targetSubdir": "audio_checkpoints",
+      "folder": "models/audio_checkpoints",
+      "loaders": [
+        "MelBandRoFormerModelLoader"
+      ],
+      "inputKeys": [
+        "model_name"
+      ],
+      "workflows": [
+        "music-video-shot-ltx23",
+        "vocal-extract-melband"
+      ],
+      "downloadUrl": null,
+      "sourceUrl": null,
+      "licenseUrl": null,
+      "sizeBytes": null,
+      "sha256": null,
+      "autoInstallSupported": false,
+      "notes": "No curated download recipe is available yet for this model."
+    },
+    {
+      "filename": "minimax_h3_audio_vae_fp32.safetensors",
+      "targetSubdir": "vae",
+      "folder": "models/vae",
+      "loaders": [
+        "VAELoader"
+      ],
+      "inputKeys": [
+        "vae_name"
+      ],
+      "workflows": [
+        "minimax-h3-character-sheet",
+        "minimax-h3-gguf-i2v"
+      ],
+      "downloadUrl": "https://huggingface.co/Comfy-Org/MiniMax-H3/resolve/main/vae/minimax_h3_audio_vae_fp32.safetensors",
+      "sourceUrl": "https://huggingface.co/Comfy-Org/MiniMax-H3/blob/main/vae/minimax_h3_audio_vae_fp32.safetensors",
+      "licenseUrl": "https://huggingface.co/MiniMaxAI/MiniMax-H3/blob/main/LICENSE",
+      "sizeBytes": 605254808,
+      "sha256": "8e505d95dd1561d47abd43d4238fd40d9bb1ae9e147ed0a4cba778d76ae4db48",
+      "autoInstallSupported": true,
+      "notes": "Official ComfyUI-packaged audio VAE for native stereo audio output."
+    },
+    {
+      "filename": "minimax_h3_fl2v_turbo_8step_v1.0_comfyui_bf16.safetensors",
+      "targetSubdir": "loras",
+      "folder": "models/loras",
+      "loaders": [
+        "LoraLoaderModelOnly"
+      ],
+      "inputKeys": [
+        "lora_name"
+      ],
+      "workflows": [
+        "minimax-h3-gguf-i2v"
+      ],
+      "downloadUrl": "https://huggingface.co/Comfy-Org/MiniMax-H3/resolve/main/loras/minimax_h3_fl2v_turbo_8step_v1.0_comfyui_bf16.safetensors",
+      "sourceUrl": "https://huggingface.co/Comfy-Org/MiniMax-H3/blob/main/loras/minimax_h3_fl2v_turbo_8step_v1.0_comfyui_bf16.safetensors",
+      "licenseUrl": "https://huggingface.co/lightx2v/Minimax-h3-Turbo",
+      "sizeBytes": null,
+      "sha256": null,
+      "autoInstallSupported": true,
+      "notes": "Officially packaged LightX2V Turbo LoRA used to reduce the default CANVAS flow to eight sampling steps."
+    },
+    {
+      "filename": "minimax_h3_fl2va_pruned_fp8_Q4_0.gguf",
+      "targetSubdir": "diffusion_models",
+      "folder": "models/diffusion_models",
+      "loaders": [
+        "H3ModelLoaderAny"
+      ],
+      "inputKeys": [
+        "model_name"
+      ],
+      "workflows": [
+        "minimax-h3-gguf-i2v"
+      ],
+      "downloadUrl": "https://huggingface.co/molbal/MiniMax-H3-GGUF/resolve/main/minimax_h3_fl2va_pruned_fp8_Q4_0.gguf",
+      "sourceUrl": "https://huggingface.co/molbal/MiniMax-H3-GGUF/blob/main/minimax_h3_fl2va_pruned_fp8_Q4_0.gguf",
+      "licenseUrl": "https://huggingface.co/MiniMaxAI/MiniMax-H3/blob/main/LICENSE",
+      "sizeBytes": null,
+      "sha256": null,
+      "autoInstallSupported": true,
+      "notes": "Default GGUF diffusion model for the CANVAS MiniMax H3 image-to-video flow. MiniMax H3 uses its own community license."
+    },
+    {
+      "filename": "minimax_h3_video_vae_fp16.safetensors",
+      "targetSubdir": "vae",
+      "folder": "models/vae",
+      "loaders": [
+        "VAELoader"
+      ],
+      "inputKeys": [
+        "vae_name"
+      ],
+      "workflows": [
+        "minimax-h3-character-sheet",
+        "minimax-h3-gguf-i2v"
+      ],
+      "downloadUrl": "https://huggingface.co/Comfy-Org/MiniMax-H3/resolve/main/vae/minimax_h3_video_vae_fp16.safetensors",
+      "sourceUrl": "https://huggingface.co/Comfy-Org/MiniMax-H3/blob/main/vae/minimax_h3_video_vae_fp16.safetensors",
+      "licenseUrl": "https://huggingface.co/MiniMaxAI/MiniMax-H3/blob/main/LICENSE",
+      "sizeBytes": null,
+      "sha256": null,
+      "autoInstallSupported": true,
+      "notes": "Official ComfyUI-packaged video VAE for MiniMax H3."
+    },
+    {
+      "filename": "MiniMax-H3-encoder-mmproj-F16.gguf",
+      "targetSubdir": "text_encoders",
+      "folder": "models/text_encoders",
+      "loaders": [
+        "H3ClipLoaderAny"
+      ],
+      "inputKeys": [
+        "mmproj_name"
+      ],
+      "workflows": [
+        "minimax-h3-character-sheet",
+        "minimax-h3-gguf-i2v"
+      ],
+      "downloadUrl": "https://huggingface.co/joeygambino/MiniMax-H3-encoder-GGUF/resolve/main/MiniMax-H3-encoder-mmproj-F16.gguf",
+      "sourceUrl": "https://huggingface.co/joeygambino/MiniMax-H3-encoder-GGUF/blob/main/MiniMax-H3-encoder-mmproj-F16.gguf",
+      "licenseUrl": "https://huggingface.co/MiniMaxAI/MiniMax-H3/blob/main/LICENSE",
+      "sizeBytes": null,
+      "sha256": null,
+      "autoInstallSupported": true,
+      "notes": "Vision projection sidecar paired explicitly with the GGUF text encoder."
+    },
+    {
+      "filename": "MiniMax-H3-encoder-Q4_K_M.gguf",
+      "targetSubdir": "text_encoders",
+      "folder": "models/text_encoders",
+      "loaders": [
+        "H3ClipLoaderAny"
+      ],
+      "inputKeys": [
+        "clip_name"
+      ],
+      "workflows": [
+        "minimax-h3-character-sheet",
+        "minimax-h3-gguf-i2v"
+      ],
+      "downloadUrl": "https://huggingface.co/joeygambino/MiniMax-H3-encoder-GGUF/resolve/main/MiniMax-H3-encoder-Q4_K_M.gguf",
+      "sourceUrl": "https://huggingface.co/joeygambino/MiniMax-H3-encoder-GGUF/blob/main/MiniMax-H3-encoder-Q4_K_M.gguf",
+      "licenseUrl": "https://huggingface.co/MiniMaxAI/MiniMax-H3/blob/main/LICENSE",
+      "sizeBytes": null,
+      "sha256": null,
+      "autoInstallSupported": true,
+      "notes": "GGUF text encoder. Keep the matching mmproj sidecar in the same text_encoders folder."
+    },
+    {
+      "filename": "minimax-h3-ref2va-Q4_0.gguf",
+      "targetSubdir": "diffusion_models",
+      "folder": "models/diffusion_models",
+      "loaders": [
+        "H3ModelLoaderAny"
+      ],
+      "inputKeys": [
+        "model_name"
+      ],
+      "workflows": [
+        "minimax-h3-character-sheet"
+      ],
+      "downloadUrl": "https://huggingface.co/molbal/MiniMax-H3-GGUF/resolve/main/minimax-h3-ref2va-Q4_0.gguf",
+      "sourceUrl": "https://huggingface.co/molbal/MiniMax-H3-GGUF/blob/main/minimax-h3-ref2va-Q4_0.gguf",
+      "licenseUrl": "https://huggingface.co/MiniMaxAI/MiniMax-H3/blob/main/LICENSE",
+      "sizeBytes": 11377542880,
+      "sha256": "737463c522b0f78ebe157df918c272935c2b61047ba7ae303008cfc84ba81644",
+      "autoInstallSupported": true,
+      "notes": "Q4 Ref2VA model for the CANVAS H3 Character Sheet flow. It reuses the existing H3 GGUF encoder, mmproj, and VAEs. MiniMax H3 uses its own community license."
+    },
+    {
+      "filename": "ministral-3-3b.safetensors",
+      "targetSubdir": "text_encoders",
+      "folder": "models/text_encoders",
+      "loaders": [
+        "CLIPLoader"
+      ],
+      "inputKeys": [
+        "clip_name"
+      ],
+      "workflows": [
+        "ernie-image-turbo"
+      ],
+      "downloadUrl": "https://huggingface.co/Comfy-Org/ERNIE-Image/resolve/main/text_encoders/ministral-3-3b.safetensors",
+      "sourceUrl": "https://huggingface.co/Comfy-Org/ERNIE-Image/blob/main/text_encoders/ministral-3-3b.safetensors",
+      "licenseUrl": "https://huggingface.co/Comfy-Org/ERNIE-Image",
+      "sizeBytes": 7717637511,
+      "sha256": null,
+      "autoInstallSupported": true,
+      "notes": "Text encoder used by the bundled Ernie Image Turbo workflow."
+    },
+    {
+      "filename": "mistral_3_small_flux2_bf16.safetensors",
+      "targetSubdir": "text_encoders",
+      "folder": "models/text_encoders",
+      "loaders": [
+        "CLIPLoader"
+      ],
+      "inputKeys": [
+        "clip_name"
+      ],
+      "workflows": [
+        "flux2-text-to-image"
+      ],
+      "downloadUrl": "https://huggingface.co/Comfy-Org/flux2-dev/resolve/main/split_files/text_encoders/mistral_3_small_flux2_bf16.safetensors",
+      "sourceUrl": "https://huggingface.co/Comfy-Org/flux2-dev/blob/main/split_files/text_encoders/mistral_3_small_flux2_bf16.safetensors",
+      "licenseUrl": "https://huggingface.co/black-forest-labs/FLUX.2-dev",
+      "sizeBytes": 35584897447,
+      "sha256": null,
+      "autoInstallSupported": true,
+      "notes": "Text encoder used by the bundled Flux 2 text-to-image workflow."
+    },
+    {
+      "filename": "qwen_0.6b_ace15.safetensors",
+      "targetSubdir": "text_encoders",
+      "folder": "models/text_encoders",
+      "loaders": [
+        "DualCLIPLoader"
+      ],
+      "inputKeys": [
+        "clip_name1"
+      ],
+      "workflows": [
+        "music-gen"
+      ],
+      "downloadUrl": "https://huggingface.co/Comfy-Org/ace_step_1.5_ComfyUI_files/resolve/main/split_files/text_encoders/qwen_0.6b_ace15.safetensors",
+      "sourceUrl": "https://huggingface.co/Comfy-Org/ace_step_1.5_ComfyUI_files/blob/main/split_files/text_encoders/qwen_0.6b_ace15.safetensors",
+      "licenseUrl": "https://huggingface.co/ACE-Step/Ace-Step1.5",
+      "sizeBytes": null,
+      "sha256": null,
+      "autoInstallSupported": true,
+      "notes": "Text encoder for the built-in ACE-Step 1.5 music workflow (DualCLIPLoader)."
+    },
+    {
+      "filename": "qwen_1.7b_ace15.safetensors",
+      "targetSubdir": "text_encoders",
+      "folder": "models/text_encoders",
+      "loaders": [
+        "DualCLIPLoader"
+      ],
+      "inputKeys": [
+        "clip_name2"
+      ],
+      "workflows": [
+        "music-gen"
+      ],
+      "downloadUrl": "https://huggingface.co/Comfy-Org/ace_step_1.5_ComfyUI_files/resolve/main/split_files/text_encoders/qwen_1.7b_ace15.safetensors",
+      "sourceUrl": "https://huggingface.co/Comfy-Org/ace_step_1.5_ComfyUI_files/blob/main/split_files/text_encoders/qwen_1.7b_ace15.safetensors",
+      "licenseUrl": "https://huggingface.co/ACE-Step/Ace-Step1.5",
+      "sizeBytes": null,
+      "sha256": null,
+      "autoInstallSupported": true,
+      "notes": "Text encoder for the built-in ACE-Step 1.5 music workflow (DualCLIPLoader)."
     },
     {
       "filename": "qwen_2.5_vl_7b_fp8_scaled.safetensors",
@@ -162,8 +901,8 @@
         "clip_name"
       ],
       "workflows": [
-        "image-edit",
-        "image-edit-model-product",
+        "longcat-image-edit",
+        "longcat-text-to-image",
         "multi-angles",
         "multi-angles-scene"
       ],
@@ -171,51 +910,6 @@
       "sourceUrl": "https://huggingface.co/Comfy-Org/Qwen-Image_ComfyUI/blob/main/split_files/text_encoders/qwen_2.5_vl_7b_fp8_scaled.safetensors",
       "licenseUrl": "https://huggingface.co/Qwen/Qwen-Image",
       "sizeBytes": 9380000000,
-      "sha256": null,
-      "autoInstallSupported": true,
-      "notes": "Shared by Qwen image edit and multiple-angle workflows."
-    },
-    {
-      "filename": "qwen_3_4b.safetensors",
-      "targetSubdir": "text_encoders",
-      "folder": "models/text_encoders",
-      "loaders": [
-        "CLIPLoader"
-      ],
-      "inputKeys": [
-        "clip_name"
-      ],
-      "workflows": [
-        "z-image-turbo"
-      ],
-      "downloadUrl": "https://huggingface.co/Comfy-Org/z_image_turbo/resolve/main/split_files/text_encoders/qwen_3_4b.safetensors",
-      "sourceUrl": "https://huggingface.co/Comfy-Org/z_image_turbo/blob/main/split_files/text_encoders/qwen_3_4b.safetensors",
-      "licenseUrl": "https://huggingface.co/Tongyi-MAI/Z-Image-Turbo",
-      "sizeBytes": 8040000000,
-      "sha256": null,
-      "autoInstallSupported": true,
-      "notes": "Text encoder used by Z Image Turbo."
-    },
-    {
-      "filename": "qwen_image_edit_2509_fp8_e4m3fn.safetensors",
-      "targetSubdir": "diffusion_models",
-      "folder": "models/diffusion_models",
-      "loaders": [
-        "UNETLoader"
-      ],
-      "inputKeys": [
-        "unet_name"
-      ],
-      "workflows": [
-        "image-edit",
-        "image-edit-model-product",
-        "multi-angles",
-        "multi-angles-scene"
-      ],
-      "downloadUrl": "https://huggingface.co/Comfy-Org/Qwen-Image-Edit_ComfyUI/resolve/main/split_files/diffusion_models/qwen_image_edit_2509_fp8_e4m3fn.safetensors",
-      "sourceUrl": "https://huggingface.co/Comfy-Org/Qwen-Image-Edit_ComfyUI/blob/main/split_files/diffusion_models/qwen_image_edit_2509_fp8_e4m3fn.safetensors",
-      "licenseUrl": "https://huggingface.co/Qwen/Qwen-Image-Edit-2509",
-      "sizeBytes": 20400000000,
       "sha256": null,
       "autoInstallSupported": true,
       "notes": "Shared by Qwen image edit and multiple-angle workflows."
@@ -239,32 +933,10 @@
       "downloadUrl": "https://huggingface.co/Comfy-Org/Qwen-Image_ComfyUI/resolve/main/split_files/vae/qwen_image_vae.safetensors",
       "sourceUrl": "https://huggingface.co/Comfy-Org/Qwen-Image_ComfyUI/blob/main/split_files/vae/qwen_image_vae.safetensors",
       "licenseUrl": "https://huggingface.co/Qwen/Qwen-Image",
-      "sizeBytes": null,
+      "sizeBytes": 253806246,
       "sha256": null,
       "autoInstallSupported": true,
       "notes": "Shared by Qwen image edit and multiple-angle workflows."
-    },
-    {
-      "filename": "Qwen-Edit-2509-Multiple-angles.safetensors",
-      "targetSubdir": "loras",
-      "folder": "models/loras",
-      "loaders": [
-        "LoraLoaderModelOnly"
-      ],
-      "inputKeys": [
-        "lora_name"
-      ],
-      "workflows": [
-        "multi-angles",
-        "multi-angles-scene"
-      ],
-      "downloadUrl": "https://huggingface.co/Comfy-Org/Qwen-Image-Edit_ComfyUI/resolve/main/split_files/loras/Qwen-Edit-2509-Multiple-angles.safetensors",
-      "sourceUrl": "https://huggingface.co/Comfy-Org/Qwen-Image-Edit_ComfyUI/blob/main/split_files/loras/Qwen-Edit-2509-Multiple-angles.safetensors",
-      "licenseUrl": "https://huggingface.co/dx8152/Qwen-Edit-2509-Multiple-angles",
-      "sizeBytes": null,
-      "sha256": null,
-      "autoInstallSupported": true,
-      "notes": "Enables the bundled multi-angle helper workflows."
     },
     {
       "filename": "Qwen-Image-Edit-2509-Lightning-4steps-V1.0-bf16.safetensors",
@@ -278,38 +950,211 @@
       ],
       "workflows": [
         "image-edit",
-        "image-edit-model-product",
-        "multi-angles",
-        "multi-angles-scene"
+        "image-edit-model-product"
       ],
       "downloadUrl": "https://huggingface.co/lightx2v/Qwen-Image-Lightning/resolve/main/Qwen-Image-Edit-2509/Qwen-Image-Edit-2509-Lightning-4steps-V1.0-bf16.safetensors",
       "sourceUrl": "https://huggingface.co/lightx2v/Qwen-Image-Lightning/blob/main/Qwen-Image-Edit-2509/Qwen-Image-Edit-2509-Lightning-4steps-V1.0-bf16.safetensors",
       "licenseUrl": "https://huggingface.co/lightx2v/Qwen-Image-Lightning",
-      "sizeBytes": null,
+      "sizeBytes": 849608296,
       "sha256": null,
       "autoInstallSupported": true,
       "notes": "Optional speed LoRA used by the bundled Qwen image edit workflow."
     },
     {
-      "filename": "umt5_xxl_fp8_e4m3fn_scaled.safetensors",
+      "filename": "Qwen-Image-Edit-2509-Q4_K_M.gguf",
+      "targetSubdir": "diffusion_models",
+      "folder": "models/diffusion_models",
+      "loaders": [
+        "UnetLoaderGGUF"
+      ],
+      "inputKeys": [
+        "unet_name"
+      ],
+      "workflows": [
+        "image-edit",
+        "image-edit-model-product"
+      ],
+      "downloadUrl": "https://huggingface.co/QuantStack/Qwen-Image-Edit-2509-GGUF/resolve/main/Qwen-Image-Edit-2509-Q4_K_M.gguf",
+      "sourceUrl": "https://huggingface.co/QuantStack/Qwen-Image-Edit-2509-GGUF/blob/main/Qwen-Image-Edit-2509-Q4_K_M.gguf",
+      "licenseUrl": "https://huggingface.co/Qwen/Qwen-Image-Edit-2509",
+      "sizeBytes": 13065746976,
+      "sha256": "08f27cdf3e760edef5136ab0afdb9d3ed7a2799bd730b8d5cd9ecb291d808425",
+      "autoInstallSupported": true,
+      "notes": "Q4_K_M GGUF model used by the bundled Qwen Image Edit 2509 workflows."
+    },
+    {
+      "filename": "Qwen-Image-Edit-2511-Lightning-4steps-V1.0-bf16.safetensors",
+      "targetSubdir": "loras",
+      "folder": "models/loras",
+      "loaders": [
+        "LoraLoaderModelOnly"
+      ],
+      "inputKeys": [
+        "lora_name"
+      ],
+      "workflows": [
+        "multi-angles",
+        "multi-angles-scene"
+      ],
+      "downloadUrl": "https://huggingface.co/lightx2v/Qwen-Image-Edit-2511-Lightning/resolve/main/Qwen-Image-Edit-2511-Lightning-4steps-V1.0-bf16.safetensors",
+      "sourceUrl": "https://huggingface.co/lightx2v/Qwen-Image-Edit-2511-Lightning/blob/main/Qwen-Image-Edit-2511-Lightning-4steps-V1.0-bf16.safetensors",
+      "licenseUrl": "https://huggingface.co/lightx2v/Qwen-Image-Edit-2511-Lightning",
+      "sizeBytes": 849608296,
+      "sha256": null,
+      "autoInstallSupported": true,
+      "notes": "Four-step acceleration LoRA for Qwen Image Edit 2511."
+    },
+    {
+      "filename": "qwen-image-edit-2511-multiple-angles-lora.safetensors",
+      "targetSubdir": "loras",
+      "folder": "models/loras",
+      "loaders": [
+        "LoraLoaderModelOnly"
+      ],
+      "inputKeys": [
+        "lora_name"
+      ],
+      "workflows": [
+        "multi-angles",
+        "multi-angles-scene"
+      ],
+      "downloadUrl": "https://huggingface.co/fal/Qwen-Image-Edit-2511-Multiple-Angles-LoRA/resolve/main/qwen-image-edit-2511-multiple-angles-lora.safetensors",
+      "sourceUrl": "https://huggingface.co/fal/Qwen-Image-Edit-2511-Multiple-Angles-LoRA/blob/main/qwen-image-edit-2511-multiple-angles-lora.safetensors",
+      "licenseUrl": "https://huggingface.co/fal/Qwen-Image-Edit-2511-Multiple-Angles-LoRA",
+      "sizeBytes": 295140688,
+      "sha256": null,
+      "autoInstallSupported": true,
+      "notes": "Provides 2511-native camera angle control with the required <sks> prompt format."
+    },
+    {
+      "filename": "qwen-image-edit-2511-Q5_K_M.gguf",
+      "targetSubdir": "diffusion_models",
+      "folder": "models/diffusion_models",
+      "loaders": [
+        "UnetLoaderGGUF"
+      ],
+      "inputKeys": [
+        "unet_name"
+      ],
+      "workflows": [
+        "multi-angles",
+        "multi-angles-scene"
+      ],
+      "downloadUrl": "https://huggingface.co/unsloth/Qwen-Image-Edit-2511-GGUF/resolve/main/qwen-image-edit-2511-Q5_K_M.gguf",
+      "sourceUrl": "https://huggingface.co/unsloth/Qwen-Image-Edit-2511-GGUF/blob/main/qwen-image-edit-2511-Q5_K_M.gguf",
+      "licenseUrl": "https://huggingface.co/Qwen/Qwen-Image-Edit-2511",
+      "sizeBytes": 15027501664,
+      "sha256": null,
+      "autoInstallSupported": true,
+      "notes": "Memory-efficient Qwen 2511 model used by the bundled multiple-angle workflows."
+    },
+    {
+      "filename": "Qwen2.5-VL-7B-Instruct-mmproj-BF16.gguf",
       "targetSubdir": "text_encoders",
       "folder": "models/text_encoders",
       "loaders": [
-        "CLIPLoader"
+        "CLIPLoaderGGUF"
       ],
       "inputKeys": [
         "clip_name"
       ],
       "workflows": [
-        "wan22-i2v"
+        "image-edit",
+        "image-edit-model-product"
       ],
-      "downloadUrl": "https://huggingface.co/Comfy-Org/Wan_2.2_ComfyUI_Repackaged/resolve/main/split_files/text_encoders/umt5_xxl_fp8_e4m3fn_scaled.safetensors",
-      "sourceUrl": "https://huggingface.co/Comfy-Org/Wan_2.2_ComfyUI_Repackaged/blob/main/split_files/text_encoders/umt5_xxl_fp8_e4m3fn_scaled.safetensors",
-      "licenseUrl": "https://huggingface.co/Wan-AI/Wan2.2-I2V-A14B",
+      "downloadUrl": "https://huggingface.co/QuantStack/Qwen-Image-Edit-GGUF/resolve/main/mmproj/Qwen2.5-VL-7B-Instruct-mmproj-BF16.gguf",
+      "sourceUrl": "https://huggingface.co/QuantStack/Qwen-Image-Edit-GGUF/blob/main/mmproj/Qwen2.5-VL-7B-Instruct-mmproj-BF16.gguf",
+      "licenseUrl": "https://huggingface.co/Qwen/Qwen2.5-VL-7B-Instruct",
+      "sizeBytes": 1354163040,
+      "sha256": "f0edf43c09b69d6e5dd24262f33b356a1e9dd978e7c3299b3e69141fcbb87553",
+      "autoInstallSupported": true,
+      "notes": "Automatically discovered by ComfyUI-GGUF when stored beside the matching Qwen 2.5 VL GGUF encoder."
+    },
+    {
+      "filename": "Qwen2.5-VL-7B-Instruct-Q4_K_M.gguf",
+      "targetSubdir": "text_encoders",
+      "folder": "models/text_encoders",
+      "loaders": [
+        "CLIPLoaderGGUF"
+      ],
+      "inputKeys": [
+        "clip_name"
+      ],
+      "workflows": [
+        "image-edit",
+        "image-edit-model-product"
+      ],
+      "downloadUrl": "https://huggingface.co/ggml-org/Qwen2.5-VL-7B-Instruct-GGUF/resolve/main/Qwen2.5-VL-7B-Instruct-Q4_K_M.gguf",
+      "sourceUrl": "https://huggingface.co/ggml-org/Qwen2.5-VL-7B-Instruct-GGUF/blob/main/Qwen2.5-VL-7B-Instruct-Q4_K_M.gguf",
+      "licenseUrl": "https://huggingface.co/Qwen/Qwen2.5-VL-7B-Instruct",
+      "sizeBytes": 4683072032,
+      "sha256": "9258bf05b12686d097ff3b6b18d968ab393649780aa2b3cd67fec43d50554392",
+      "autoInstallSupported": true,
+      "notes": "GGUF text encoder for Qwen Image Edit 2509. Keep its matching mmproj in the same text_encoders folder."
+    },
+    {
+      "filename": "Qwen3-4B-Q4_K_M.gguf",
+      "targetSubdir": "text_encoders",
+      "folder": "models/text_encoders",
+      "loaders": [
+        "CLIPLoaderGGUF"
+      ],
+      "inputKeys": [
+        "clip_name"
+      ],
+      "workflows": [
+        "z-image-turbo"
+      ],
+      "downloadUrl": "https://huggingface.co/unsloth/Qwen3-4B-GGUF/resolve/main/Qwen3-4B-Q4_K_M.gguf",
+      "sourceUrl": "https://huggingface.co/unsloth/Qwen3-4B-GGUF/blob/main/Qwen3-4B-Q4_K_M.gguf",
+      "licenseUrl": "https://huggingface.co/Qwen/Qwen3-4B",
+      "sizeBytes": 2497281312,
+      "sha256": "f6f851777709861056efcdad3af01da38b31223a3ba26e61a4f8bf3a2195813a",
+      "autoInstallSupported": true,
+      "notes": "Memory-efficient Q4_K_M text encoder used by the bundled Z Image Turbo GGUF workflow."
+    },
+    {
+      "filename": "taeltx2_3.safetensors",
+      "targetSubdir": "vae",
+      "folder": "models/vae",
+      "loaders": [
+        "VAELoader"
+      ],
+      "inputKeys": [
+        "vae_name"
+      ],
+      "workflows": [
+        "music-video-shot-ltx23"
+      ],
+      "downloadUrl": null,
+      "sourceUrl": null,
+      "licenseUrl": null,
       "sizeBytes": null,
       "sha256": null,
+      "autoInstallSupported": false,
+      "notes": "No curated download recipe is available yet for this model."
+    },
+    {
+      "filename": "umt5-xxl-encoder-Q4_K_M.gguf",
+      "targetSubdir": "text_encoders",
+      "folder": "models/text_encoders",
+      "loaders": [
+        "CLIPLoaderGGUF"
+      ],
+      "inputKeys": [
+        "clip_name"
+      ],
+      "workflows": [
+        "wan22-i2v",
+        "wan22-t2v"
+      ],
+      "downloadUrl": "https://huggingface.co/city96/umt5-xxl-encoder-gguf/resolve/main/umt5-xxl-encoder-Q4_K_M.gguf",
+      "sourceUrl": "https://huggingface.co/city96/umt5-xxl-encoder-gguf/blob/main/umt5-xxl-encoder-Q4_K_M.gguf",
+      "licenseUrl": "https://huggingface.co/google/umt5-xxl",
+      "sizeBytes": 3655145312,
+      "sha256": "17cf97a5bbbc60a646d6105b832b6f657ce904a8a1ad970e4b59df0c67584a40",
       "autoInstallSupported": true,
-      "notes": "Text encoder for the bundled WAN 2.2 workflow."
+      "notes": "Shared Q4_K_M text encoder for the bundled WAN 2.2 I2V and T2V GGUF workflows."
     },
     {
       "filename": "wan_2.1_vae.safetensors",
@@ -322,36 +1167,16 @@
         "vae_name"
       ],
       "workflows": [
-        "wan22-i2v"
+        "wan22-i2v",
+        "wan22-t2v"
       ],
       "downloadUrl": "https://huggingface.co/Comfy-Org/Wan_2.2_ComfyUI_Repackaged/resolve/main/split_files/vae/wan_2.1_vae.safetensors",
       "sourceUrl": "https://huggingface.co/Comfy-Org/Wan_2.2_ComfyUI_Repackaged/blob/main/split_files/vae/wan_2.1_vae.safetensors",
       "licenseUrl": "https://huggingface.co/Wan-AI/Wan2.2-I2V-A14B",
-      "sizeBytes": null,
+      "sizeBytes": 253815318,
       "sha256": null,
       "autoInstallSupported": true,
       "notes": "Shared VAE for the bundled WAN 2.2 workflow."
-    },
-    {
-      "filename": "wan2.2_i2v_high_noise_14B_fp8_scaled.safetensors",
-      "targetSubdir": "diffusion_models",
-      "folder": "models/diffusion_models",
-      "loaders": [
-        "UNETLoader"
-      ],
-      "inputKeys": [
-        "unet_name"
-      ],
-      "workflows": [
-        "wan22-i2v"
-      ],
-      "downloadUrl": "https://huggingface.co/Comfy-Org/Wan_2.2_ComfyUI_Repackaged/resolve/main/split_files/diffusion_models/wan2.2_i2v_high_noise_14B_fp8_scaled.safetensors",
-      "sourceUrl": "https://huggingface.co/Comfy-Org/Wan_2.2_ComfyUI_Repackaged/blob/main/split_files/diffusion_models/wan2.2_i2v_high_noise_14B_fp8_scaled.safetensors",
-      "licenseUrl": "https://huggingface.co/Wan-AI/Wan2.2-I2V-A14B",
-      "sizeBytes": null,
-      "sha256": null,
-      "autoInstallSupported": true,
-      "notes": "One of the two MoE expert models required for WAN 2.2 image-to-video."
     },
     {
       "filename": "wan2.2_i2v_lightx2v_4steps_lora_v1_high_noise.safetensors",
@@ -396,11 +1221,53 @@
       "notes": "ComfyUI-repackaged filename that matches the bundled WAN workflow."
     },
     {
-      "filename": "wan2.2_i2v_low_noise_14B_fp8_scaled.safetensors",
+      "filename": "wan2.2_t2v_lightx2v_4steps_lora_v1.1_high_noise.safetensors",
+      "targetSubdir": "loras",
+      "folder": "models/loras",
+      "loaders": [
+        "LoraLoaderModelOnly"
+      ],
+      "inputKeys": [
+        "lora_name"
+      ],
+      "workflows": [
+        "wan22-t2v"
+      ],
+      "downloadUrl": "https://huggingface.co/Comfy-Org/Wan_2.2_ComfyUI_Repackaged/resolve/main/split_files/loras/wan2.2_t2v_lightx2v_4steps_lora_v1.1_high_noise.safetensors",
+      "sourceUrl": "https://huggingface.co/Comfy-Org/Wan_2.2_ComfyUI_Repackaged/blob/main/split_files/loras/wan2.2_t2v_lightx2v_4steps_lora_v1.1_high_noise.safetensors",
+      "licenseUrl": "https://huggingface.co/lightx2v/Wan2.2-Lightning",
+      "sizeBytes": 1226977424,
+      "sha256": null,
+      "autoInstallSupported": true,
+      "notes": "Speed LoRA used by the bundled WAN 2.2 text-to-video workflow."
+    },
+    {
+      "filename": "wan2.2_t2v_lightx2v_4steps_lora_v1.1_low_noise.safetensors",
+      "targetSubdir": "loras",
+      "folder": "models/loras",
+      "loaders": [
+        "LoraLoaderModelOnly"
+      ],
+      "inputKeys": [
+        "lora_name"
+      ],
+      "workflows": [
+        "wan22-t2v"
+      ],
+      "downloadUrl": "https://huggingface.co/Comfy-Org/Wan_2.2_ComfyUI_Repackaged/resolve/main/split_files/loras/wan2.2_t2v_lightx2v_4steps_lora_v1.1_low_noise.safetensors",
+      "sourceUrl": "https://huggingface.co/Comfy-Org/Wan_2.2_ComfyUI_Repackaged/blob/main/split_files/loras/wan2.2_t2v_lightx2v_4steps_lora_v1.1_low_noise.safetensors",
+      "licenseUrl": "https://huggingface.co/lightx2v/Wan2.2-Lightning",
+      "sizeBytes": 1226977424,
+      "sha256": null,
+      "autoInstallSupported": true,
+      "notes": "Speed LoRA used by the bundled WAN 2.2 text-to-video workflow."
+    },
+    {
+      "filename": "Wan2.2-I2V-A14B-HighNoise-Q4_K_M.gguf",
       "targetSubdir": "diffusion_models",
       "folder": "models/diffusion_models",
       "loaders": [
-        "UNETLoader"
+        "UnetLoaderGGUF"
       ],
       "inputKeys": [
         "unet_name"
@@ -408,20 +1275,83 @@
       "workflows": [
         "wan22-i2v"
       ],
-      "downloadUrl": "https://huggingface.co/Comfy-Org/Wan_2.2_ComfyUI_Repackaged/resolve/main/split_files/diffusion_models/wan2.2_i2v_low_noise_14B_fp8_scaled.safetensors",
-      "sourceUrl": "https://huggingface.co/Comfy-Org/Wan_2.2_ComfyUI_Repackaged/blob/main/split_files/diffusion_models/wan2.2_i2v_low_noise_14B_fp8_scaled.safetensors",
+      "downloadUrl": "https://huggingface.co/QuantStack/Wan2.2-I2V-A14B-GGUF/resolve/main/HighNoise/Wan2.2-I2V-A14B-HighNoise-Q4_K_M.gguf",
+      "sourceUrl": "https://huggingface.co/QuantStack/Wan2.2-I2V-A14B-GGUF/blob/main/HighNoise/Wan2.2-I2V-A14B-HighNoise-Q4_K_M.gguf",
       "licenseUrl": "https://huggingface.co/Wan-AI/Wan2.2-I2V-A14B",
-      "sizeBytes": null,
-      "sha256": null,
+      "sizeBytes": 9651728896,
+      "sha256": "836250abfaa3411694e2c9cf3a0cc18265329d5156d81aa116d5366b0f8f02e7",
       "autoInstallSupported": true,
-      "notes": "One of the two MoE expert models required for WAN 2.2 image-to-video."
+      "notes": "Q4_K_M high-noise MoE expert for the bundled local WAN 2.2 image-to-video workflow."
     },
     {
-      "filename": "z_image_turbo_bf16.safetensors",
+      "filename": "Wan2.2-I2V-A14B-LowNoise-Q4_K_M.gguf",
       "targetSubdir": "diffusion_models",
       "folder": "models/diffusion_models",
       "loaders": [
-        "UNETLoader"
+        "UnetLoaderGGUF"
+      ],
+      "inputKeys": [
+        "unet_name"
+      ],
+      "workflows": [
+        "wan22-i2v"
+      ],
+      "downloadUrl": "https://huggingface.co/QuantStack/Wan2.2-I2V-A14B-GGUF/resolve/main/LowNoise/Wan2.2-I2V-A14B-LowNoise-Q4_K_M.gguf",
+      "sourceUrl": "https://huggingface.co/QuantStack/Wan2.2-I2V-A14B-GGUF/blob/main/LowNoise/Wan2.2-I2V-A14B-LowNoise-Q4_K_M.gguf",
+      "licenseUrl": "https://huggingface.co/Wan-AI/Wan2.2-I2V-A14B",
+      "sizeBytes": 9651728896,
+      "sha256": "e2f98d834af009d035c6b0918268f2eba0aa8a63025ce942277e2384d40b0866",
+      "autoInstallSupported": true,
+      "notes": "Q4_K_M low-noise MoE expert for the bundled local WAN 2.2 image-to-video workflow."
+    },
+    {
+      "filename": "Wan2.2-T2V-A14B-HighNoise-Q4_K_M.gguf",
+      "targetSubdir": "diffusion_models",
+      "folder": "models/diffusion_models",
+      "loaders": [
+        "UnetLoaderGGUF"
+      ],
+      "inputKeys": [
+        "unet_name"
+      ],
+      "workflows": [
+        "wan22-t2v"
+      ],
+      "downloadUrl": "https://huggingface.co/QuantStack/Wan2.2-T2V-A14B-GGUF/resolve/main/HighNoise/Wan2.2-T2V-A14B-HighNoise-Q4_K_M.gguf",
+      "sourceUrl": "https://huggingface.co/QuantStack/Wan2.2-T2V-A14B-GGUF/blob/main/HighNoise/Wan2.2-T2V-A14B-HighNoise-Q4_K_M.gguf",
+      "licenseUrl": "https://huggingface.co/Wan-AI/Wan2.2-T2V-A14B",
+      "sizeBytes": 9650090496,
+      "sha256": "e0c490c6e316fd91ff52034e4ca66b825717e33ff11624585c0ccfcb5d410c59",
+      "autoInstallSupported": true,
+      "notes": "Q4_K_M high-noise MoE expert for the bundled local WAN 2.2 text-to-video workflow."
+    },
+    {
+      "filename": "Wan2.2-T2V-A14B-LowNoise-Q4_K_M.gguf",
+      "targetSubdir": "diffusion_models",
+      "folder": "models/diffusion_models",
+      "loaders": [
+        "UnetLoaderGGUF"
+      ],
+      "inputKeys": [
+        "unet_name"
+      ],
+      "workflows": [
+        "wan22-t2v"
+      ],
+      "downloadUrl": "https://huggingface.co/QuantStack/Wan2.2-T2V-A14B-GGUF/resolve/main/LowNoise/Wan2.2-T2V-A14B-LowNoise-Q4_K_M.gguf",
+      "sourceUrl": "https://huggingface.co/QuantStack/Wan2.2-T2V-A14B-GGUF/blob/main/LowNoise/Wan2.2-T2V-A14B-LowNoise-Q4_K_M.gguf",
+      "licenseUrl": "https://huggingface.co/Wan-AI/Wan2.2-T2V-A14B",
+      "sizeBytes": 9650090496,
+      "sha256": "091a5bae02e14aa016bc9b10a7892efda4c629346b81c5dcebbe30ea2ac8923a",
+      "autoInstallSupported": true,
+      "notes": "Q4_K_M low-noise MoE expert for the bundled local WAN 2.2 text-to-video workflow."
+    },
+    {
+      "filename": "z_image_turbo-Q4_K_M.gguf",
+      "targetSubdir": "diffusion_models",
+      "folder": "models/diffusion_models",
+      "loaders": [
+        "UnetLoaderGGUF"
       ],
       "inputKeys": [
         "unet_name"
@@ -429,13 +1359,13 @@
       "workflows": [
         "z-image-turbo"
       ],
-      "downloadUrl": "https://huggingface.co/Comfy-Org/z_image_turbo/resolve/main/split_files/diffusion_models/z_image_turbo_bf16.safetensors",
-      "sourceUrl": "https://huggingface.co/Comfy-Org/z_image_turbo/blob/main/split_files/diffusion_models/z_image_turbo_bf16.safetensors",
+      "downloadUrl": "https://huggingface.co/jayn7/Z-Image-Turbo-GGUF/resolve/main/z_image_turbo-Q4_K_M.gguf",
+      "sourceUrl": "https://huggingface.co/jayn7/Z-Image-Turbo-GGUF/blob/main/z_image_turbo-Q4_K_M.gguf",
       "licenseUrl": "https://huggingface.co/Tongyi-MAI/Z-Image-Turbo",
-      "sizeBytes": null,
-      "sha256": null,
+      "sizeBytes": 4981532736,
+      "sha256": "745ec270db042409fde084d6b5cfccabf214a7fe5a494edf994a391125656afd",
       "autoInstallSupported": true,
-      "notes": "Primary local text-to-image model used by the bundled Z Image Turbo workflow."
+      "notes": "Q4_K_M model used by the bundled local Z Image Turbo GGUF workflow."
     }
   ]
 }

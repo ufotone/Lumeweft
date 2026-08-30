@@ -1,6 +1,6 @@
-# Text to Image (Nano Banana 2)
+# Nano Banana 2 Image Edit (Cloud)
 
-Premium text-to-image with Nano Banana 2
+Cloud image generation and reference editing with Nano Banana 2
 
 - **Workflow ID:** `nano-banana-2`
 - **Category:** `image`

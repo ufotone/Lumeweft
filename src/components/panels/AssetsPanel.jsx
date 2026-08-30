@@ -1994,6 +1994,8 @@ function AssetsPanel({ isActive = true }) {
               await handleDeleteFolder(folder.id, folder.name)
             }}
             className="p-0.5 opacity-0 group-hover:opacity-100 hover:bg-sf-error rounded transition-opacity"
+            title="Delete folder"
+            aria-label={`Delete folder ${folder.name}`}
           >
             <Trash2 className="w-2.5 h-2.5 text-sf-text-muted" />
           </button>
@@ -2362,14 +2364,29 @@ function AssetsPanel({ isActive = true }) {
                 >
                   <div className="aspect-video bg-gradient-to-b from-sf-dark-700/25 to-sf-dark-900/75 flex items-center justify-center relative">
                     <FolderOpen className={`${folderTileIconSize} text-sf-accent/80`} strokeWidth={1.6} />
-                    <button
-                      type="button"
-                      onClick={(e) => startFolderEditing(e, folder)}
-                      className="absolute top-1 right-1 p-0.5 rounded bg-sf-dark-900/70 opacity-0 group-hover:opacity-100 hover:bg-sf-dark-700 transition-opacity"
-                      title="Rename folder"
-                    >
-                      <Edit3 className="w-2.5 h-2.5 text-sf-text-muted" />
-                    </button>
+                    <div className="absolute right-1 top-1 flex gap-0.5 opacity-0 transition-opacity group-hover:opacity-100">
+                      <button
+                        type="button"
+                        onClick={(e) => startFolderEditing(e, folder)}
+                        className="rounded bg-sf-dark-900/80 p-0.5 hover:bg-sf-dark-700"
+                        title="Rename folder"
+                        aria-label={`Rename folder ${folder.name}`}
+                      >
+                        <Edit3 className="w-2.5 h-2.5 text-sf-text-muted" />
+                      </button>
+                      <button
+                        type="button"
+                        onClick={async (e) => {
+                          e.stopPropagation()
+                          await handleDeleteFolder(folder.id, folder.name)
+                        }}
+                        className="rounded bg-sf-dark-900/80 p-0.5 hover:bg-sf-error"
+                        title="Delete folder"
+                        aria-label={`Delete folder ${folder.name}`}
+                      >
+                        <Trash2 className="w-2.5 h-2.5 text-sf-text-muted" />
+                      </button>
+                    </div>
                   </div>
                   <div className="px-1.5 py-1 border-t border-sf-dark-700/80 bg-sf-dark-900/85 text-center leading-tight">
                     {isEditingFolder ? (

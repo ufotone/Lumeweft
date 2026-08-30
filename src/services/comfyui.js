@@ -1637,6 +1637,72 @@ export function modifyMinimaxH3GGUFI2VWorkflow(workflow, options = {}) {
 }
 
 /**
+ * Configure the four-panel MiniMax H3 character-sheet workflow.
+ * The underlying 124-frame orbit is decoded only long enough to extract the
+ * four sheet views; CANVAS deliberately does not save the intermediate video.
+ */
+export function modifyMinimaxH3CharacterSheetWorkflow(workflow, options = {}) {
+  const {
+    prompt = '',
+    inputImage = '',
+    referenceImages = [],
+    width = 480,
+    height = 864,
+    seed = Math.floor(Math.random() * 1000000000000),
+    filenamePrefix = 'image/CANVAS_h3_character_sheet',
+  } = options
+
+  const modified = JSON.parse(JSON.stringify(workflow))
+  const normalizedWidth = Math.max(256, Math.round((Number(width) || 480) / 32) * 32)
+  const normalizedHeight = Math.max(256, Math.round((Number(height) || 864) / 32) * 32)
+  const characterNotes = String(prompt || '').trim()
+  const refs = Array.isArray(referenceImages) ? referenceImages.filter(Boolean).slice(0, 2) : []
+  const referenceGuide = [
+    'Use <Picture 1> as the exact primary character identity.',
+    refs[0] ? 'Use <Picture 2> as an additional identity, clothing, and detail reference for the same character.' : '',
+    refs[1] ? 'Use <Picture 3> as an additional identity, clothing, and detail reference for the same character.' : '',
+  ].filter(Boolean).join(' ')
+  const orbitPrompt = [
+    characterNotes,
+    referenceGuide,
+    'From 0 to 2 seconds, the character stands upright in a neutral full-body pose while the camera completes one smooth 360-degree orbit at a constant radius and eye-level height, returning to the front view.',
+    'Keep the background plain and lighting stable.',
+    'From 2 to 5 seconds, hold the front view and move into a centered head-and-shoulders close-up.',
+    'Preserve identity, anatomy, clothing, colors, and accessories in every frame.',
+  ].filter(Boolean).join(' ')
+
+  if (modified['1']?.inputs) modified['1'].inputs.image = inputImage
+  if (modified['6']?.inputs) {
+    modified['6'].inputs.prompt = orbitPrompt
+    modified['6'].inputs.width = normalizedWidth
+    modified['6'].inputs.height = normalizedHeight
+    modified['6'].inputs.length = 124
+    modified['6'].inputs['ref_images.ref_image_0'] = ['1', 0]
+
+    for (let index = 0; index < 2; index += 1) {
+      const nodeId = `char_ref_${index + 1}`
+      const inputKey = `ref_images.ref_image_${index + 1}`
+      const filename = refs[index]
+      if (filename) {
+        modified[nodeId] = {
+          inputs: { image: filename, upload: 'image' },
+          class_type: 'LoadImage',
+          _meta: { title: `CANVAS Character Reference ${index + 2}` },
+        }
+        modified['6'].inputs[inputKey] = [nodeId, 0]
+      } else {
+        delete modified[nodeId]
+        delete modified['6'].inputs[inputKey]
+      }
+    }
+  }
+  if (modified['7']?.inputs) modified['7'].inputs.noise_seed = seed
+  if (modified['20']?.inputs) modified['20'].inputs.filename_prefix = filenamePrefix
+
+  return modified
+}
+
+/**
  * Workflow modifier for WAN 2.2 14B Image-to-Video
  */
 export function modifyWAN22Workflow(workflow, options = {}) {
@@ -1845,6 +1911,65 @@ export function modifyLTX23I2VWorkflow(workflow, options = {}) {
 }
 
 /**
+ * LTX 2.3 motion generation followed by LatentSync 1.6 mouth correction.
+ *
+ * The base LTX graph still creates the shot frames. Its generated audio is
+ * disconnected at the final CreateVideo node, then the completed TTS clip is
+ * fed to LatentSync and muxed unchanged. This is intentionally different from
+ * TalkVid ID-LoRA, which treats the clip as a voice reference and regenerates
+ * the spoken waveform.
+ */
+export function modifyLTX23LatentSyncWorkflow(workflow, options = {}) {
+  const {
+    inputAudio = '',
+    lipsExpression = 1.5,
+    inferenceSteps = 20,
+    ...i2vOptions
+  } = options
+
+  if (!inputAudio) {
+    throw new Error('Exact Audio lip-sync needs a completed TTS audio clip.')
+  }
+
+  const modified = modifyLTX23I2VWorkflow(workflow, i2vOptions)
+  const createVideoEntry = Object.entries(modified).find(([, node]) => node?.class_type === 'CreateVideo')
+  if (!createVideoEntry) {
+    throw new Error('Exact Audio lip-sync could not find the LTX CreateVideo output node.')
+  }
+
+  const [createVideoId, createVideoNode] = createVideoEntry
+  const generatedFrames = Array.isArray(createVideoNode?.inputs?.images)
+    ? [...createVideoNode.inputs.images]
+    : null
+  if (!generatedFrames) {
+    throw new Error('Exact Audio lip-sync could not resolve the generated LTX frames.')
+  }
+
+  const audioNodeId = 'lumeweft_latentsync_audio'
+  const lipSyncNodeId = 'lumeweft_latentsync'
+  modified[audioNodeId] = {
+    inputs: { audio: inputAudio },
+    class_type: 'LoadAudio',
+    _meta: { title: 'Load Final TTS Audio (Exact)' },
+  }
+  modified[lipSyncNodeId] = {
+    inputs: {
+      images: generatedFrames,
+      audio: [audioNodeId, 0],
+      seed: Math.round(Number(i2vOptions.seed) || 0),
+      lips_expression: Math.max(1, Math.min(3, Number(lipsExpression) || 1.5)),
+      inference_steps: Math.max(1, Math.round(Number(inferenceSteps) || 20)),
+    },
+    class_type: 'LatentSyncNode',
+    _meta: { title: 'Exact Audio Lip-Sync (LatentSync 1.6)' },
+  }
+  modified[createVideoId].inputs.images = [lipSyncNodeId, 0]
+  modified[createVideoId].inputs.audio = [lipSyncNodeId, 1]
+
+  return modified
+}
+
+/**
  * Workflow modifier for LTX 2.3 Image + Audio-to-Video.
  */
 export function modifyLTX23IA2VWorkflow(workflow, options = {}) {
@@ -1927,9 +2052,9 @@ export function modifyLTX23IA2VWorkflow(workflow, options = {}) {
 
 /**
  * Workflow modifier for LTX 2.3 ID-LoRA lip-sync (image + reference audio ->
- * talking video). Unlike modifyLTX23IA2VWorkflow, this graph drives real
- * lip-sync via the talkvid ID LoRA + LTXVReferenceAudio node, so the provided
- * voice clip is spoken with matching mouth motion. Control node ids come from
+ * talking video). Unlike modifyLTX23IA2VWorkflow, this graph uses the TalkVid
+ * ID-LoRA + LTXVReferenceAudio node to condition voice identity/performance;
+ * the target words are supplied in the prompt's [SPEECH] field. Control node ids come from
  * public/workflows/video_ltx2_3_id_lora.json:
  *   269 LoadImage, 276 LoadAudio, 340:319 prompt, 340:314 negative,
  *   340:330 width, 340:324 height, 340:323 fps, 340:331 duration (seconds),
@@ -1992,6 +2117,7 @@ export function modifyMultipleAnglesWorkflow(workflow, options = {}) {
   const {
     inputImage = '',      // Filename uploaded to ComfyUI
     seed = Math.floor(Math.random() * 1000000000000),
+    filenamePrefix = '',
     // Allow overriding individual angle prompts
     prompts = {},
   } = options
@@ -2005,14 +2131,14 @@ export function modifyMultipleAnglesWorkflow(workflow, options = {}) {
 
   // Default angle prompts
   const defaultPrompts = {
-    closeUp:  'Turn the camera to a close-up.',
-    wide:     'Turn the camera to a wide-angle lens.',
-    right45:  'Rotate the camera 45 degrees to the right.',
-    right90:  'Rotate the camera 90 degrees to the right.',
-    aerial:   'Turn the camera to an aerial view.',
-    lowAngle: 'Turn the camera to a low-angle view.',
-    left45:   'Rotate the camera 45 degrees to the left.',
-    left90:   'Rotate the camera 90 degrees to the left.',
+    closeUp:  '<sks> front view eye-level shot close-up',
+    wide:     '<sks> front view eye-level shot wide shot',
+    right45:  '<sks> front-right quarter view eye-level shot medium shot',
+    right90:  '<sks> right side view eye-level shot medium shot',
+    aerial:   '<sks> front view high-angle shot medium shot',
+    lowAngle: '<sks> front view low-angle shot medium shot',
+    left45:   '<sks> front-left quarter view eye-level shot medium shot',
+    left90:   '<sks> left side view eye-level shot medium shot',
   }
 
   // Prompt node mapping: angle key -> node ID
@@ -2047,11 +2173,13 @@ export function modifyMultipleAnglesWorkflow(workflow, options = {}) {
     }
   }
 
-  // Update save prefixes to Velorn
+  // Give every persistent output the CANVAS run prefix.
   const saveNodes = { '31': 'close_up', '34': 'wide_shot', '36': '45_right', '38': '90_right', '47': '90_left', '41': 'aerial_view', '43': 'low_angle', '45': '45_left' }
   for (const [nodeId, suffix] of Object.entries(saveNodes)) {
     if (modified[nodeId]) {
-      modified[nodeId].inputs.filename_prefix = `Velorn-${suffix}`
+      modified[nodeId].inputs.filename_prefix = filenamePrefix
+        ? `${filenamePrefix}_${suffix}`
+        : `Lumeweft-${suffix}`
     }
   }
 
@@ -2184,6 +2312,7 @@ export function modifyQwenImageEdit2509Workflow(workflow, options = {}) {
     width = null,
     height = null,
     referenceImages = [],
+    maskImage = '',
     filenamePrefix = '',
   } = options
 
@@ -2281,6 +2410,70 @@ export function modifyQwenImageEdit2509Workflow(workflow, options = {}) {
       if (ref1) node.inputs.image2 = ['ref_img_1', 0]
       if (ref2) node.inputs.image3 = ['ref_img_2', 0]
     }
+  }
+
+  // Optional masked edit: Qwen produces the requested edit, then core ComfyUI
+  // nodes composite only the white mask area over the scaled source image.
+  // This keeps every unmasked pixel from the original character image intact.
+  if (maskImage && !hasDedicatedModelAndProductLoaders) {
+    const primaryLoadEntry = Object.entries(modified).find(([, node]) => (
+      node?.class_type === 'LoadImage'
+      && node?.inputs?.image === inputImage
+      && !/ref|mask/i.test(String(node?._meta?.title || ''))
+    ))
+    const primaryLoadId = primaryLoadEntry?.[0] || ''
+    const scaledSourceEntry = Object.entries(modified).find(([, node]) => (
+      node?.class_type === 'FluxKontextImageScale'
+      && Array.isArray(node?.inputs?.image)
+      && (!primaryLoadId || node.inputs.image[0] === primaryLoadId)
+    ))
+    const sourceImageOutput = scaledSourceEntry
+      ? [scaledSourceEntry[0], 0]
+      : (primaryLoadId ? [primaryLoadId, 0] : null)
+
+    if (sourceImageOutput) {
+      modified['canvas_inpaint_mask_image'] = {
+        class_type: 'LoadImage',
+        inputs: { image: maskImage },
+        _meta: { title: 'CANVAS Inpaint Mask' },
+      }
+      modified['canvas_inpaint_mask'] = {
+        class_type: 'ImageToMask',
+        inputs: {
+          image: ['canvas_inpaint_mask_image', 0],
+          channel: 'red',
+        },
+        _meta: { title: 'CANVAS Inpaint Mask (white = replace)' },
+      }
+
+      let compositeIndex = 0
+      for (const node of Object.values(modified)) {
+        if (node?.class_type !== 'SaveImage' || !Array.isArray(node?.inputs?.images)) continue
+        const generatedImageOutput = [...node.inputs.images]
+        const compositeId = `canvas_inpaint_composite_${compositeIndex}`
+        compositeIndex += 1
+        modified[compositeId] = {
+          class_type: 'ImageCompositeMasked',
+          inputs: {
+            destination: sourceImageOutput,
+            source: generatedImageOutput,
+            x: 0,
+            y: 0,
+            resize_source: true,
+            mask: ['canvas_inpaint_mask', 0],
+          },
+          _meta: { title: 'CANVAS Masked Inpaint Composite' },
+        }
+        node.inputs.images = [compositeId, 0]
+      }
+    }
+  }
+
+  // PreviewImage duplicates the eight SaveImage results in ComfyUI's temp
+  // output and history. Remove those terminal nodes before queueing so only
+  // the eight persistent training images are produced.
+  for (const [nodeId, node] of Object.entries(modified)) {
+    if (node?.class_type === 'PreviewImage') delete modified[nodeId]
   }
 
   return modified
@@ -3779,6 +3972,101 @@ export function modifyIrodoriTextToSpeechWorkflow(workflow, options = {}) {
       node.inputs.filename_prefix = filenamePrefix || node.inputs.filename_prefix || 'audio/short_film_irodori'
     }
   }
+
+  return modified
+}
+
+/**
+ * Configure the shared Irodori voice-studio graph. A reference recording
+ * selects v3 voice cloning; without one, a VoiceDesign caption can select a
+ * reference-free voice. Emoji delivery cues remain embedded in `text`.
+ */
+export function modifyIrodoriVoiceCloneWorkflow(workflow, options = {}) {
+  const {
+    text = '',
+    inputAudio = '',
+    model = 'irodori-tts-500m-v3.safetensors',
+    seed = 1,
+    seconds = 0,
+    numSteps = 30,
+    normalizeReference = false,
+    maxReferenceSeconds = 30,
+    voiceDesignCaption = '',
+    cfgText = 3,
+    cfgSpeaker = 5,
+    cfgCaption = 3,
+    modelDevice = 'cuda',
+    modelPrecision = 'bf16',
+    codecDevice = 'cpu',
+    codecPrecision = 'fp32',
+    runtimeCachePolicy = 'offload_after_use',
+    filenamePrefix = 'audio/irodori_voice_clone',
+    outputFormat = 'flac',
+  } = options
+
+  const modified = JSON.parse(JSON.stringify(workflow))
+  const safeText = String(text || '').trim()
+  const safeAudio = String(inputAudio || '').trim()
+  const safeVoiceDesignCaption = String(voiceDesignCaption || '').trim()
+  const useVoiceDesign = !safeAudio && Boolean(safeVoiceDesignCaption)
+  const referenceNodeId = Object.entries(modified).find(([, node]) => node?.class_type === 'jupo.IrodoriTTS.ReferenceAudio')?.[0]
+  const voiceDesignNodeId = Object.entries(modified).find(([, node]) => node?.class_type === 'jupo.IrodoriTTS.VoiceDesignConfig')?.[0]
+
+  for (const node of Object.values(modified)) {
+    if (!node?.inputs) continue
+
+    if (node.class_type === 'jupo.IrodoriTTS.ModelLoader') {
+      if ('model' in node.inputs) node.inputs.model = String(model || node.inputs.model)
+      if ('model_device' in node.inputs) node.inputs.model_device = modelDevice || node.inputs.model_device
+      if ('model_precision' in node.inputs) node.inputs.model_precision = modelPrecision || node.inputs.model_precision
+      if ('codec_device' in node.inputs) node.inputs.codec_device = codecDevice || node.inputs.codec_device
+      if ('codec_precision' in node.inputs) node.inputs.codec_precision = codecPrecision || node.inputs.codec_precision
+      if ('runtime_cache_policy' in node.inputs) node.inputs.runtime_cache_policy = runtimeCachePolicy || node.inputs.runtime_cache_policy
+    }
+
+    if (node.class_type === 'jupo.IrodoriTTS.ReferenceAudio') {
+      if ('audio' in node.inputs) node.inputs.audio = safeAudio || node.inputs.audio
+      if ('normalize_ref_audio' in node.inputs) node.inputs.normalize_ref_audio = Boolean(normalizeReference)
+      if ('max_ref_seconds' in node.inputs) node.inputs.max_ref_seconds = Math.max(1, Math.min(120, Number(maxReferenceSeconds) || 30))
+    }
+
+    if (node.class_type === 'jupo.IrodoriTTS.CFGConfig') {
+      if ('cfg_scale_text' in node.inputs) node.inputs.cfg_scale_text = Math.max(0, Math.min(10, Number(cfgText) || 3))
+      if ('cfg_scale_speaker' in node.inputs) node.inputs.cfg_scale_speaker = Math.max(0, Math.min(10, Number(cfgSpeaker) || 5))
+      if ('cfg_scale_caption' in node.inputs) node.inputs.cfg_scale_caption = Math.max(0, Math.min(10, Number(cfgCaption) || 3))
+    }
+
+    if (node.class_type === 'jupo.IrodoriTTS.VoiceDesignConfig') {
+      if ('caption' in node.inputs) node.inputs.caption = safeVoiceDesignCaption || node.inputs.caption
+    }
+
+    if (node.class_type === 'jupo.IrodoriTTS.Sampler') {
+      if ('text' in node.inputs) node.inputs.text = safeText || node.inputs.text
+      if ('seed' in node.inputs) node.inputs.seed = Math.max(0, Math.round(Number(seed) || 0))
+      if ('seconds' in node.inputs) node.inputs.seconds = Math.max(0, Number(seconds) || 0)
+      if ('num_steps' in node.inputs) node.inputs.num_steps = Math.max(1, Math.min(120, Math.round(Number(numSteps) || 30)))
+      if (useVoiceDesign) {
+        delete node.inputs.ref_config
+        if (voiceDesignNodeId) node.inputs.voice_design_config = [voiceDesignNodeId, 0]
+      } else if (safeAudio) {
+        delete node.inputs.voice_design_config
+        if (referenceNodeId) node.inputs.ref_config = [referenceNodeId, 0]
+      } else {
+        delete node.inputs.ref_config
+        delete node.inputs.voice_design_config
+      }
+    }
+
+    if (node.class_type === 'SaveAudioAdvanced') {
+      if ('filename_prefix' in node.inputs) node.inputs.filename_prefix = filenamePrefix || node.inputs.filename_prefix
+      // COMFY_DYNAMICCOMBO_V3 accepts the selected option key in API prompts.
+      // ComfyUI expands it to { format, ...nestedInputs } before node execution.
+      if ('format' in node.inputs) node.inputs.format = String(outputFormat || 'flac')
+    }
+  }
+
+  if (!safeAudio && referenceNodeId) delete modified[referenceNodeId]
+  if (!useVoiceDesign && voiceDesignNodeId) delete modified[voiceDesignNodeId]
 
   return modified
 }

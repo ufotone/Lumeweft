@@ -221,6 +221,7 @@ function WorkflowSetupExpandedBody({
   rootValidation,
   installing,
   galleryMeta,
+  highlightDependencies = false,
   onCopySetup,
   onOpenComfy,
   onInstallWorkflow,
@@ -229,6 +230,9 @@ function WorkflowSetupExpandedBody({
   const canInstallWorkflow = result.hasActionableInstalls && rootValidation.isValid && !installing
   const longDescription = galleryMeta?.longDescription || galleryMeta?.description || ''
   const badgeList = Array.isArray(galleryMeta?.badges) ? galleryMeta.badges : []
+  const dependencyPanelClass = highlightDependencies
+    ? 'border-red-500/85 bg-red-500/5 ring-1 ring-red-500/25'
+    : 'border-sf-dark-700 bg-sf-dark-950/70'
 
   return (
     <div className="border-t border-sf-dark-700 px-3 py-3 space-y-3 bg-sf-dark-950/40">
@@ -261,7 +265,7 @@ function WorkflowSetupExpandedBody({
       )}
 
       {result.hasActionableInstalls && (
-        <div className="rounded border border-sf-dark-700 bg-sf-dark-950/70 p-3 space-y-2">
+        <div className={`rounded border p-3 space-y-2 ${dependencyPanelClass}`}>
           <div className="flex items-center gap-2 text-xs text-sf-text-primary">
             <Download className="w-3.5 h-3.5 text-orange-300" />
             Actionable installs
@@ -285,7 +289,7 @@ function WorkflowSetupExpandedBody({
       )}
 
       {result.coreUpdateNodes.length > 0 && (
-        <div className="rounded border border-sf-dark-700 bg-sf-dark-950/70 p-3 space-y-2">
+        <div className={`rounded border p-3 space-y-2 ${dependencyPanelClass}`}>
           <div className="flex items-center gap-2 text-xs text-sf-text-primary">
             <Settings className="w-3.5 h-3.5 text-yellow-300" />
             Update ComfyUI first
@@ -311,7 +315,7 @@ function WorkflowSetupExpandedBody({
       )}
 
       {result.manualNodes.length > 0 && (
-        <div className="rounded border border-sf-dark-700 bg-sf-dark-950/70 p-3 space-y-2">
+        <div className={`rounded border p-3 space-y-2 ${dependencyPanelClass}`}>
           <div className="flex items-center gap-2 text-xs text-sf-text-primary">
             <Boxes className="w-3.5 h-3.5 text-yellow-300" />
             Manual node setup
@@ -326,7 +330,7 @@ function WorkflowSetupExpandedBody({
       )}
 
       {result.manualModels.length > 0 && (
-        <div className="rounded border border-sf-dark-700 bg-sf-dark-950/70 p-3 space-y-2">
+        <div className={`rounded border p-3 space-y-2 ${dependencyPanelClass}`}>
           <div className="flex items-center gap-2 text-xs text-sf-text-primary">
             <AlertTriangle className="w-3.5 h-3.5 text-yellow-300" />
             Manual model setup
@@ -342,7 +346,7 @@ function WorkflowSetupExpandedBody({
       )}
 
       {result.missingAuth && (
-        <div className="rounded border border-yellow-400/30 bg-yellow-400/5 p-3">
+        <div className={`rounded border p-3 ${highlightDependencies ? 'border-red-500/85 bg-red-500/5 ring-1 ring-red-500/25' : 'border-yellow-400/30 bg-yellow-400/5'}`}>
           <div className="flex items-start justify-between gap-3">
             <div className="flex items-start gap-2">
               <KeyRound className="mt-0.5 h-3.5 w-3.5 shrink-0 text-yellow-300" />
@@ -367,7 +371,7 @@ function WorkflowSetupExpandedBody({
       )}
 
       {(result.unresolvedModels?.length || 0) > 0 && (
-        <div className="rounded border border-sf-dark-700 bg-sf-dark-950/70 p-3 text-[11px] text-yellow-300">
+        <div className={`rounded border p-3 text-[11px] text-yellow-300 ${dependencyPanelClass}`}>
           {result.unresolvedModels.length} model check(s) could not be verified from ComfyUI metadata and may still need manual confirmation.
         </div>
       )}
@@ -427,7 +431,7 @@ function InstallSummaryRow({ label, value, tone = 'text-sf-text-secondary' }) {
   )
 }
 
-const WorkflowSetupSection = memo(function WorkflowSetupSection() {
+const WorkflowSetupSection = memo(function WorkflowSetupSection({ focusWorkflowIds = [] }) {
   const { t } = useI18n()
   const [comfyRootPath, setComfyRootPath] = useState('')
   const [rootValidation, setRootValidation] = useState({
@@ -463,6 +467,19 @@ const WorkflowSetupSection = memo(function WorkflowSetupSection() {
   // { installs: [{ label, source }], since } — cleared once ComfyUI restarts.
   const [pendingRestart, setPendingRestart] = useState(null)
   const [apiKeyDialogOpen, setApiKeyDialogOpen] = useState(false)
+  const highlightedWorkflowRef = useRef(null)
+  const normalizedFocusWorkflowIds = useMemo(
+    () => Array.from(new Set(
+      (Array.isArray(focusWorkflowIds) ? focusWorkflowIds : [])
+        .map((workflowId) => String(workflowId || '').trim())
+        .filter(Boolean)
+    )),
+    [focusWorkflowIds]
+  )
+  const focusedWorkflowIdSet = useMemo(
+    () => new Set(normalizedFocusWorkflowIds),
+    [normalizedFocusWorkflowIds]
+  )
   const connectionDisplayMessage = useMemo(() => {
     const message = String(connectionState.message || '')
     const saved = message.match(/^Saved endpoint: (.+)$/)
@@ -643,6 +660,20 @@ const WorkflowSetupSection = memo(function WorkflowSetupSection() {
   )
 
   useEffect(() => {
+    if (normalizedFocusWorkflowIds.length === 0) return
+    setActiveWorkflowFilterId('all')
+    setExpandedWorkflowId(normalizedFocusWorkflowIds[0])
+  }, [normalizedFocusWorkflowIds])
+
+  useEffect(() => {
+    if (normalizedFocusWorkflowIds.length === 0 || workflowResults.length === 0) return undefined
+    const timer = window.setTimeout(() => {
+      highlightedWorkflowRef.current?.scrollIntoView?.({ behavior: 'smooth', block: 'center' })
+    }, 80)
+    return () => window.clearTimeout(timer)
+  }, [normalizedFocusWorkflowIds, setupViewMode, workflowResults])
+
+  useEffect(() => {
     let cancelled = false
 
     ;(async () => {
@@ -698,13 +729,13 @@ const WorkflowSetupSection = memo(function WorkflowSetupSection() {
           // 'restarting'), stranding the overlay in the active state.
           // These statuses are set by `runInstallPlan` and its callbacks
           // only; don't let the IPC stream clobber them.
-          const UI_TERMINAL_STATES = new Set(['success', 'needs-restart', 'restarting'])
+          const UI_TERMINAL_STATES = new Set(['success', 'needs-restart', 'restarting', 'cancelling', 'cancelled'])
           if (!UI_TERMINAL_STATES.has(prev.status)) {
             next.status = normalizedEntry.status || ''
           }
         }
         if (hasOwn(normalizedEntry, 'message')) {
-          const UI_TERMINAL_STATES = new Set(['success', 'needs-restart', 'restarting'])
+          const UI_TERMINAL_STATES = new Set(['success', 'needs-restart', 'restarting', 'cancelling', 'cancelled'])
           if (!UI_TERMINAL_STATES.has(prev.status)) {
             next.message = normalizedEntry.message || ''
           }
@@ -845,6 +876,23 @@ const WorkflowSetupSection = memo(function WorkflowSetupSection() {
         },
       })
 
+      if (result?.cancelled) {
+        setInstallProgress((prev) => ({
+          ...prev,
+          stage: 'download',
+          status: 'cancelled',
+          message: 'Download cancelled. Completed files were kept and the unfinished file was removed.',
+          taskPercent: null,
+          bytesDownloaded: 0,
+          totalBytes: 0,
+        }))
+        setShowInstallOverlay(false)
+        setInstalling(false)
+        setStatusMessage('Download cancelled. Completed files were kept; retry to download only the remaining files.')
+        await handleScanAll()
+        return
+      }
+
       if (!result?.success) {
         setShowInstallOverlay(false)
         setInstalling(false)
@@ -907,6 +955,24 @@ const WorkflowSetupSection = memo(function WorkflowSetupSection() {
       setStatusMessage(error instanceof Error ? error.message : 'Workflow setup install failed.')
     }
   }, [comfyRootPath, handleScanAll, rootValidation])
+
+  const handleCancelInstallDownload = useCallback(async () => {
+    if (!window?.electronAPI?.cancelWorkflowSetupInstall) {
+      setStatusMessage('Download cancellation is only available in the desktop build.')
+      return
+    }
+
+    setInstallProgress((prev) => ({
+      ...prev,
+      status: 'cancelling',
+      message: 'Cancelling download and removing the unfinished file...',
+    }))
+    const result = await window.electronAPI.cancelWorkflowSetupInstall()
+    if (result?.success === false) {
+      setInstallProgress((prev) => ({ ...prev, status: 'active' }))
+      setStatusMessage(result?.error || 'Could not cancel the workflow download.')
+    }
+  }, [])
 
   const handleRestartAfterInstall = useCallback(async () => {
     const snapshot = isComfyLauncherAvailable() ? getComfyLauncherSnapshot() : null
@@ -1046,6 +1112,10 @@ const WorkflowSetupSection = memo(function WorkflowSetupSection() {
   const isInstallSuccessState = installProgress.status === 'success'
   const isInstallRestartingState = installProgress.status === 'restarting'
   const isInstallNeedsRestartState = installProgress.status === 'needs-restart'
+  const isInstallCancellingState = installProgress.status === 'cancelling'
+  const canCancelInstallDownload = installing
+    && installProgress.taskType === 'model'
+    && (installProgress.status === 'active' || isInstallCancellingState)
   const launcherOwnsLive = Boolean(launcherState
     && launcherState.ownership === 'ours'
     && (launcherState.state === 'running' || launcherState.state === 'starting'))
@@ -1120,6 +1190,8 @@ const WorkflowSetupSection = memo(function WorkflowSetupSection() {
                         ? 'Install Complete — Restart ComfyUI'
                         : isInstallRestartingState
                           ? 'Restarting ComfyUI'
+                          : isInstallCancellingState
+                            ? 'Cancelling Download'
                           : 'Installing Workflow Dependencies'}
                   </div>
                   <div className="mt-0.5 text-[11px] text-sf-text-muted">
@@ -1129,11 +1201,25 @@ const WorkflowSetupSection = memo(function WorkflowSetupSection() {
                         ? 'New node packs won\u2019t load until ComfyUI restarts'
                         : isInstallRestartingState
                           ? 'Loading newly installed nodes'
+                          : isInstallCancellingState
+                            ? 'Removing the unfinished model file'
                           : overlayStepLabel
                             ? `Step ${overlayStepLabel}`
                             : 'Preparing install plan'}
                   </div>
                 </div>
+                {canCancelInstallDownload && (
+                  <button
+                    type="button"
+                    onClick={() => { void handleCancelInstallDownload() }}
+                    disabled={isInstallCancellingState}
+                    className="ml-auto inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border border-sf-dark-600 text-sf-text-secondary transition-colors hover:border-red-400/60 hover:bg-red-500/10 hover:text-red-300 disabled:cursor-wait disabled:opacity-50"
+                    title={isInstallCancellingState ? 'Cancelling download…' : 'Cancel download'}
+                    aria-label={isInstallCancellingState ? 'Cancelling download' : 'Cancel download'}
+                  >
+                    {isInstallCancellingState ? <Loader2 className="h-4 w-4 animate-spin" /> : <X className="h-4 w-4" />}
+                  </button>
+                )}
               </div>
             </div>
 
@@ -1156,6 +1242,8 @@ const WorkflowSetupSection = memo(function WorkflowSetupSection() {
                       ? (installProgress.message || 'Install complete. Restart ComfyUI to load the new nodes.')
                       : isInstallRestartingState
                         ? (installProgress.message || 'Waiting for ComfyUI to come back…')
+                        : isInstallCancellingState
+                          ? (installProgress.message || 'Stopping the current download…')
                         : (installProgress.message || 'Working...')}
                 </div>
                 {isInstallNeedsRestartState && pendingRestartCount > 1 && (
@@ -1178,7 +1266,7 @@ const WorkflowSetupSection = memo(function WorkflowSetupSection() {
                 <div className="h-3 overflow-hidden rounded-full bg-sf-dark-700">
                   <div
                     className={`h-full rounded-full bg-gradient-to-r from-sf-accent to-cyan-400 transition-[width] duration-300 ${
-                      (currentInstallPercent == null && !isInstallSuccessState && !isInstallNeedsRestartState) || isInstallRestartingState ? 'animate-pulse' : ''
+                      (currentInstallPercent == null && !isInstallSuccessState && !isInstallNeedsRestartState) || isInstallRestartingState || isInstallCancellingState ? 'animate-pulse' : ''
                     }`}
                     style={{ width: `${isInstallRestartingState ? 100 : overlayProgressPercent}%` }}
                   />
@@ -1536,6 +1624,7 @@ const WorkflowSetupSection = memo(function WorkflowSetupSection() {
             {visibleWorkflowResults.map((result) => {
               const isExpanded = expandedWorkflowId === result.workflowId
               const isSelected = selectedWorkflowIds.includes(result.workflowId)
+              const isFocusedWorkflow = focusedWorkflowIdSet.has(result.workflowId)
               const statusMeta = getStatusMeta(result)
               const canInstallWorkflow = result.hasActionableInstalls && rootValidation.isValid && !installing
               const galleryMeta = getWorkflowSetupGalleryMeta(result.workflowId)
@@ -1550,6 +1639,8 @@ const WorkflowSetupSection = memo(function WorkflowSetupSection() {
               return (
                 <div
                   key={result.workflowId}
+                  ref={isFocusedWorkflow && result.workflowId === normalizedFocusWorkflowIds[0] ? highlightedWorkflowRef : undefined}
+                  data-workflow-setup-id={result.workflowId}
                   className={`min-w-0 ${isExpanded ? 'col-span-full' : ''}`}
                 >
                   <div
@@ -1559,7 +1650,9 @@ const WorkflowSetupSection = memo(function WorkflowSetupSection() {
                     onClick={handleCardActivate}
                     onKeyDown={handleCardKeyDown}
                     className={`group flex cursor-pointer flex-col overflow-hidden rounded-xl border bg-sf-dark-900/65 text-left shadow-sm transition-colors hover:border-sf-dark-500 focus:outline-none focus-visible:ring-2 focus-visible:ring-sf-accent ${
-                      isExpanded ? 'border-sf-accent/60 ring-1 ring-sf-accent/30' : 'border-sf-dark-700'
+                      isFocusedWorkflow
+                        ? 'border-red-500 ring-2 ring-red-500/35 shadow-[0_0_0_1px_rgba(239,68,68,0.25)]'
+                        : isExpanded ? 'border-sf-accent/60 ring-1 ring-sf-accent/30' : 'border-sf-dark-700'
                     }`}
                     title={isExpanded ? 'Hide details' : 'Open details'}
                   >
@@ -1671,6 +1764,7 @@ const WorkflowSetupSection = memo(function WorkflowSetupSection() {
                           rootValidation={rootValidation}
                           installing={installing}
                           galleryMeta={galleryMeta}
+                          highlightDependencies={isFocusedWorkflow}
                           onCopySetup={handleCopySetupText}
                           onOpenComfy={handleOpenWorkflowInComfy}
                           onInstallWorkflow={handleInstallWorkflow}
@@ -1688,12 +1782,22 @@ const WorkflowSetupSection = memo(function WorkflowSetupSection() {
             {visibleWorkflowResults.map((result) => {
               const isExpanded = expandedWorkflowId === result.workflowId
               const isSelected = selectedWorkflowIds.includes(result.workflowId)
+              const isFocusedWorkflow = focusedWorkflowIdSet.has(result.workflowId)
               const statusMeta = getStatusMeta(result)
               const canInstallWorkflow = result.hasActionableInstalls && rootValidation.isValid && !installing
               const galleryMeta = getWorkflowSetupGalleryMeta(result.workflowId)
 
               return (
-                <div key={result.workflowId} className="overflow-hidden rounded-lg border border-sf-dark-700 bg-sf-dark-900/60">
+                <div
+                  key={result.workflowId}
+                  ref={isFocusedWorkflow && result.workflowId === normalizedFocusWorkflowIds[0] ? highlightedWorkflowRef : undefined}
+                  data-workflow-setup-id={result.workflowId}
+                  className={`overflow-hidden rounded-lg border bg-sf-dark-900/60 ${
+                    isFocusedWorkflow
+                      ? 'border-red-500 ring-2 ring-red-500/35 shadow-[0_0_0_1px_rgba(239,68,68,0.25)]'
+                      : 'border-sf-dark-700'
+                  }`}
+                >
                   <div className="flex items-center gap-2 px-3 py-2.5">
                     <input
                       type="checkbox"
@@ -1760,6 +1864,7 @@ const WorkflowSetupSection = memo(function WorkflowSetupSection() {
                       rootValidation={rootValidation}
                       installing={installing}
                       galleryMeta={galleryMeta}
+                      highlightDependencies={isFocusedWorkflow}
                       onCopySetup={handleCopySetupText}
                       onOpenComfy={handleOpenWorkflowInComfy}
                       onInstallWorkflow={handleInstallWorkflow}

@@ -1,6 +1,7 @@
 import comfyui, {
   modifyGeminiPromptWorkflow,
   modifyMinimaxH3MediaPromptWorkflow,
+  modifyMinimaxH3CharacterSheetWorkflow,
   modifyMinimaxH3GGUFI2VWorkflow,
   modifyGrokTextToImageWorkflow,
   modifyGrokVideoI2VWorkflow,
@@ -63,11 +64,25 @@ const TEXT_OUTPUT_WORKFLOW_IDS = new Set([
   'minimax-h3-media-promptor',
 ])
 
+const NUMBERED_RUN_FOLDER_TEMPLATE_IDS = new Set([
+  'anima-lora-dataset',
+  'sdxl-lora-dataset',
+])
+
+function documentUsesNumberedRunFolders(document) {
+  return NUMBERED_RUN_FOLDER_TEMPLATE_IDS.has(String(document?.templateId || '').trim())
+    || (document?.nodes || []).some((node) => (
+      node?.type === FLOW_AI_NODE_TYPES.output
+      && node?.data?.numberedRunFolders === true
+    ))
+}
+
 const IMAGE_EXTENSIONS = new Set(['png', 'jpg', 'jpeg', 'webp', 'gif'])
 const VIDEO_EXTENSIONS = new Set(['mp4', 'webm', 'mov', 'mkv', 'avi'])
 const AUDIO_EXTENSIONS = new Set(['mp3', 'wav', 'ogg', 'm4a', 'flac'])
 
 const WORKFLOW_MODIFIERS = Object.freeze({
+  'minimax-h3-character-sheet': modifyMinimaxH3CharacterSheetWorkflow,
   'minimax-h3-gguf-i2v': modifyMinimaxH3GGUFI2VWorkflow,
   'wan22-i2v': modifyWAN22Workflow,
   'ltx23-i2v': modifyLTX23I2VWorkflow,
@@ -300,10 +315,29 @@ function ensureAssetFolderPath(pathSegments = []) {
       parentId = existing.id
       continue
     }
-    const next = assetsState.addFolder(segment, parentId)
+    const next = assetsState.addFolder({ name: segment, parentId })
     parentId = next?.id || parentId
   }
   return parentId
+}
+
+function createNextNumberedAssetFolder(pathSegments = []) {
+  const parentId = ensureAssetFolderPath(pathSegments)
+  if (!parentId) return { folderId: null, folderSegments: pathSegments }
+
+  const assetsState = useAssetsStore.getState()
+  const highestExistingNumber = (assetsState.folders || []).reduce((highest, folder) => {
+    if (folder.parentId !== parentId) return highest
+    const name = String(folder.name || '').trim()
+    if (!/^\d+$/.test(name)) return highest
+    return Math.max(highest, Number(name) || 0)
+  }, 0)
+  const runFolderName = String(highestExistingNumber + 1).padStart(3, '0')
+  const runFolder = assetsState.addFolder({ name: runFolderName, parentId })
+  return {
+    folderId: runFolder?.id || parentId,
+    folderSegments: [...pathSegments, runFolderName],
+  }
 }
 
 function collectIncomingEdges(document, targetNodeId, targetHandle = null) {
@@ -338,9 +372,25 @@ function getInputHandleForAssetKind(assetKind = '') {
   return ''
 }
 
-function resolveAssetOutputTarget(document, sourceNode, result) {
+function resolveAssetOutputTarget(document, sourceNode, result, options = {}) {
   const assetKind = getResultAssetKind(result)
   if (!assetKind || !sourceNode?.id) return null
+
+  if (assetKind === 'image' && options.numberedRunFolderState) {
+    if (!options.numberedRunFolderState.target) {
+      const outputNode = (document?.nodes || []).find((node) => node.type === FLOW_AI_NODE_TYPES.output)
+      if (outputNode) {
+        const baseFolderSegments = getFlowOutputFolderSegments(outputNode?.data?.folderName, 'image')
+        const folderTarget = createNextNumberedAssetFolder(baseFolderSegments)
+        options.numberedRunFolderState.target = {
+          outputNode,
+          folderSegments: folderTarget.folderSegments,
+          folderId: folderTarget.folderId,
+        }
+      }
+    }
+    if (options.numberedRunFolderState.target) return options.numberedRunFolderState.target
+  }
 
   const sourceHandle = getOutputHandleForAssetKind(assetKind)
   const targetHandle = getInputHandleForAssetKind(assetKind)
@@ -354,11 +404,19 @@ function resolveAssetOutputTarget(document, sourceNode, result) {
     const targetNode = nodesById.get(edge.target)
     if (targetNode?.type !== FLOW_AI_NODE_TYPES.output) continue
 
-    const folderSegments = getFlowOutputFolderSegments(targetNode?.data?.folderName, assetKind)
+    const baseFolderSegments = getFlowOutputFolderSegments(targetNode?.data?.folderName, assetKind)
+    const usesNumberedRunFolders = Boolean(targetNode?.data?.numberedRunFolders)
+      || NUMBERED_RUN_FOLDER_TEMPLATE_IDS.has(String(document?.templateId || '').trim())
+    const folderTarget = usesNumberedRunFolders
+      ? createNextNumberedAssetFolder(baseFolderSegments)
+      : {
+        folderId: ensureAssetFolderPath(baseFolderSegments),
+        folderSegments: baseFolderSegments,
+      }
     return {
       outputNode: targetNode,
-      folderSegments,
-      folderId: ensureAssetFolderPath(folderSegments),
+      folderSegments: folderTarget.folderSegments,
+      folderId: folderTarget.folderId,
     }
   }
 
@@ -658,9 +716,42 @@ async function assetToUploadFile(asset, frameTime = 0, options = {}) {
   const blob = await response.blob()
   const sourceName = String(asset.name || '').trim()
   const sourceExtension = sourceName.match(/\.[a-z0-9]{2,8}$/i)?.[0] || ''
-  const extension = asset.type === 'image' ? (sourceExtension || '.png') : asset.type === 'video' ? (sourceExtension || '.mp4') : '.bin'
+  const extension = (asset.type === 'image' || asset.type === 'mask')
+    ? (sourceExtension || '.png')
+    : asset.type === 'video'
+      ? (sourceExtension || '.mp4')
+      : '.bin'
   const baseName = sourceExtension ? sourceName.slice(0, -sourceExtension.length) : sourceName
   return new File([blob], `${sanitizeNameToken(baseName || 'asset', 'asset')}${extension}`, { type: blob.type || 'application/octet-stream' })
+}
+
+async function fitImageFileToSquare(file, size = 1024) {
+  const targetSize = Math.max(64, Math.round(Number(size) || 1024))
+  const bitmap = await createImageBitmap(file)
+  try {
+    if (bitmap.width === targetSize && bitmap.height === targetSize) return file
+    const canvas = document.createElement('canvas')
+    canvas.width = targetSize
+    canvas.height = targetSize
+    const context = canvas.getContext('2d')
+    if (!context) throw new Error('Could not create the square-image canvas.')
+    context.fillStyle = '#ffffff'
+    context.fillRect(0, 0, targetSize, targetSize)
+    const scale = Math.min(targetSize / Math.max(1, bitmap.width), targetSize / Math.max(1, bitmap.height))
+    const drawWidth = Math.max(1, Math.round(bitmap.width * scale))
+    const drawHeight = Math.max(1, Math.round(bitmap.height * scale))
+    const offsetX = Math.round((targetSize - drawWidth) / 2)
+    const offsetY = Math.round((targetSize - drawHeight) / 2)
+    context.drawImage(bitmap, offsetX, offsetY, drawWidth, drawHeight)
+    const squareBlob = await new Promise((resolve) => canvas.toBlob(resolve, 'image/png'))
+    if (!squareBlob) throw new Error('Could not prepare the 1024 x 1024 multiple-angle source image.')
+    const baseName = String(file?.name || 'character').replace(/\.[^.]+$/, '')
+    return new File([squareBlob], `${sanitizeNameToken(baseName, 'character')}_${targetSize}x${targetSize}.png`, {
+      type: 'image/png',
+    })
+  } finally {
+    bitmap.close?.()
+  }
 }
 
 async function resolveMinimaxH3Provider(classType) {
@@ -708,7 +799,7 @@ async function pollForResult(promptId, workflowId, expectedOutputPrefix = '', on
   let consecutivePollErrors = 0
 
   const MAX_TOTAL_MS = 4 * 60 * 60 * 1000
-  const IDLE_TIMEOUT_MS = 10 * 60 * 1000
+  const PROGRESS_SILENCE_NOTICE_MS = 10 * 60 * 1000
   const POLL_INTERVAL_MS = 1000
   const MAX_POST_SUCCESS_TRIES = 8
   const maxConsecutivePollErrors = 5
@@ -753,9 +844,6 @@ async function pollForResult(promptId, workflowId, expectedOutputPrefix = '', on
       const idleFor = now - lastActivityAt
 
       if (elapsed > MAX_TOTAL_MS) break
-      if (!wsReportedSuccess && idleFor > IDLE_TIMEOUT_MS) {
-        throw new Error('ComfyUI stopped reporting progress for more than 10 minutes. The flow may be stuck or the server may have crashed.')
-      }
       if (wsReportedSuccess && postSuccessTries >= MAX_POST_SUCCESS_TRIES) break
 
       await new Promise((resolve) => setTimeout(resolve, POLL_INTERVAL_MS))
@@ -767,6 +855,16 @@ async function pollForResult(promptId, workflowId, expectedOutputPrefix = '', on
       try {
         const history = await comfyui.getHistory(promptId)
         consecutivePollErrors = 0
+        // A successful history response proves that ComfyUI is alive even when a
+        // long model-load, offload, upscale, or tiled-decode stage emits no
+        // WebSocket progress events. Keep polling until an output/error arrives;
+        // actual server loss is handled by consecutivePollErrors below.
+        if (!wsReportedSuccess && idleFor > PROGRESS_SILENCE_NOTICE_MS) {
+          onStatus({
+            progress: progressPct,
+            statusMessage: 'ComfyUI is still responding. This video stage is not reporting progress, so CANVAS will keep waiting…',
+          })
+        }
         const outputs = history?.[promptId]?.outputs ?? history?.outputs
         const topStatus = history?.[promptId]?.status ?? history?.status
 
@@ -912,12 +1010,13 @@ async function importRunResult({
   document,
   baseName: explicitBaseName = '',
   imageIndexOffset = 0,
+  numberedRunFolderState = null,
 }) {
   const projectHandle = useProjectStore.getState().currentProjectHandle
   const addAsset = useAssetsStore.getState().addAsset
   const importedAssets = []
   const baseName = sanitizeNameToken(explicitBaseName || buildAssetBaseName(node, workflowId, promptText || tagsText), 'flow_ai')
-  const outputTarget = resolveAssetOutputTarget(document, node, result)
+  const outputTarget = resolveAssetOutputTarget(document, node, result, { numberedRunFolderState })
 
   const flowMetadata = {
     documentId,
@@ -986,7 +1085,9 @@ async function importRunResult({
       const imageName = `${baseName}_${String(index).padStart(2, '0')}`
       try {
         const imageFile = await comfyui.downloadImage(image.filename, image.subfolder, image.outputType)
-        const assetInfo = await importAsset(projectHandle, imageFile, 'images')
+        const assetInfo = await importAsset(projectHandle, imageFile, 'images', {
+          subfolderSegments: outputTarget?.folderSegments || [],
+        })
         const blobUrl = URL.createObjectURL(imageFile)
         const asset = addAsset({
           ...assetInfo,
@@ -1064,6 +1165,16 @@ async function configureWorkflow(workflowId, workflowJson, context) {
   }
 
   switch (workflowId) {
+    case 'minimax-h3-character-sheet':
+      return modifier(workflowJson, {
+        prompt: context.promptText,
+        inputImage: context.uploadedFilename,
+        referenceImages: context.referenceFilenames,
+        width: context.width,
+        height: context.height,
+        seed: context.seed,
+        filenamePrefix: context.outputPrefix || 'image/CANVAS_h3_character_sheet',
+      })
     case 'minimax-h3-gguf-i2v':
       return modifier(workflowJson, {
         prompt: context.promptText,
@@ -1138,6 +1249,7 @@ async function configureWorkflow(workflowId, workflowJson, context) {
       return modifier(workflowJson, {
         inputImage: context.uploadedFilename,
         seed: context.seed,
+        filenamePrefix: context.outputPrefix,
       })
     case 'image-edit':
     case 'image-edit-model-product':
@@ -1145,7 +1257,10 @@ async function configureWorkflow(workflowId, workflowJson, context) {
         prompt: context.promptText,
         inputImage: context.uploadedFilename,
         seed: context.seed,
+        width: context.preserveInputResolution ? null : context.width,
+        height: context.preserveInputResolution ? null : context.height,
         referenceImages: context.referenceFilenames,
+        maskImage: context.maskFilename,
         variantCount: context.variantCount,
         filenamePrefix: context.outputPrefix || 'image/flow_ai_edit',
       })
@@ -1238,12 +1353,14 @@ async function buildExecutionContext(document, node) {
   }
 
   assertNoBundledExecutableInput(document, node, 'in:image', 'image')
+  assertNoBundledExecutableInput(document, node, 'in:mask', '')
   assertNoBundledExecutableInput(document, node, 'in:last-image', 'image')
   assertNoBundledExecutableInput(document, node, 'in:style', 'image')
   assertNoBundledExecutableInput(document, node, 'in:video', 'video')
 
   const promptText = resolvePromptText(document, node)
   const primaryAsset = resolveConnectedAsset(document, node, 'in:image', 'image')
+  const maskAsset = resolveConnectedAsset(document, node, 'in:mask', '')
   const lastFrameAsset = resolveConnectedAsset(document, node, 'in:last-image', 'image')
   const videoAsset = resolveConnectedAsset(document, node, 'in:video', 'video')
   const styleAssets = resolveConnectedAssets(document, node, 'in:style', 'image')
@@ -1253,6 +1370,9 @@ async function buildExecutionContext(document, node) {
   const needsImage = Boolean(workflowOption.needsImage)
   if (needsImage && !primaryAsset) {
     throw new Error('This workflow needs an upstream image input or image generation result.')
+  }
+  if (node?.data?.optionalStage === 'inpaint' && !maskAsset) {
+    throw new Error('Turn Inpaint off, or connect an Inpaint Mask before running this optional edit.')
   }
   if (node?.data?.requiresLastFrame && !lastFrameAsset) {
     throw new Error('This flow needs both a Start Frame and a Last Frame image.')
@@ -1276,9 +1396,12 @@ async function buildExecutionContext(document, node) {
 
   let uploadedFilename = null
   if (mediaAsset) {
-    const fileToUpload = await assetToUploadFile(mediaAsset, Number(node?.data?.frameTime) || 0, {
+    let fileToUpload = await assetToUploadFile(mediaAsset, Number(node?.data?.frameTime) || 0, {
       preserveVideo: isMinimaxH3Promptor && mediaAsset.type === 'video',
     })
+    if (['multi-angles', 'multi-angles-scene'].includes(workflowId)) {
+      fileToUpload = await fitImageFileToSquare(fileToUpload, 1024)
+    }
     const uploadResult = await comfyui.uploadFile(fileToUpload)
     uploadedFilename = uploadResult?.name || fileToUpload.name
   }
@@ -1291,6 +1414,16 @@ async function buildExecutionContext(document, node) {
       `canvas_last_${Date.now()}_${lastFrameFile.name || 'frame.png'}`
     )
     lastFrameFilename = lastFrameUpload?.name || lastFrameFile.name
+  }
+
+  let maskFilename = null
+  if (maskAsset) {
+    const maskFile = await assetToUploadFile(maskAsset, 0)
+    const maskUpload = await comfyui.uploadFile(
+      maskFile,
+      `canvas_inpaint_mask_${Date.now()}_${maskFile.name || 'mask.png'}`
+    )
+    maskFilename = maskUpload?.name || maskFile.name
   }
 
   const h3Providers = isMinimaxH3Promptor
@@ -1327,6 +1460,7 @@ async function buildExecutionContext(document, node) {
     wanQualityPreset: String(node?.data?.wanQualityPreset || 'balanced').trim(),
     variantCount,
     imageVariantBehavior,
+    preserveInputResolution: Boolean(node?.data?.preserveInputResolution),
     uploadedFilename,
     lastFrameFilename,
     uploadedMediaKind: mediaAsset?.type === 'video' ? 'video' : 'image',
@@ -1336,6 +1470,7 @@ async function buildExecutionContext(document, node) {
     imageAnalysisMode: String(node?.data?.imageAnalysisMode || 'Comprehensive'),
     videoAnalysisMode: String(node?.data?.videoAnalysisMode || 'Comprehensive'),
     referenceFilenames,
+    maskFilename,
     outputPrefix,
   }
 }
@@ -1404,6 +1539,7 @@ async function runExecutablePromptAttempt(document, node, context, options = {})
     document,
     baseName: options.baseName,
     imageIndexOffset: options.imageIndexOffset,
+    numberedRunFolderState: options.numberedRunFolderState,
   })
 
   if (importedAssets.length === 0) {
@@ -1560,6 +1696,9 @@ export async function runFlowGraph(document, options = {}) {
   const ranNodeIds = []
   const importedAssetIds = []
   const textOutputNodeIds = []
+  const numberedRunFolderState = documentUsesNumberedRunFolders(workingDocument)
+    ? { target: null }
+    : null
   const patchWorkingNode = (nodeId, patch) => {
     const nextPatch = typeof patch === 'function'
       ? patch(workingDocument.nodes.find((candidate) => candidate.id === nodeId) || null)
@@ -1575,6 +1714,27 @@ export async function runFlowGraph(document, options = {}) {
 
   for (const node of orderedNodes) {
     const liveNode = workingDocument.nodes.find((candidate) => candidate.id === node.id) || node
+    if (liveNode?.data?.optionalStage === 'inpaint' && liveNode?.data?.enabled !== true) {
+      const passthroughAsset = resolveConnectedAsset(workingDocument, liveNode, 'in:image', 'image')
+      if (!passthroughAsset) {
+        const error = new Error('The optional Inpaint stage needs an upstream character image to pass through.')
+        patchWorkingNode(node.id, {
+          status: 'error',
+          error: error.message,
+          statusMessage: '',
+          progress: 0,
+        })
+        throw error
+      }
+      patchWorkingNode(node.id, {
+        status: 'done',
+        statusMessage: 'Inpaint is off — using the original character image unchanged.',
+        error: '',
+        outputAssetIds: [passthroughAsset.id],
+        progress: 100,
+      })
+      continue
+    }
     const shouldRun = forceRunAll || !targetNodeId || node.id === targetNodeId || !hasReusableNodeOutput(liveNode)
     if (!shouldRun) {
       patchWorkingNode(node.id, {
@@ -1602,6 +1762,7 @@ export async function runFlowGraph(document, options = {}) {
     try {
       result = await runExecutableNode(workingDocument, liveNode, {
         documentId: options.documentId,
+        numberedRunFolderState,
         onNodePatch: patchWorkingNode,
       })
     } catch (error) {

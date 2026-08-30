@@ -9,7 +9,7 @@ import { fileURLToPath, pathToFileURL } from 'node:url'
 const EXTRA_STARTER_PACK_WORKFLOWS = Object.freeze([
   {
     id: 'image-edit-model-product',
-    label: 'Qwen Image Edit 2509 (Model + Product)',
+    label: 'Qwen Image Edit 2509 GGUF (Model + Product)',
     category: 'image',
     description: 'Local image-edit workflow used by Director Mode for combined model and product keyframes.',
   },
@@ -123,6 +123,10 @@ function buildManifestEntry(
 ) {
   const workflowId = normalizeWorkflowId(workflow.id)
   const dependencyPack = getWorkflowDependencyPack(workflowId)
+  const dependencyPacks = uniqueSorted([
+    workflowId,
+    ...(Array.isArray(workflow.starterPackDependencyIds) ? workflow.starterPackDependencyIds : []),
+  ]).map((id) => getWorkflowDependencyPack(id)).filter(Boolean)
   const hardwareInfo = getWorkflowHardwareInfo(workflowId)
   const appWorkflowPath = workflowPaths[workflowId] || null
   const sourceWorkflowFilename = inferSourceWorkflowFilename(appWorkflowPath)
@@ -130,13 +134,13 @@ function buildManifestEntry(
   const tier = hardwareInfo?.tierId || 'unknown'
   const setupWorkflowFile = sourceWorkflowFilename ? `workflows/${runtime}/${workflowId}.comfyui.json` : null
   const workflowGuideFile = `docs/workflows/${workflowId}.md`
-  const requiredNodesDetailed = uniqueSorted((dependencyPack?.requiredNodes || []).map((node) => String(node?.classType || '').trim()))
+  const requiredNodesDetailed = uniqueSorted(dependencyPacks.flatMap((pack) => (pack?.requiredNodes || []).map((node) => String(node?.classType || '').trim())))
     .map((classType) => ({
       classType,
       install: getNodeInstallInfo(classType),
     }))
   const requiredNodes = requiredNodesDetailed.map((entry) => entry.classType)
-  const requiredModels = (dependencyPack?.requiredModels || [])
+  const requiredModels = dependencyPacks.flatMap((pack) => pack?.requiredModels || [])
     .map((model) => ({
       filename: String(model?.filename || '').trim(),
       targetSubdir: String(model?.targetSubdir || '').trim(),
@@ -163,7 +167,7 @@ function buildManifestEntry(
     setupWorkflowFile,
     setupWorkflowStatus: 'pending',
     workflowGuideFile,
-    requiresComfyOrgApiKey: Boolean(dependencyPack?.requiresComfyOrgApiKey),
+    requiresComfyOrgApiKey: dependencyPacks.some((pack) => Boolean(pack?.requiresComfyOrgApiKey)),
     docsUrl: dependencyPack?.docsUrl || null,
     requiredNodes,
     requiredNodesDetailed,

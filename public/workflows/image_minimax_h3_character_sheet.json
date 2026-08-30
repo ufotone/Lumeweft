@@ -1,0 +1,112 @@
+{
+  "1": {
+    "inputs": { "image": "character.png", "upload": "image" },
+    "class_type": "LoadImage",
+    "_meta": { "title": "Primary Character" }
+  },
+  "2": {
+    "inputs": { "model_name": "minimax-h3-ref2va-Q4_0.gguf", "activation_reserve_gb": 0 },
+    "class_type": "H3ModelLoaderAny",
+    "_meta": { "title": "MiniMax H3 Ref2VA GGUF Model" }
+  },
+  "3": {
+    "inputs": { "clip_name": "MiniMax-H3-encoder-Q4_K_M.gguf", "type": "minimax", "mmproj_name": "MiniMax-H3-encoder-mmproj-F16.gguf" },
+    "class_type": "H3ClipLoaderAny",
+    "_meta": { "title": "MiniMax H3 GGUF Encoder" }
+  },
+  "4": {
+    "inputs": { "vae_name": "minimax_h3_video_vae_fp16.safetensors" },
+    "class_type": "VAELoader",
+    "_meta": { "title": "MiniMax H3 Video VAE" }
+  },
+  "5": {
+    "inputs": { "vae_name": "minimax_h3_audio_vae_fp32.safetensors" },
+    "class_type": "VAELoader",
+    "_meta": { "title": "MiniMax H3 Audio VAE" }
+  },
+  "6": {
+    "inputs": {
+      "clip": ["3", 0],
+      "vae": ["4", 0],
+      "audio_vae": ["5", 0],
+      "ref_images.ref_image_0": ["1", 0],
+      "prompt": "Use <Picture 1> as the exact primary character identity. From 0 to 2 seconds, the character stands upright in a neutral full-body pose while the camera completes one smooth 360-degree orbit at a constant radius and eye-level height, returning to the front view. Keep the background plain and lighting stable. From 2 to 5 seconds, hold the front view and move into a centered head-and-shoulders close-up. Preserve identity, anatomy, clothing, colors, and accessories in every frame.",
+      "width": 480,
+      "height": 864,
+      "length": 124,
+      "ref_image_size": "max"
+    },
+    "class_type": "MiniMaxH3ReferenceToVideo",
+    "_meta": { "title": "H3 Character Turnaround" }
+  },
+  "7": {
+    "inputs": { "noise_seed": 0 },
+    "class_type": "RandomNoise",
+    "_meta": { "title": "Seed" }
+  },
+  "8": {
+    "inputs": { "model": ["2", 0], "conditioning": ["6", 0] },
+    "class_type": "BasicGuider",
+    "_meta": { "title": "Guider" }
+  },
+  "9": {
+    "inputs": { "sampler_name": "euler" },
+    "class_type": "KSamplerSelect",
+    "_meta": { "title": "Euler Sampler" }
+  },
+  "10": {
+    "inputs": { "model": ["2", 0], "scheduler": "linear_quadratic", "steps": 25, "denoise": 1 },
+    "class_type": "BasicScheduler",
+    "_meta": { "title": "H3 Scheduler" }
+  },
+  "11": {
+    "inputs": { "noise": ["7", 0], "guider": ["8", 0], "sampler": ["9", 0], "sigmas": ["10", 0], "latent_image": ["6", 1] },
+    "class_type": "SamplerCustomAdvanced",
+    "_meta": { "title": "Sample Character Turnaround" }
+  },
+  "12": {
+    "inputs": { "samples": ["11", 0], "vae": ["4", 0] },
+    "class_type": "VAEDecode",
+    "_meta": { "title": "Decode Turnaround Frames" }
+  },
+  "13": {
+    "inputs": { "image": ["12", 0], "batch_index": 2, "length": 1 },
+    "class_type": "ImageFromBatch",
+    "_meta": { "title": "Front View" }
+  },
+  "14": {
+    "inputs": { "image": ["12", 0], "batch_index": 24, "length": 1 },
+    "class_type": "ImageFromBatch",
+    "_meta": { "title": "Side View" }
+  },
+  "15": {
+    "inputs": { "image": ["12", 0], "batch_index": 45, "length": 1 },
+    "class_type": "ImageFromBatch",
+    "_meta": { "title": "Opposite View" }
+  },
+  "16": {
+    "inputs": { "image": ["12", 0], "batch_index": 68, "length": 1 },
+    "class_type": "ImageFromBatch",
+    "_meta": { "title": "Front Close-up" }
+  },
+  "17": {
+    "inputs": { "image1": ["13", 0], "image2": ["14", 0], "direction": "right", "match_image_size": true, "spacing_width": 6, "spacing_color": "black" },
+    "class_type": "ImageStitch",
+    "_meta": { "title": "Character Sheet Row 1" }
+  },
+  "18": {
+    "inputs": { "image1": ["15", 0], "image2": ["16", 0], "direction": "right", "match_image_size": true, "spacing_width": 6, "spacing_color": "black" },
+    "class_type": "ImageStitch",
+    "_meta": { "title": "Character Sheet Row 2" }
+  },
+  "19": {
+    "inputs": { "image1": ["17", 0], "image2": ["18", 0], "direction": "up", "match_image_size": true, "spacing_width": 6, "spacing_color": "black" },
+    "class_type": "ImageStitch",
+    "_meta": { "title": "Assemble Character Sheet" }
+  },
+  "20": {
+    "inputs": { "images": ["19", 0], "filename_prefix": "image/CANVAS_h3_character_sheet" },
+    "class_type": "SaveImage",
+    "_meta": { "title": "Save Character Sheet" }
+  }
+}

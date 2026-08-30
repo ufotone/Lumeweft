@@ -89,6 +89,7 @@ export const useGenerationHistoryStore = create((set, get) => ({
       status: input.status || 'completed',
       workflowId: input.workflowId || null,
       workflowLabel: input.workflowLabel || null,
+      promptId: input.promptId || null,
       prompt: input.prompt || '',
       sourcePrompt: input.sourcePrompt || '',
       promptLanguage: input.promptLanguage || null,
@@ -175,6 +176,21 @@ export const useGenerationHistoryStore = create((set, get) => ({
       return changed ? { records } : state
     })
     return changed
+  },
+
+  removeRecords: (recordIds) => {
+    const ids = new Set((Array.isArray(recordIds) ? recordIds : []).map((id) => String(id || '')).filter(Boolean))
+    if (ids.size === 0) return 0
+    let removedCount = 0
+    set((state) => {
+      const records = state.records.filter((record) => {
+        const remove = ids.has(record.id)
+        if (remove) removedCount += 1
+        return !remove
+      })
+      return removedCount > 0 ? { records } : state
+    })
+    return removedCount
   },
 }))
 

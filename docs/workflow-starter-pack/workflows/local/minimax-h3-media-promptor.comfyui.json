@@ -1,0 +1,50 @@
+{
+  "1": {
+    "inputs": {
+      "global_image_mode": "Comprehensive",
+      "global_video_mode": "Comprehensive",
+      "_media_state": "{\"media\":[]}",
+      "temperature": 0.2,
+      "max_tokens": 2048,
+      "output_language": "English",
+      "custom_prompt_override": ""
+    },
+    "class_type": "H3_Vision_Analyzer",
+    "_meta": {
+      "title": "MiniMax H3 Vision Analyzer"
+    }
+  },
+  "2": {
+    "inputs": {
+      "task_type": "Auto",
+      "description": "",
+      "duration": 15,
+      "vision_context": [
+        "1",
+        0
+      ],
+      "reference_images": "Auto",
+      "reference_videos": "Auto",
+      "reference_audios": "Auto",
+      "output_language": "English",
+      "temperature": 0.7,
+      "max_tokens": 4096
+    },
+    "class_type": "H3_Promptor",
+    "_meta": {
+      "title": "MiniMax H3 Promptor"
+    }
+  },
+  "3": {
+    "inputs": {
+      "source": [
+        "2",
+        0
+      ]
+    },
+    "class_type": "PreviewAny",
+    "_meta": {
+      "title": "Generated Prompt"
+    }
+  }
+}

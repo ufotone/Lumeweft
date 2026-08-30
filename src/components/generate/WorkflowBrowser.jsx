@@ -117,12 +117,24 @@ export default function WorkflowBrowser({
     {},
     GENERATE_WORKFLOW_CATEGORY_LABELS[categoryId] || categoryId,
   )
+  const localizeCreatorWorkflow = (workflow) => {
+    const key = `generate.browser.creatorLauncher.cards.${workflow.id}`
+    return {
+      ...workflow,
+      title: t(`${key}.title`, {}, workflow.title),
+      subtitle: t(`${key}.subtitle`, {}, workflow.subtitle),
+      description: t(`${key}.description`, {}, workflow.description),
+      badge: t(`${key}.badge`, {}, workflow.badge),
+      runtimeLabel: t(`${key}.runtimeLabel`, {}, workflow.runtimeLabel),
+    }
+  }
   const [query, setQuery] = useState('')
   const [filterId, setFilterId] = useState('all')
   const [templateSort, setTemplateSort] = useState('popular')
   const [templateSource, setTemplateSource] = useState('all')
   const [expandedTemplateCategories, setExpandedTemplateCategories] = useState(() => new Set())
-  const isCreateLauncher = variant === 'create-launcher'
+  const isBackstageLauncher = variant === 'backstage-launcher'
+  const isCreateLauncher = variant === 'create-launcher' || isBackstageLauncher
   const isTemplatesRoute = !isCreateLauncher && route === GENERATE_WORKFLOW_ROUTES.templates
   const isCustomRoute = !isCreateLauncher && route === GENERATE_WORKFLOW_ROUTES.custom
   const isFeaturedRoute = !isCreateLauncher && route === 'featured'
@@ -398,7 +410,9 @@ export default function WorkflowBrowser({
       {!isCommunityRoute && <div className={`${isCreateLauncher ? 'mt-0' : 'mt-3'} flex items-center justify-between gap-2 text-[11px] text-sf-text-muted`}>
         <span>
           {isCreateLauncher
-            ? 'Choose a creator workflow'
+            ? (isBackstageLauncher
+              ? t('generate.browser.backstageLauncher.title', {}, 'Choose a backstage workflow')
+              : t('generate.browser.creatorLauncher.title', {}, 'Choose a creator workflow'))
             : isTemplatesRoute
               ? (templatesLoading
                 ? 'Loading the ComfyUI template catalog...'
@@ -673,7 +687,7 @@ export default function WorkflowBrowser({
               {items.map((workflow) => (
                 <WorkflowCard
                   key={workflow.id}
-                  workflow={workflow}
+                  workflow={isCreateLauncher ? localizeCreatorWorkflow(workflow) : workflow}
                   selected={selectedWorkflowId === workflow.id || selectedWorkflowId === workflow.workflowId}
                   onSelect={onSelectWorkflow}
                   showRouteBadge={!isCreateLauncher}

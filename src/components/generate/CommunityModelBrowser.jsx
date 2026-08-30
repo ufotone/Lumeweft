@@ -313,22 +313,31 @@ async function buildCommunityMediaWorkflow(generationData, mediaId, installedTas
   const officialHighBaseModel = tasks.find((task) => (
     task.modelType === 'support'
     && task.targetSubdir === 'diffusion_models'
-    && /high_noise/i.test(task.filename)
+    && /high[_-]?noise/i.test(task.filename)
   ))
   const highBaseModel = publishedHighBaseModel || officialHighBaseModel
   const publishedLowBaseModel = tasks.find((task) => task.modelType === 'Checkpoint' && task.targetSubdir === 'diffusion_models' && task.noiseRole === 'low')
   const officialLowBaseModel = tasks.find((task) => (
     task.modelType === 'support'
     && task.targetSubdir === 'diffusion_models'
-    && /low_noise/i.test(task.filename)
+    && /low[_-]?noise/i.test(task.filename)
   ))
   const lowBaseModel = publishedLowBaseModel || officialLowBaseModel
+  const applyWanBaseModel = (nodeId, task) => {
+    const node = workflow[nodeId]
+    if (!node?.inputs || !task?.filename) return
+    const isGguf = /\.gguf$/i.test(task.filename)
+    node.class_type = isGguf ? 'UnetLoaderGGUF' : 'UNETLoader'
+    node.inputs = isGguf
+      ? { unet_name: task.filename }
+      : { unet_name: task.filename, weight_dtype: 'default' }
+  }
   if (highBaseModel) {
-    if (workflow['129:95']?.inputs) workflow['129:95'].inputs.unet_name = highBaseModel.filename
+    applyWanBaseModel('129:95', highBaseModel)
     workflow['129:95']._meta.title = publishedHighBaseModel ? 'Civitai WAN High-noise model' : 'Official WAN 2.2 High-noise model'
   }
   if (lowBaseModel) {
-    if (workflow['129:96']?.inputs) workflow['129:96'].inputs.unet_name = lowBaseModel.filename
+    applyWanBaseModel('129:96', lowBaseModel)
     workflow['129:96']._meta.title = publishedLowBaseModel ? 'Civitai WAN Low-noise model' : 'Official WAN 2.2 Low-noise model'
   }
   const wireLoras = (role, switchedModelNodeId, samplingNodeId) => {
@@ -586,6 +595,11 @@ export default function CommunityModelBrowser({ onCancelConsent }) {
         ? resolveComfyModelChoice(extractComfyInputChoices(vaeInfo, 'VAELoader', 'vae_name'), 'qwen_image_vae.safetensors')
         : ''
       const hasRequiredBase = Boolean(selected && (!isAnimaLora || (clipName && vaeName)))
+      if (isAnimaLora && selected) {
+        void window.electronAPI?.setSetting?.('animaBaseDiffusionModel', selected)
+      } else if (selected && /sdxl|\bxl\b/i.test(String(selectedVersion?.baseModel || ''))) {
+        void window.electronAPI?.setSetting?.('sdxlBaseCheckpoint', selected)
+      }
       setLoraBaseState({
         status: hasRequiredBase && loraName ? 'ready' : 'empty',
         mode,
@@ -855,15 +869,15 @@ export default function CommunityModelBrowser({ onCancelConsent }) {
       const hasPublishedHighWanBase = publishedWanBases.some(({ resource, model: resourceModel }) => !/\blow\b/i.test(`${resource.versionName || ''} ${resourceModel.name || ''}`))
       const hasPublishedLowWanBase = publishedWanBases.some(({ resource, model: resourceModel }) => /\blow\b/i.test(`${resource.versionName || ''} ${resourceModel.name || ''}`))
       const supportTasks = [
-        getModelInstallInfo({ targetSubdir: 'text_encoders', filename: 'umt5_xxl_fp8_e4m3fn_scaled.safetensors' }),
+        getModelInstallInfo({ targetSubdir: 'text_encoders', filename: 'umt5-xxl-encoder-Q4_K_M.gguf' }),
         getModelInstallInfo({ targetSubdir: 'vae', filename: 'wan_2.1_vae.safetensors' }),
         // These two accelerator LoRAs are embedded in the standard WAN 2.2
         // reconstruction template. They are not necessarily declared by the
         // Civitai post, so they must be checked as template dependencies.
         getModelInstallInfo({ targetSubdir: 'loras', filename: 'wan2.2_i2v_lightx2v_4steps_lora_v1_high_noise.safetensors' }),
         getModelInstallInfo({ targetSubdir: 'loras', filename: 'wan2.2_i2v_lightx2v_4steps_lora_v1_low_noise.safetensors' }),
-        ...(!hasPublishedHighWanBase ? [getModelInstallInfo({ targetSubdir: 'diffusion_models', filename: 'wan2.2_i2v_high_noise_14B_fp8_scaled.safetensors' })] : []),
-        ...(!hasPublishedLowWanBase ? [getModelInstallInfo({ targetSubdir: 'diffusion_models', filename: 'wan2.2_i2v_low_noise_14B_fp8_scaled.safetensors' })] : []),
+        ...(!hasPublishedHighWanBase ? [getModelInstallInfo({ targetSubdir: 'diffusion_models', filename: 'Wan2.2-I2V-A14B-HighNoise-Q4_K_M.gguf' })] : []),
+        ...(!hasPublishedLowWanBase ? [getModelInstallInfo({ targetSubdir: 'diffusion_models', filename: 'Wan2.2-I2V-A14B-LowNoise-Q4_K_M.gguf' })] : []),
       ].filter((task) => task.downloadUrl).map((task) => ({
         ...task,
         resourceName: t('generate.community.media.standardDependency'),
@@ -1303,7 +1317,15 @@ export default function CommunityModelBrowser({ onCancelConsent }) {
                         </label>
                         <select
                           value={loraBaseState.selected}
-                          onChange={(event) => setLoraBaseState((previous) => ({ ...previous, selected: event.target.value, error: '' }))}
+                          onChange={(event) => {
+                            const selected = event.target.value
+                            setLoraBaseState((previous) => ({ ...previous, selected, error: '' }))
+                            if (loraBaseState.mode === 'anima' && selected) {
+                              void window.electronAPI?.setSetting?.('animaBaseDiffusionModel', selected)
+                            } else if (selected && /sdxl|\bxl\b/i.test(String(selectedVersion?.baseModel || ''))) {
+                              void window.electronAPI?.setSetting?.('sdxlBaseCheckpoint', selected)
+                            }
+                          }}
                           disabled={loraBaseState.status === 'loading' || loraBaseState.options.length === 0}
                           className="mt-1 w-full rounded-md border border-sf-dark-600 bg-sf-dark-950 px-2 py-1.5 text-[10px] text-sf-text-primary disabled:opacity-50"
                         >

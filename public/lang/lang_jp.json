@@ -194,6 +194,34 @@
       "small-h265": "共有向けの小さなMP4です。デコードには時間がかかります。",
       "prores-hq": "編集に適した大容量のMOVマスターファイルです。"
     },
+    "presetNames": {
+      "balanced-mp4": "標準 MP4",
+      "fast-nvenc": "高速 {{hardware}}",
+      "proxy-review": "プロキシ確認用",
+      "small-h265": "小容量 H.265",
+      "prores-hq": "ProRes HQ"
+    },
+    "formatOptions": {
+      "mp4": "MP4（H.264/H.265）",
+      "webm": "WebM（VP9）",
+      "prores": "MOV（ProRes）",
+      "audio": "音声のみ（WAV/MP3/M4A）",
+      "pngSequence": "PNG画像シーケンス",
+      "gifSoon": "GIF（プレビュー・近日対応）"
+    },
+    "rangeOptions": { "full": "タイムライン全体", "inout": "イン点／アウト点の範囲" },
+    "encoderPresetOptions": {
+      "ultrafast": "最速", "superfast": "非常に高速", "veryfast": "高速",
+      "faster": "やや高速", "fast": "速い", "medium": "標準", "slow": "低速",
+      "slower": "より低速", "veryslow": "最低速"
+    },
+    "qualityModeOptions": { "crf": "自動（CRF）", "bitrate": "ビットレートを指定" },
+    "keyframeOptions": { "auto": "自動", "manual": "間隔を指定" },
+    "resolutionOptions": {
+      "project": "プロジェクト設定", "custom": "カスタム...",
+      "timelineHalf": "タイムライン解像度の1/2", "timelineThird": "タイムライン解像度の1/3",
+      "timelineQuarter": "タイムライン解像度の1/4"
+    },
     "filename": "ファイル名",
     "format": "形式",
     "range": "範囲",
@@ -213,6 +241,10 @@
     "quality": "品質",
     "checkSetup": "設定を確認",
     "installRtx": "RTXランタイムをインストール",
+    "rtxChecking": "NVIDIA RTX直接実行ランタイムを確認中...",
+    "rtxInstalling": "オプションのNVIDIA RTXランタイムをインストール中...",
+    "rtxReady": "RTX直接実行エンジンを使用できます{{gpu}}。",
+    "rtxRuntimeHelp": "NVIDIA RTX上で直接実行します。ComfyUIは不要です。オプションのランタイムは約1 GBです。",
     "videoCodec": "映像コーデック",
     "proresProfile": "ProResプロファイル",
     "encoderPreset": "エンコーダープリセット",
@@ -288,9 +320,186 @@
       "audio": "音声のミックスダウンはオフライン処理されるため、長いタイムラインでは書き出し時間が増えます。"
     }
   },
+  "canvas": {
+    "subtitle": "ローカルComfyUIとクラウド連携ワークフローを扱う、厳選されたキャンバスです。",
+    "subtitleRecipe": "プリセットレシピを選び、必要な入力を指定すると、内部ワークフローはLumeweftが処理します。",
+    "documents": "ドキュメント", "advancedFlows": "高度なフロー", "presetRecipe": "プリセットレシピ",
+    "node": "ノード", "nodeCount": "{{count}}ノード", "nodePalette": "ノードパレット", "portKey": "ポートの種類",
+    "required": "必須", "on": "オン", "off": "オフ", "estimated": "概算", "checking": "確認中…",
+    "createLora": "LoRAを作成…", "recipeInfo": "レシピ情報",
+    "actions": {
+      "new": "新規", "duplicate": "複製", "delete": "削除", "clear": "クリア", "save": "保存",
+      "stop": "停止", "runFlow": "フローを実行", "stopFlow": "フローを停止", "runSelection": "選択範囲を実行",
+      "runNode": "ノードを実行", "runSelectedNode": "選択ノードを実行", "copyText": "テキストをコピー", "random": "ランダム",
+      "reload": "再読み込み", "reloadHelp": "グラフが空白または描画に失敗した場合、CANVASの表示を再読み込みします",
+      "workflowSetup": "ワークフロー設定", "openWorkflowSetup": "ワークフロー設定を開く",
+      "openFactorySettings": "LoRA Factory設定を開く", "backToDirector": "Directorに戻る", "backToBackstage": "バックステージに戻る",
+      "disconnectEdge": "接続を解除", "dismissNotice": "完了通知を閉じる",
+      "closeInformation": "情報を閉じる", "closeOriginalImage": "元画像を閉じる"
+    },
+    "preview": {
+      "building": "動画プレビューを作成中", "preparing": "動画プレビューを準備中",
+      "noSource": "入力素材はまだありません", "noSourceHelp": "この分岐へ渡す画像または動画を選択してください。",
+      "noStyle": "スタイル参照はまだありません", "noStyleHelp": "見た目の基準にする参照画像を選択してください。",
+      "generatingImage": "画像プレビューを生成中", "runForImage": "ノードを実行すると画像出力を表示します",
+      "latestWillAppear": "最新の結果がここに表示されます。", "imageVariantsHelp": "生成した最新の画像バリエーションをここで確認できます。",
+      "generatingVideo": "動画プレビューを生成中", "runForVideo": "ノードを実行すると動画出力を表示します",
+      "motionAfterRender": "レンダー後に動画プレビューが表示されます。", "spriteHelp": "スプライトによる動画プレビューをここに表示します。",
+      "upscalingVideo": "動画をアップスケール中", "runForUpscale": "ノードを実行するとアップスケール結果を表示します",
+      "topazWillAppear": "Topazの処理完了後に結果がここに表示されます。", "upscaleHelp": "動画を接続するとアップスケールしたクリップをここで確認できます。",
+      "generatingAudio": "音声プレビューを生成中", "runForAudio": "ノードを実行すると音声出力を表示します",
+      "waveformUpdates": "結果が届くと波形プレビューを更新します。", "waveformHelp": "レンダー後に波形プレビューをここに表示します。",
+      "awaitingAssets": "最終素材を待機中", "awaitingAssetsHelp": "接続した画像・動画・音声の結果をここで確認できます。"
+    },
+    "assets": {
+      "browser": "素材ブラウザー", "counts": "素材{{assets}}件・フォルダー{{folders}}件", "refresh": "素材ブラウザーを更新",
+      "refreshHelp": "素材を更新し、Lumeweftの外部で削除されたローカルファイルへの参照を除去します",
+      "assignTo": "ブラウザーで選んだ素材の割り当て先", "root": "素材のルート", "openRoot": "素材のルートを開く",
+      "search": "プロジェクト素材を検索…", "chooseExisting": "既存のプロジェクト素材を選択",
+      "replaceExisting": "既存のプロジェクト素材に置き換え", "selectExisting": "既存素材を選択",
+      "selectOne": "素材を選択…", "noneSelected": "プロジェクト素材が選択されていません",
+      "noMatching": "一致するプロジェクト素材はありません。下の「画像ファイルを選択…」から読み込めます。",
+      "chooseImage": "画像を選択", "chooseFile": "ファイルを選択…", "replaceFile": "ファイルを置換…",
+      "chooseFromFile": "ファイルから画像を選択", "replaceFromFile": "ファイルから画像を置換…",
+      "loadFromFile": "ファイルから画像を読み込む…", "clearAssigned": "割り当てた画像を解除",
+      "chooseSourceImage": "入力画像を選択", "sourceImage": "入力画像", "projectAsset": "プロジェクト素材",
+      "usingInRecipe": "レシピで使用中", "useIn": "{{target}}で使用", "noSearchResults": "一致するプロジェクト素材はありません。",
+      "folderEmpty": "このフォルダーは空です。", "originalImage": "元画像"
+    },
+    "ports": { "inputTitle": "入力: {{label}}", "outputTitle": "出力: {{label}}", "in": "入力", "out": "出力" },
+    "portTypes": { "text": "テキスト", "image": "画像", "video": "動画", "audio": "音声", "style": "スタイル" },
+    "nodes": {
+      "prompt": { "label": "プロンプト", "description": "画像・動画・音楽ノードで再利用できるテキストプロンプトです。" },
+      "image-input": { "label": "画像入力", "description": "現在のプロジェクトから画像または動画素材を選びます。" },
+      "style-reference": { "label": "スタイル参照", "description": "編集対応の画像ノードへ1枚以上の参照画像を渡します。" },
+      "prompt-assist": { "label": "プロンプト補助", "description": "大まかな指示をGeminiでより良いプロンプトに整えます。" },
+      "text-viewer": { "label": "テキストビューアー", "description": "グラフ内のテキストを確認し、変更せず後段へ渡します。" },
+      "image-gen": { "label": "画像生成", "description": "内蔵のローカルまたはクラウド画像ワークフローを実行します。" },
+      "video-gen": { "label": "動画生成", "description": "内蔵のローカルまたはクラウド画像→動画ワークフローを実行します。" },
+      "video-upscale": { "label": "動画アップスケール", "description": "上流の動画クリップにクラウド動画アップスケールを実行します。" },
+      "music-gen": { "label": "音楽", "description": "タグと任意の歌詞から音楽を生成します。" },
+      "output": { "label": "素材へ出力", "description": "最終的な画像・動画・音声を素材パネルへ送ります。" }
+    },
+    "templates": {
+      "blank": { "label": "空のキャンバス" }, "character-sheet": { "label": "H3キャラクターシート" },
+      "anima-lora-dataset": { "label": "Anima LoRA Factory" }, "sdxl-lora-dataset": { "label": "SDXL LoRA Factory" },
+      "text-to-video": { "label": "ストーリーフロー" }, "music-cue": { "label": "音楽キュー" },
+      "style-edit": { "label": "参照画像付き編集" }, "image-to-video": { "label": "画像 → 動画" },
+      "start-last-frame-video": { "label": "開始＋終了画像 → 動画" }, "media-to-prompt": { "label": "画像／動画 → プロンプト" }
+    },
+    "nodeMessages": {
+      "noPrompt": "プロンプトはまだありません。", "noMusicTags": "音楽タグはまだありません。", "runForPrompt": "実行すると整形済みプロンプトを生成します。",
+      "connectText": "確認するテキストを接続してください。", "connectedAssets": "接続済み素材: {{count}}件",
+      "connectFinalBranches": "最終的な画像・動画・音声の分岐をここへ接続してください。",
+      "autoSort": "フォルダー名が空の場合、画像・動画・音声をメディア別フォルダーへ自動分類します。",
+      "imageVariants": "画像バリエーション: {{count}}件", "outputAssets": "出力素材: {{count}}件"
+    },
+    "recipe": {
+      "step1": "1 · 入力", "step2": "2 · 自動処理", "step3": "3 · 結果",
+      "characterImage": "キャラクター画像", "characterImageHelp": "元の人物性、衣装、体格、色を生成した各視点で維持します。",
+      "designSetFolder": "Design Setの出力フォルダー", "designSetFolderHelp": "生成前に出力先を選択してください。8視点すべてが完了すると、完全な学習セットをここへ自動書き出しし、LoRA Factoryでも再利用します。",
+      "changeOutputFolder": "出力フォルダーを変更…", "chooseOutputFolder": "出力フォルダーを選択…", "automaticExport": "自動書き出し",
+      "chooseOutputRequired": "生成を有効にするには出力フォルダーを選択してください。", "maskedEdit": "視点生成前にマスク範囲を編集",
+      "maskedEditHelp": "任意設定です。マスク外のピクセルを維持したまま、ロゴ、小物、衣装の細部、デザインなどを置き換えます。",
+      "maskPrompt": "白いマスク範囲を何に置き換えますか？", "maskImage": "白黒マスク",
+      "maskImageHelp": "白い範囲を置換し、黒い範囲は変更しません。", "visualReference": "視覚参照",
+      "visualReferenceHelp": "ロゴ、小物、衣装、デザイン用の任意の参照画像です。",
+      "prepareSource": "入力を準備", "validateEditInputs": "画像と任意の編集入力を検証します。", "useOriginalImage": "元のキャラクター画像を使用します。",
+      "generateViews": "視点を生成", "generateViewsHelp": "45度刻みの一貫した8視点を生成します。",
+      "saveResults": "結果を保存", "saveResultsHelp": "続けてDesign Setを選択したフォルダーへ自動書き出しします。",
+      "generateAgain": "もう一度生成", "generateTrainingImages": "学習画像を生成", "fixSetup": "必要な設定を修正",
+      "chooseCharacterFirst": "このレシピを実行する前にキャラクター画像を選択してください。", "chooseDesignSetFirst": "このレシピを実行する前に、手順1でDesign Setの出力フォルダーを選択してください。",
+      "maskRequired": "マスク編集がオンのため、マスク画像が必要です。", "completeSetup": "実行前にワークフロー設定を完了してください。",
+      "factoryHandoff": "Factoryへの引き渡し", "factoryHandoffHelp": "手順1のDesign Setを{{factory}}へ渡し、生成後に自動起動します。既存の学習画像フォルダーを選ぶこともできます。",
+      "chooseExistingDataset": "既存データセットを選択…", "launchFactory": "Factoryを起動／再試行", "datasetReady": "データセット準備完了",
+      "outputSelected": "出力フォルダーを選択しました。生成を実行して内容を作成してください", "selectExistingHelp": "既存の学習画像が入っているフォルダーを選択してください。",
+      "resultsPlaceholder": "生成した視点画像がここに表示されます", "resultsSavedHelp": "プロジェクトの素材パネルにも自動保存されます。",
+      "useMaskedInpaint": "視点生成前にマスク付きInpaintを使用", "useMaskedInpaintHelp": "オフの場合、この段階をスキップしInpaint処理は不要です。白いマスク範囲をプロンプトと任意の参照画像で置き換えます。",
+      "needsAttention": "確認が必要", "editingMask": "マスク範囲を編集中", "generatingAngles": "8方向のカメラ視点を生成中",
+      "preparing": "レシピを準備中", "viewsReady": "学習画像{{count}}枚の準備完了", "ready": "生成準備完了",
+      "chooseToBegin": "最初にキャラクター画像を選択してください", "incompletePreset": "このプリセットには内部レシピの一部がありません。プリセットメニューから作り直すか、高度なフロー表示を開いてください。",
+      "input": "レシピ入力", "recipeStep": "レシピの手順", "stepFailed": "{{step}}に失敗しました",
+      "inpaintOnStatus": "オン — マスクを接続し、実行すると複数視点の生成前に編集します。",
+      "inpaintOffStatus": "オフ — 元のキャラクター画像を変更せず次へ渡します。",
+      "maskEditOnStatus": "オン — マスクを選び、置き換える内容を記述してください。"
+    },
+    "console": {
+      "title": "処理コンソール", "processing": "CANVASを処理中", "preparingFactory": "LoRA Factoryを準備中",
+      "factoryRunning": "LoRA Factoryを実行中", "lineCount": "ログ{{count}}行", "copy": "処理ログをコピー", "clear": "処理ログを消去",
+      "liveOutput": "リアルタイム出力", "running": "● 実行中", "idle": "○ 待機中",
+      "empty": "CANVASを実行するかLoRA Factoryを起動すると、進行状況と処理出力がここに表示されます。"
+    },
+    "inspector": {
+      "title": "インスペクター", "recipeAssets": "レシピ素材", "recipeHelp": "内部フローを表示せずに、プロジェクト素材の閲覧・プレビュー・更新・割り当てができます。",
+      "selectedHelp": "選択したノードを編集し、ここから分岐を直接実行できます。", "emptyHelp": "編集するノードを選択してください。",
+      "resize": "インスペクターパネルの幅を変更", "resizeHelp": "ドラッグで幅を変更し、ダブルクリックで初期値に戻します。",
+      "pickNode": "キャンバス上のノードを選ぶと、プロンプト、ワークフロー、入力素材、実行設定を編集できます。",
+      "textViewerHelp": "このノードはテキストを変更せず通過させ、次の処理の前に内容を確認できます。",
+      "cloudRuntime": "ComfyUIパートナーノードのクレジットを使用して実行します。", "localRuntime": "ローカルComfyUIとGPUで実行します。",
+      "workflowReadiness": "ワークフローの準備状況", "estimatedCost": "概算コスト", "pricingGuide": "料金ガイド",
+      "pricingHelp": "ComfyUIパートナーノードの料金ガイドに基づく1秒あたりの概算です。おおよその総額はクリップの長さを掛けてください。",
+      "currentEstimate": "現在のTopaz処理の概算", "upscaleHelp": "上流レンダーから動画を接続してこのノードを実行すると、元素材を置換せず新しいアップスケール動画を読み込みます。",
+      "mediaPromptorHelp": "画像入力ノードの画像または動画ポートを接続してください。動画参照は1フレームへ縮小せず、時間変化を含む参照全体としてアップロード・解析します。",
+      "promptAssistHelp": "大まかな指示にはプロンプトノードを接続し、必要に応じて画像入力または生成済みフレームを視覚情報として接続してください。",
+      "connectedResults": "接続した結果の保存先:", "blankFolderHelp": "空欄の場合、画像はCANVAS Images、動画はCANVAS Videos、音声はCANVAS Audioへ保存します。",
+      "assetOutputHelp": "このノードは素材パネルへ送る最終結果を指定します。画像・動画・音声の入力が1つずつあります。保存先を分ける場合や同種の最終結果が複数ある場合は、素材出力ノードを複数使用してください。",
+      "noConnectedAssets": "接続済み素材はまだありません。"
+    },
+    "fields": {
+      "label": "ラベル", "promptText": "プロンプト文", "resolvedText": "解決済みテキスト", "projectAsset": "プロジェクト素材",
+      "videoFrameTime": "動画の参照時刻（秒）", "workflow": "ワークフロー", "systemPromptOverride": "システムプロンプトの上書き",
+      "targetDuration": "対象時間（秒）", "outputLanguage": "出力言語", "imageAnalysis": "画像解析",
+      "videoAnalysis": "動画解析", "referenceFrameTime": "参照フレーム時刻（秒）", "seed": "シード",
+      "latestOutput": "最新の出力", "inlinePromptOverride": "インラインプロンプトの上書き", "negativePrompt": "ネガティブプロンプト",
+      "width": "幅", "height": "高さ", "variants": "バリエーション数", "duration": "時間（秒）", "fps": "FPS",
+      "wanQuality": "WAN品質プリセット", "topazModel": "Topazモデル", "targetResolution": "目標解像度",
+      "upscaleCreativity": "アップスケールの創造性", "musicTags": "音楽タグ", "inlineLyrics": "インライン歌詞／テキスト",
+      "keyScale": "キー／スケール", "bpm": "BPM", "assetFolder": "素材フォルダー（任意）",
+      "creativeDirection": "演出指示（任意）", "inlineBrief": "インライン指示"
+    },
+    "placeholders": { "geminiDefault": "任意。空欄の場合は内蔵Geminiワークフローの初期値を使用します。", "connectedPrompt": "任意。空欄の場合は接続したプロンプトノードを使用します。", "runForText": "ノードを実行するとプロンプト文を生成します。", "shots": "ショット", "creativeDirection": "任意。参照素材に行わせる動き、配置、台詞、雰囲気を記述してください。" },
+    "options": { "english": "英語", "chinese": "中国語", "faceLock": "顔を固定", "balanced": "バランス" },
+    "information": {
+      "author": "作者", "license": "ライセンス", "threeSteps": "3つの手順でLoRAを作成",
+      "step1Title": "Design Setフォルダーを選択して生成", "step1Help": "レシピの手順1でキャラクター画像と出力フォルダーを選んでからCANVASを実行します。完成したセットを自動書き出しするため、出力フォルダーは必須です。",
+      "step2Title": "自動書き出しされたDesign Setを確認", "step2Help": "8視点フローが完了すると、元画像または修正画像と生成した全視点を連番ファイル名でコピーします。下のボタンは、現在の結果を再度書き出す場合やコピーエラーから復旧する場合だけ使用してください。",
+      "step3Help": "必要に応じて公式Factoryをダウンロードして展開してください。自動書き出し後、LumeweftがFactoryを起動し、既存ComfyUIフローで選択したAnima／SDXLモデルを再利用してDesign Setとモデルのパスを入力し、不足している役割別ファイルだけをComfyUIのモデルフォルダーへダウンロードします。その後、キャプション／タグを確認して「Start LoRA Training」を押します。",
+      "changeDesignSet": "Design Setフォルダーを変更…", "chooseDesignSet": "Design Setフォルダーを選択…", "document": "ドキュメント",
+      "exportAgain": "現在の結果をもう一度書き出す…", "designSetFolder": "Design Setフォルダー", "trainIn": "{{factory}}で学習",
+      "downloadInstructions": "ダウンロード／手順", "launchFactory": "Factoryを起動／再試行…",
+      "modelLicenseHelp": "自動ダウンロードには各モデル固有のライセンスが適用されます。Animaモデルの重みはFactoryソフトウェアのApache-2.0ライセンス対象外です。",
+      "externalTrainingHelp": "学習はCANVAS内ではなく、公式の外部Factoryで実行します。初回起動では専用Python環境を構築するため時間がかかる場合があります。完成したFactoryでは、学習済みLoRAをComfyUI向けに変換できます。",
+      "originalSource": "元の配布先", "close": "閉じる", "originalSize": "元のサイズ",
+      "documents": {
+        "character-sheet": { "title": "H3キャラクターシート", "description": "H3 Character Sheet GeneratorワークフローをCANVAS向けに調整したものです。モデルとワークフローの利用条件は別々のため、両方を確認してください。", "notice": "" },
+        "anima-lora-dataset": { "title": "Anima LoRA Factory", "description": "CANVASの既存Qwen多方向ワークフローでキャラクターの8視点を準備し、元のAnima LoRA Factory GUIで使用する画像として書き出します。", "notice": "Apache-2.0ライセンスはFactoryソフトウェアに適用されます。Animaのベースモデル、学習画像、生成画像、外部依存関係には別の条件が適用される場合があります。" },
+        "sdxl-lora-dataset": { "title": "SDXL LoRA Factory", "description": "CANVASの既存Qwen多方向ワークフローでキャラクターの8視点を準備し、元のSDXL LoRA Factory GUIで使用する画像として書き出します。", "notice": "Apache-2.0ライセンスはFactoryソフトウェアに適用されます。SDXLチェックポイント、学習画像、生成画像、外部依存関係には別の条件が適用される場合があります。" }
+      }
+    },
+    "analysisModes": {
+      "comprehensive": "総合", "subjectIdentity": "被写体／人物性", "actionEmotion": "動作／感情",
+      "faceExpression": "顔／表情を重視", "propInteraction": "小物／物体との関わり", "lightingCamera": "照明／カメラ",
+      "cinematicComposition": "映画的構図", "styleAesthetics": "スタイル／美的特徴", "colorTexture": "色調／質感",
+      "motionFocus": "動きを重視", "cameraTracking": "カメラ追従", "temporalFlow": "時間的な流れ",
+      "physicsMomentum": "物理挙動／勢い", "backgroundDynamics": "背景の動き"
+    },
+    "status": {
+      "default": "CANVASは生成画面と同じプロジェクト素材パイプラインへ書き込みます。", "missingApiKey": "APIキーがありません",
+      "dependenciesMissing": "不足: ノード{{nodes}}件／モデル{{models}}件", "allSet": "準備完了",
+      "openProjectFirst": "CANVASへ画像を読み込む前にプロジェクトを開くか作成してください。", "desktopImagePicker": "画像読み込みのファイル選択はデスクトップ版で使用できます。",
+      "imageLoaded": "{{name}}をプロジェクトへ読み込み、CANVASノードへ接続しました。", "imageLoadFailed": "選択した画像を読み込めませんでした。",
+      "assetConnected": "{{name}}をCANVASノードへ接続しました。", "noLocalFile": "この素材にはエクスプローラーで開けるローカルファイルがありません。",
+      "revealFailed": "システムのファイルマネージャーでこの素材を開けませんでした。", "desktopAssetCheck": "ローカル素材ファイルの検査はデスクトップ版で使用できます。",
+      "assetsUpToDate": "素材ブラウザーは最新です。見つからないローカルファイルはありません。", "assetRefreshFailed": "素材ブラウザーを更新できませんでした。",
+      "desktopDatasetPicker": "既存LoRAデータセットの選択はデスクトップ版で使用できます。", "desktopOutputPicker": "Design Set出力フォルダーの選択はデスクトップ版で使用できます。",
+      "desktopDatasetExport": "LoRAデータセットの書き出しはデスクトップ版で使用できます。", "interruptRequested": "中断を要求しました。ComfyUIの停止を待っています…",
+      "saved": "CANVASの変更を現在のプロジェクトへ保存しました。"
+    }
+  },
   "topTabs": {
     "editor": "編集",
     "generate": "生成",
+    "backstage": "バックステージ",
     "agent": "エージェント",
     "flow-ai": "CANVAS",
     "mog": "MoGraph",
@@ -355,7 +564,7 @@
     "sections": {
       "storage": { "title": "プロジェクトとストレージ", "description": "プロジェクトの保存先と自動保存を設定します。" },
       "stock": { "title": "ストック素材（Pexels）", "description": "ストックメディア検索の認証情報を管理します。" },
-      "connection": { "title": "ComfyUI接続", "description": "ローカルComfyUI、パートナーAPIキー、詳細タブを設定します。" },
+      "connection": { "title": "接続と実行環境", "description": "ローカルComfyUI、クラウドサービス、APIキー、実行先、残高表示をまとめて設定します。" },
       "agents": { "title": "エージェント（MCP）", "description": "Claude、Codex、CursorなどのMCPクライアントを開いているプロジェクトに接続します。" },
       "launcher": { "title": "ComfyUIランチャー", "description": "VelornからローカルComfyUIを起動、停止、再起動します。" },
       "paths": { "title": "ファイルパス", "description": "出力先とワークフローのパスを確認します。" },
@@ -400,6 +609,8 @@
       }
     },
     "connection": {
+      "localGroupTitle": "ローカルComfyUI",
+      "localGroupHelp": "このコンピューターで動作するComfyUIの接続先を設定し、接続を確認します。",
       "localPort": "ローカルComfyUIポート",
       "localOnlyHelp": "ローカル専用モードです。このビルドではリモート／LAN上のComfyUI接続は無効です。",
       "reset": "初期値に戻す",
@@ -411,6 +622,8 @@
       "changeKey": "キーを変更",
       "addKey": "APIキーを追加",
       "getKey": "キーを取得",
+      "importGroupTitle": "生成結果の取り込み",
+      "importGroupHelp": "内蔵ComfyUIタブで直接生成した結果を、現在のプロジェクトへ取り込む方法を設定します。",
       "autoImport": "ComfyUIタブの生成結果を自動読み込み",
       "autoImportHelpBefore": "有効にすると、内蔵ComfyUIタブの使用中に確認された、正常に完了したカスタムプロンプトの生成結果を現在のプロジェクトの",
       "autoImportHelpAfter": "フォルダーへ読み込みます。検出された連番フレームは、プロジェクトのフレームレートに合わせて1本のMP4に結合されます。",
@@ -429,6 +642,46 @@
         "connectFailed": "{{endpoint}}に接続できませんでした。",
         "resetFailed": "ローカルComfyUIポートを初期値に戻せませんでした。",
         "resetEndpoint": "ローカル接続先を初期値に戻しました: {{endpoint}}"
+      }
+    },
+    "cloudRuntimes": {
+      "title": "クラウド実行環境",
+      "intro": "ワークフローの実行サービスを接続します。認証情報はOSで保護された領域に保存され、ワークフローJSONや画面側には公開されません。",
+      "credentialsTitle": "サービスの認証情報",
+      "importedWorkflowRuntime": "読み込んだAPIワークフローの実行先",
+      "localComfy": "ローカルComfyUI",
+      "routingHelp": "現在はComfyUI API形式で読み込んだワークフローだけが対象です。内蔵・クリエーターワークフローの実行先は変わりません。",
+      "loadFailed": "クラウド実行環境の設定を読み込めませんでした。",
+      "saving": "認証情報を安全に保存中…",
+      "saved": "認証情報を安全に保存しました。",
+      "saveFailed": "認証情報を保存できませんでした。",
+      "removed": "認証情報を削除しました。",
+      "removeFailed": "認証情報を削除できませんでした。",
+      "testing": "接続を確認中…",
+      "connected": "接続できました。",
+      "testFailed": "サービスへ接続できませんでした。",
+      "routeFailed": "実行先を更新できませんでした。",
+      "environmentCredential": "{{key}}を使用中",
+      "credentialReady": "認証情報は使用可能",
+      "noCredential": "未設定",
+      "credentialSaved": "認証情報は安全に保存済み",
+      "credentialPlaceholder": "{{provider}}のAPIキーを貼り付け",
+      "save": "保存",
+      "remove": "削除",
+      "test": "接続テスト",
+      "checking": "確認中…",
+      "dashboard": "ダッシュボード／APIキー",
+      "docs": "APIドキュメント",
+      "showBalance": "選択中サービスの残高を表示",
+      "showBalanceHelp": "選択中の外部実行環境の残高をアプリ上部に表示します。Floyoでは利用可能なFloTimeとPartner Nodes残高を表示します。",
+      "hideBalance": "残高を非表示",
+      "costNotice": "クラウド実行ではサービス側のクレジットを消費する場合があります。完了した出力は現在のプロジェクトへ読み込みます。",
+      "runBannerTitle": "{{provider}}でクラウド実行",
+      "runBannerHelp": "サービス側のクレジットを消費する場合があります。完了した出力はこのプロジェクトへ読み込みます。",
+      "providers": {
+        "floyo": {
+          "description": "FloyoのクラウドGPUでComfyUI APIワークフローを実行します。"
+        }
       }
     },
     "agents": {
@@ -505,7 +758,48 @@
       "outputDirectory": "出力先フォルダー",
       "selectOutputDirectory": "出力先フォルダーを選択",
       "workflowsDirectory": "ワークフローフォルダー",
-      "selectWorkflowsDirectory": "ワークフローフォルダーを選択"
+      "selectWorkflowsDirectory": "ワークフローフォルダーを選択",
+      "loraFactories": "LoRA Factory外部実行環境",
+      "loraFactoriesHelp": "start.batが入っている展開済みの公式Factoryフォルダーを指定します。CANVASは保存済みパスを使用し、起動時に毎回確認しません。",
+      "animaFactory": "Anima LoRA Factoryフォルダー",
+      "sdxlFactory": "SDXL LoRA Factoryフォルダー",
+      "selectAnimaFactory": "展開済みAnima LoRA Factoryフォルダーを選択",
+      "selectSdxlFactory": "展開済みSDXL LoRA Factoryフォルダーを選択",
+      "browse": "参照",
+      "factoryValid": "Factory実行環境を確認しました（start.batあり）。",
+      "factoryInvalid": "start.batが入っている展開済みFactoryフォルダーを選択してください。",
+      "hardwareFfmpeg": {
+        "title": "ハードウェア書き出し用FFmpeg",
+        "help": "上級者向け設定です。LinuxではNVENC対応のFFmpegを指定できます。最終的なH.264/H.265のハードウェア映像エンコードだけに使用し、メディア処理と安全なCPUフォールバックにはLumeweft内蔵FFmpegを使用します。",
+        "sourceEnvironment": "環境変数",
+        "sourceCustom": "カスタム",
+        "sourceBundled": "内蔵",
+        "selectTitle": "ハードウェア書き出し用FFmpegを選択",
+        "executable": "FFmpeg実行ファイル",
+        "filePickerUnavailable": "この環境ではファイル選択を使用できません。",
+        "pathSelected": "パスを選択しました。検証して有効にするには保存してください。",
+        "chooseFailed": "FFmpeg実行ファイルを選択できませんでした。",
+        "chooseOrBundled": "FFmpeg実行ファイルを選択するか、内蔵版を使用してください。",
+        "settingsUnavailable": "この環境ではハードウェア書き出し用FFmpegを設定できません。",
+        "validating": "FFmpegを検証中...",
+        "savePath": "パスを保存",
+        "saveFailed": "選択したFFmpeg実行ファイルを保存できませんでした。",
+        "savedEnvironmentPriority": "保存しました。このアプリのセッション中は引き続きVELORN_FFMPEG_PATHが優先されます。",
+        "savedReady": "ハードウェア書き出し用FFmpegを保存しました。テストできます。",
+        "savePathFailed": "ハードウェア書き出し用FFmpegのパスを保存できませんでした。",
+        "restoreFailed": "内蔵FFmpegの設定に戻せませんでした。",
+        "clearedEnvironmentActive": "保存済みパスを消去しました。VELORN_FFMPEG_PATHは引き続き有効です。",
+        "bundledRestored": "ハードウェア検査とソフトウェアフォールバックにはLumeweft内蔵FFmpegを使用します。",
+        "testing": "使用中のFFmpegとハードウェアエンコーダーをテスト中...",
+        "encodingReady": "{{codecs}}のハードウェアエンコードを使用できます。",
+        "encoderUnavailable": "このFFmpegには使用可能なハードウェアエンコーダーがありません。CPU書き出しは引き続き使用できます。",
+        "testFailed": "使用中のFFmpeg実行ファイルをテストできませんでした。",
+        "testActive": "使用中のFFmpegをテスト",
+        "clearSavedPath": "保存済みパスを消去",
+        "useBundled": "内蔵FFmpegを使用",
+        "active": "使用中",
+        "environmentPriority": "VELORN_FFMPEG_PATHが有効です。この環境変数なしでLumeweftを再起動するまでは、保存済みパスより優先されます。"
+      }
     },
     "workflowSetup": {
       "manager": "ワークフロー設定マネージャー",
@@ -833,7 +1127,12 @@
     }
   },
   "generate": {
-    "mode": { "generate": "生成", "director": "ディレクター", "prompter": "生成レシピ", "history": "履歴" },
+    "mode": { "generate": "生成", "director": "ディレクター", "backstage": "バックステージ", "prompter": "生成レシピ", "history": "履歴" },
+    "backstage": {
+      "title": "バックステージ",
+      "description": "制作に入る前に、声・学習データ・学習済み素材を準備します。",
+      "backToWorkflows": "バックステージのワークフローへ戻る"
+    },
     "prompter": {
       "saveTitle": "生成レシピを保存",
       "saveDescription": "うまくいったプロンプトを貼り付けるか、現在のComfyUIフローを取得し、用途をマークして保存します。",
@@ -848,6 +1147,8 @@
       "removeThumbnail": "サムネイルを削除",
       "image": "静止画",
       "video": "動画",
+      "audio": "音声・音楽",
+      "audioThumbnailAlt": "音声・音楽レシピ",
       "pasteClipboard": "クリップボードから貼付",
       "save": "保存",
       "savedTitle": "保存済み生成レシピ",
@@ -893,7 +1194,8 @@
     "history": {
       "tabs": { "history": "生成履歴", "recipes": "生成レシピ" },
       "title": "生成履歴",
-      "description": "同じ生成の結果をVersionとして比較し、プロンプトの再利用や実行時ワークフローの復元ができます。",
+      "description": "同じ生成の結果をVersionとして比較できます。削除すると、履歴と関連する生成素材・プロジェクト内の生成ファイルをまとめて削除します。",
+      "audioThumbnailAlt": "音声・音楽の生成結果",
       "versionCount": "{{count}}バージョン",
       "active": "採用中",
       "copy": "プロンプトをコピー",
@@ -905,12 +1207,15 @@
       "collapse": "折りたたむ",
       "expand": "展開する",
       "export": "保存",
+      "deleteSelected": "選択項目と生成物を削除",
       "exportRecord": "生成履歴一式をファイルへ保存",
       "delete": "削除",
-      "deleteVersion": "このVersionを履歴から削除",
-      "deleteRecord": "この生成履歴をすべて削除",
-      "confirmDeleteVersion": "Version {{number}}を履歴から削除しますか？生成された素材ファイルは削除されません。",
-      "confirmDeleteRecord": "「{{title}}」の生成履歴をすべて削除しますか？生成された素材ファイルは削除されません。",
+      "deleteVersion": "このVersionと生成物を削除",
+      "deleteRecord": "この生成履歴と生成物をすべて削除",
+      "selectRecord": "「{{title}}」を選択",
+      "confirmDeleteVersion": "Version {{number}}と関連する生成素材{{count}}件を削除しますか？プロジェクト内の生成ファイルも削除され、元に戻せません。入力・参照素材は残ります。",
+      "confirmDeleteRecord": "「{{title}}」の履歴と関連する生成素材{{count}}件をすべて削除しますか？プロジェクト内の生成ファイルも削除され、元に戻せません。入力・参照素材は残ります。",
+      "confirmDeleteSelected": "選択した生成履歴{{count}}件と関連する生成素材{{assetCount}}件を削除しますか？プロジェクト内の生成ファイルも削除され、元に戻せません。入力・参照素材は残ります。",
       "empty": "Lumeweftで生成が完了すると、ここに履歴が表示されます。",
       "messages": {
         "copied": "プロンプトをクリップボードへコピーしました。",
@@ -923,9 +1228,11 @@
         "repairNotNeeded": "修復が必要なモデル参照はありませんでした。",
         "repairAmbiguous": "{{count}}件は安全な置換候補を一意に決められなかったため変更していません。",
         "repairFailed": "ワークフローを修復できませんでした。",
-        "versionDeleted": "Versionを生成履歴から削除しました。素材は残っています。",
-        "recordDeleted": "生成履歴を削除しました。素材は残っています。",
-        "deleteFailed": "生成履歴の削除結果を保存できませんでした。",
+        "versionDeleted": "Version、関連素材、生成ファイルを削除しました。",
+        "recordDeleted": "生成履歴、関連素材、生成ファイルを削除しました。",
+        "selectedDeleted": "選択した生成履歴{{count}}件と関連する生成物を削除しました。",
+        "deleteFailed": "生成履歴と関連する生成物を削除できませんでした。",
+        "deleteFilesFailed": "関連ファイル{{count}}件を削除できませんでした。ファイルが使用中でないか確認して、もう一度お試しください。履歴と素材登録は残しています。",
         "exported": "生成履歴一式をLumeweft履歴ファイルとして保存しました。",
         "versionExported": "VersionをLumeweft履歴Versionとして保存しました。",
         "exportFailed": "生成履歴をファイルへ保存できませんでした。"
@@ -935,10 +1242,26 @@
       "tabs": { "featured": "おすすめ", "custom": "マイワークフロー", "templates": "テンプレート", "community": "コミュニティ" },
       "searchTemplates": "ComfyUIテンプレート、モデル、タグを検索...",
       "searchWorkflows": "ワークフロー、プロバイダー、タグを検索...",
-      "filters": { "all": "すべて", "image": "画像", "video": "映像", "image-to-video": "画像から映像（I2V）", "text-to-video": "テキストから映像（T2V）", "text-to-image": "テキストから画像（T2I）", "image-edit": "画像から画像（I2I）", "video-tools": "映像ツール", "audio": "音声", "utility": "ユーティリティ" },
+      "filters": { "all": "すべて", "create": "作成", "image": "画像", "video": "映像", "image-to-video": "画像から映像（I2V）", "text-to-video": "テキストから映像（T2V）", "text-to-image": "テキストから画像（T2I）", "image-edit": "画像から画像（I2I）", "video-tools": "映像ツール", "audio": "音声", "utility": "ユーティリティ" },
       "sources": { "all": "すべて", "local": "ローカル", "cloud": "クラウド" },
       "sort": { "popular": "使用数順", "newest": "新着順" },
-      "showingWorkflows": "{{tab}}ワークフローを{{count}}件表示"
+      "showingWorkflows": "{{tab}}ワークフローを{{count}}件表示",
+      "card": { "cloud": "クラウド", "custom": "カスタム", "local": "ローカル", "noCover": "カバーなし", "preview": "プレビュー" },
+      "creatorLauncher": {
+        "title": "作成ワークフローを選択",
+        "cards": {
+          "ugc-ad-creator": { "title": "UGC広告作成", "subtitle": "クリエイター風広告", "description": "フック、会話、商品デモ、開封、試着、リアクションを含む、クリエイター風のSNS広告を作成します。", "badge": "ベータ", "runtimeLabel": "作成ガイド" },
+          "irodori-voice-clone-creator": { "title": "Irodori ボイススタジオ", "subtitle": "声質デザインまたはボイスクローン", "description": "声質パーツから新しい日本語音声を作るか、任意の参照音声から話者をクローンし、完成した音声を確認します。", "badge": "ローカル", "runtimeLabel": "Irodori-TTS" },
+          "business-ad-creator": { "title": "ビジネス広告作成", "subtitle": "オファーから広告へ", "description": "地域ビジネス、オンラインショップ、サービス、イベント、小規模チーム向けの訴求重視の広告を作成します。", "badge": "ベータ", "runtimeLabel": "スモールビジネス" },
+          "music-video-template": { "title": "ミュージックビデオ作成", "subtitle": "歌詞からショットへ", "description": "ミュージックビデオの企画と生成を手順に沿って進めます。", "badge": "かんたん", "runtimeLabel": "歌詞＋LTX" },
+          "short-film-easy-mode": { "title": "短編映画作成", "subtitle": "脚本からシーン構成へ", "description": "登場人物、場所、音声、ショット構成、キーフレーム、映像を手順に沿って作成します。", "badge": "かんたん", "runtimeLabel": "脚本＋音声＋LTX" },
+          "anima-lora-factory-director": { "title": "ANIMA（SDXL）LoRA Factory", "subtitle": "データセットから学習済みLoRAへ", "description": "8方向の学習セットを新規作成するか既存データセットを選び、Factoryを起動します。", "badge": "学習", "runtimeLabel": "専用レシピ" },
+          "sdxl-lora-factory-director": { "title": "SDXL LoRA Factory", "subtitle": "データセットから学習済みLoRAへ", "description": "8方向の学習セットを新規作成するか既存データセットを選び、Factoryを起動します。", "badge": "学習", "runtimeLabel": "専用レシピ" }
+        }
+      },
+      "backstageLauncher": {
+        "title": "準備・学習ワークフローを選択"
+      }
     },
     "community": {
       "sources": {
@@ -1109,7 +1432,7 @@
       "inputSource": "入力ソース", "search": "素材を検索...", "assets": "素材", "searchingAll": "すべてのフォルダーを検索中", "assignTo": "選択した素材の割り当て先", "nothingSelected": "未選択", "noMatches": "一致する素材がありません", "noneHere": "ここには{{type}}素材がありません", "tryDifferent": "別の検索語またはフォルダー名をお試しください", "importHelp": "別のフォルダーを開くか、素材タブでメディアを読み込んでください", "selectInput": "入力素材を選択するか、タイムラインのフレームを使用してください（プレビューを右クリック → AIで拡張）"
     },
     "queue": {
-      "title": "キュー", "expand": "キューパネルを展開", "collapse": "パネルを折りたたむ", "clear": "キューを消去", "video": "映像をキューに追加", "image": "画像をキューに追加", "audio": "音声をキューに追加", "keyframes": "{{mode}}キーフレームをキューに追加", "referenceImage": "参照画像", "pickLocalImage": "ローカル画像を選択", "selectReferenceImage": "参照画像を選択", "replace": "変更", "prompt": "プロンプト", "promptPlaceholder": "動き、シーン、カメラワークを入力...", "restoreOriginal": "元の文", "translateEnglish": "英語", "translateChinese": "簡体字", "translating": "翻訳中...", "translateHelp": "アプリの設定言語から端末内翻訳（同じ言語への翻訳は無効）"
+      "title": "キュー", "expand": "キューパネルを展開", "collapse": "パネルを折りたたむ", "clear": "キューを消去", "video": "映像をキューに追加", "image": "画像をキューに追加", "audio": "音声をキューに追加", "keyframes": "{{mode}}キーフレームをキューに追加", "referenceImage": "参照画像", "pickLocalImage": "ローカル画像を選択", "selectReferenceImage": "参照画像を選択", "replace": "変更", "prompt": "プロンプト", "promptPlaceholder": "動き、シーン、カメラワークを入力...", "restoreOriginal": "元の文", "translateEnglish": "英語", "translateChinese": "簡体字", "translating": "翻訳中...", "translateHelp": "アプリの設定言語から端末内翻訳（同じ言語への翻訳は無効）", "deleteResultTitle": "生成結果を削除しますか？", "deleteResult": "結果を削除", "keepResult": "残す", "deleteFailedResultConfirm": "この失敗した生成結果を一覧から削除します。", "deleteResultWithFilesConfirm": "この生成結果と関連する素材{{count}}件を削除します。プロジェクト内の生成ファイルも削除され、元に戻せません。入力・参照素材は削除されません。", "deleteResultFilesFailed": "関連ファイル{{count}}件を削除できませんでした。ファイルが使用中でないか確認して、もう一度お試しください。"
     },
     "messages": { "title": "生成メッセージ", "selectReference": "先に参照画像{{timeline}}を選択してください", "orTimelineFrame": "、またはタイムラインのフレーム", "openProjectForImage": "参照画像を読み込む前に、プロジェクトを作成または開いてください。", "imageRegisterFailed": "読み込んだ画像を素材として登録できませんでした。", "imageImportFailed": "参照画像を読み込めませんでした。", "translationFailed": "プロンプトを翻訳できませんでした。" },
     "dependencies": {
@@ -1125,6 +1448,7 @@
         "startComfy": "ComfyUIを起動",
         "backToWorkflows": "ワークフロー作成へ戻る", "step": "ステップ {{number}}", "back": "戻る", "next": "次へ", "aspectRatio": "画面比率", "resolution": "解像度", "outputResolution": "出力解像度", "fps": "フレームレート", "fpsShort": "FPS"
       },
+      "info": { "buildPlanFirst": "先に構成を作成してからキューへ追加してください。", "mode": "モード", "directorBeta": "ディレクターモード（ベータ）", "creation": "作成内容", "musicVideo": "ミュージックビデオ", "shortFilm": "短編映画", "keyframeSource": "キーフレームの生成元", "videoSource": "動画の生成元", "requestedFps": "指定動画FPS", "keyframeWorkflow": "キーフレームワークフロー", "keyframeRuntime": "キーフレーム実行環境", "videoDefault": "既定動画モデル", "videoRuntime": "動画実行環境", "videoQueueTarget": "動画キューの送信先", "videoTargetTier": "動画の品質階層", "scenes": "シーン", "plannedVariants": "予定バリエーション", "queueVariants": "キューのバリエーション", "keyframesReady": "準備済みキーフレーム" },
       "business": {
         "navTitle": "ビジネス広告作成", "assistant": "Lumeweftからの質問",
         "steps": { "setup": "設定", "references": "参照素材", "script": "台本", "keyframes": "キーフレーム", "videos": "動画＋タイムライン" },
@@ -1135,8 +1459,8 @@
         "aspectHelp": { "vertical_9x16": "縦長：720×1280 または 1080×1920。", "landscape_16x9": "横長：1280×720 または 1920×1080。", "square_1x1": "正方形：720×720 または 1080×1080。" },
         "output": { "fast": "高速で軽量です。", "sharp": "より鮮明ですが、ローカル動画生成の負荷が増えます。", "currentFrame": "現在のフレームサイズ：", "fps24": "映画向けの標準設定。", "fps25": "PAL向けの設定。", "fps30": "より滑らかな動き。", "seconds": "{{seconds}}秒", "current": "現在の出力：" },
         "references": { "title": "商品、人物、場所の参照素材はありますか？", "description": "任意ですが、実際の商品写真、スタッフや顧客、店舗、ブランド環境の画像を使うと結果が安定します。", "product": "商品・サービスの参照素材", "productHelp": "商品写真、メニュー、完成例、使用前後、サービス実績などを使用します。", "noProduct": "商品・サービス素材を選択していません", "talent": "出演者の参照素材", "talentHelp": "正面、側面、斜め、表情、衣装を含むキャラクターシートを推奨します。", "noTalent": "出演者素材を選択していません", "environment": "環境の参照素材", "environmentHelp": "広告世界の場所、部屋、床面、照明、セットデザインなどを指定できます。", "noEnvironment": "環境素材を選択していません" },
-        "script": { "kicker": "台本プラン", "title": "台本と絵コンテ案を確認します。", "description": "Director用に構造化された台本です。プランを作る前に手動で編集できます。" },
-        "keyframes": { "kicker": "絵コンテ確認" }, "videos": { "kicker": "動画確認", "description": "完成した動画がショットごとに表示されます。ショットを選択し、動きのプロンプトだけを編集して、そのクリップのみ再生成できます。" },
+        "script": { "kicker": "台本プラン", "title": "台本と絵コンテ案を確認します。", "description": "ディレクター用に構造化された台本です。構成を作る前に手動で編集できます。", "adLength": "広告の長さ", "shotCount": "ショット数", "modelRoute": "使用モデル", "ownLlm": "任意：外部LLMを使用" },
+        "keyframes": { "kicker": "絵コンテ確認", "model": "キーフレームモデル", "buildFirst": "先に台本から構成を作成してください。", "editPrompt": "ショットのキーフレームプロンプトを編集", "regenerateSelected": "選択ショットを再生成", "regenerateAll": "すべて再生成", "makeVariations": "3種類のテイクを作成", "create": "キーフレームを作成" }, "videos": { "kicker": "動画確認", "description": "完成した動画がショットごとに表示されます。ショットを選択し、動きのプロンプトだけを編集して、そのクリップのみ再生成できます。", "modelPass": "動画モデル別テイク", "modelPassHelp": "同じキーフレームから別モデルの一式を生成し、編集時に比較できます。", "editPrompt": "ショットのモーションプロンプトを編集" },
         "actions": { "nextReferences": "次へ：参照素材", "regenerateScript": "概要から台本を再作成", "startAnother": "別の広告を作成" }
       },
       "music": {
@@ -1145,20 +1469,58 @@
         "song": { "title": "楽曲ソースを選択します。", "description": "先に素材パネルへ楽曲またはボーカルステムを読み込み、ここで選択します。必要に応じて高度な音声モードも利用できます。", "outputHelp": "この設定はキーフレームと動画の両方に適用されます。", "selectAudio": "プロジェクト内の音声を選択", "noAudio": "プロジェクトに音声素材がありません。先に素材から楽曲を読み込んでください。", "hideAdvanced": "詳細設定を閉じる", "advancedAudio": "音声の詳細設定", "selectFromAssets": "素材パネルから音声を選択", "addAudioHelp": "素材パネルへ音声を追加し、下の一覧から選択してください。", "genreHelp": "コピーするディレクター台本の概要に含まれ、歌詞だけから映像スタイルを推測することを防ぎます。" },
         "audioKinds": { "mixed_track": { "label": "完成済み楽曲（フルミックス）", "help": "通常の完成済み楽曲として扱います。リップシンクやBロールの割り当てはディレクター台本に従います。" }, "vocal_stem": { "label": "ボーカルステム（分離済み）", "help": "ボーカルだけの音声です。前処理は不要です。" }, "instrumental": { "label": "インストゥルメンタル（ボーカルなし）", "help": "音楽のみです。すべてのショットでリップシンクを無効にします。" } },
         "timing": { "notice": "歌詞のタイミング準備には時間がかかる場合があります。", "noticeHelp": "実際の楽曲タイミングを台本へ反映するため、この処理が完了してからLLM用概要をコピーしてください。", "title": "歌詞タイミング", "preparing": "準備中", "prepare": "タイミングを準備", "engine": "タイミング解析方式", "language": "ASR言語", "source": "歌詞ソース", "alignHelp": "下に歌詞を貼り付けます。Lumeweftが選択した音声からタイミングを解析し、歌詞をSRTにします。", "transcribeHelp": "Lumeweftが選択した音声を解析し、時間付きSRTを作成します。", "transcribe": "楽曲を文字起こし", "align": "自分の歌詞を同期", "srtOutput": "SRT出力", "srtPlaceholder": "文字起こしまたは同期後に、時間付き歌詞がここへ表示されます。", "engines": { "auto": { "label": "自動", "help": "最初にローカルWhisperを使用し、失敗時はComfyUIを使用します。" }, "local": { "label": "ローカルWhisper", "help": "ComfyUIを使わずローカルで実行します。" }, "comfyui": { "label": "ComfyUI", "help": "Qwen3-ASRワークフローを使用します。" } } },
-        "people": { "title": "カメラに登場する人物を設定します。", "description": "アーティスト、バンドメンバー、出演者の参照画像を追加すると、台本のArtist指定に従ってショットへ割り当てられます。" },
-        "script": { "title": "ディレクター台本を作成します。", "description": "タイミング、出演者、形式ルールを含むLLM用概要をコピーし、生成された台本をここへ貼り付けます。" },
-        "keyframes": { "title": "台本からキーフレームを作成します。", "description": "解析された各ショットに開始画像を1枚作成します。別のショットプリセットではなく、台本が生成内容を制御します。" },
-        "videos": { "title": "台本から動画を生成します。", "description": "各ショットは対応するキーフレームと楽曲タイミングを使って個別に生成・再生成できます。" }
+        "people": { "title": "カメラに登場する人物を設定します。", "description": "アーティスト、バンドメンバー、出演者の参照画像を追加すると、台本のArtist指定に従ってショットへ割り当てられます。", "resolvedCount": "解決済みの人物：{{count}}人", "importHelp": "既存のポートレート、キャラクターシート、参照画像を出演者として読み込みます。", "importing": "読み込み中", "importImage": "画像を読み込む", "createPerson": "人物を作成", "empty": "口パクを伴うパフォーマンスショットがある場合は、既存画像を読み込むか人物を作成してください。", "name": "名前", "scriptSlug": "台本用SLUG", "reference": "参照画像", "noReference": "参照画像なし", "editPerson": "人物を編集", "remove": "削除", "directorNotes": "ディレクター台本用メモ", "directorNotesPlaceholder": "任意：女性ボーカル、荒い歌声、ギタリスト、歌唱なし など" },
+        "script": { "title": "ディレクター台本を作成します。", "description": "タイミング、出演者、形式ルールを含むLLM用概要をコピーし、生成された台本をここへ貼り付けます。", "sectionCount": "{{count}}セクション", "coverageHelp": "LLM用概要は、構成ラベル付きの統合ディレクター台本を返します。Bロールは始まり・中盤・終わりを共有する物語として構成され、環境ショットとディテールショットが同じ流れを補強します。", "custom": "カスタム", "presets": { "simple": { "label": "シンプル", "help": "タイミングに正確なディレクター台本を1本作成します。" }, "standard": { "label": "標準", "help": "メイン台本、歌唱パフォーマンス1パス、物語Bロールを含みます。" }, "editorial": { "label": "編集重視", "help": "メイン台本、歌唱パフォーマンス2パス、物語・環境・ディテールのカバレッジを含みます。" } }, "performancePasses": "パフォーマンスパス", "storyBroll": "物語Bロール", "environmental": "環境", "detailInserts": "ディテール挿入", "copyBriefTitle": "LLM用概要をコピー", "copyBriefHelp": "楽曲タイミング、出演者SLUG、必須の台本形式、Bロールの物語指示、カメラワーク、人物の動き、感情表現を含みます。", "copyBrief": "概要をコピー", "timingIncluded": "SRTタイミングを含みます", "timingNotReady": "タイミング未準備", "timedLines": "概要からタイミング付き歌詞{{count}}行を参照できます。", "prepareTiming": "正確なタイミングの台本を依頼する前に、ステップ1でタイミングを準備してください。", "audio": "音声", "cast": "出演者", "notSelected": "未選択", "noCast": "解決済みの出演者なし", "pasteTitle": "ディレクター台本を貼り付け", "pasteHelp": "この台本が制作計画になります。ショット種別、開始時刻、キーフレームプロンプト、モーションプロンプトが次の手順を制御します。", "replaceConfirm": "現在のディレクター台本をテンプレートで置き換えますか？", "template": "テンプレート", "placeholder": "LLMが生成したディレクター台本をここへ貼り付けます。", "changed": "前回の解析後に台本が変更されました。", "ready": "台本にショットが含まれれば解析できます。", "parse": "台本を解析" },
+        "common": { "scriptShots": "台本のショット", "readyKeyframes": "準備済みキーフレーム", "readyVideos": "準備済み動画", "regenerateAll": "すべて再生成" },
+        "keyframes": { "title": "台本からキーフレームを作成します。", "description": "解析された各ショットに開始画像を1枚作成します。別のショットプリセットではなく、台本が生成内容を制御します。", "queueVariants": "キューのバリエーション", "jobsTitle": "ディレクター台本から作るキーフレーム", "jobsHelp": "各ショットのキーフレームプロンプトを、その瞬間の静止画プロンプトとして使用します。", "model": "キーフレームモデル", "create": "キーフレームを作成", "referenceHelp": "Qwen Image Editの出演者ショットには人物・参照画像が必要です。参照画像のないBロールにはローカルZ-Image Turboを自動使用します。", "stale": "構成の解析後にディレクター台本が変更されました。キューへ追加する前に台本を再解析してください。", "shotsTitle": "ショットのキーフレーム", "shotsHelp": "ショットをプレビューし、画像確認、プロンプト編集、現在の出力設定での再実行ができます。" },
+        "videos": { "title": "台本から動画を生成します。", "description": "各ショットは対応するキーフレームと楽曲タイミングを使って個別に生成・再生成できます。", "shotsTitle": "ショット動画", "shotsHelp": "ショットをプレビューし、動画確認、モーションプロンプト編集、{{model}}での再実行ができます。", "alternateHelp": "ショットを直す場合は、ここで選択し、必要に応じてモーションプロンプトを調整して、そのショットだけを再実行します。別テイク、モデルや解像度の変更にも、ミュージックビデオ全体を再構築せず対応できます。", "replace": "動画を置き換え", "singleEdit": "モーションプロンプトはショットを1つだけ選択したときに編集できます。", "editMotion": "ショットのモーションプロンプトを編集", "motionPlaceholder": "この動画だけを再実行するための動き・演技を入力します…", "motionHelp": "選択ショットの今後の動画生成プロンプトだけを変更します。元のディレクター台本は書き換えません。", "timing": "タイミング", "start": "開始", "length": "長さ" }
+      },
+      "irodoriClone": {
+        "kicker": "ローカル・ボイススタジオ",
+        "title": "Irodori ボイススタジオ",
+        "description": "参照なしの標準音声、声質プロンプトから作るVoiceDesign、参照音声によるクローンを切り替えて日本語音声を生成します。",
+        "dialogue": { "title": "喋らせたい台詞", "placeholder": "例：😊こんにちは。⏸️今日は新しい機能をご紹介します。", "emojiPicker": "表情・演技 Emoji Picker", "emojiHelp": "カーソル位置へ挿入されます。複数の絵文字と⏸️の間を組み合わせられます。" },
+        "voiceDesign": {
+          "title": "声質プロンプトビルダー",
+          "help": "プリセット、話者、声の高さ、話し方、速度、感情、音質をクリックして声質プロンプトを組み立てます。",
+          "presets": "声質プリセット",
+          "standardMode": "参照なし・標準TTS",
+          "designMode": "声質デザイン",
+          "cloneMode": "参照音声クローン",
+          "enableStandard": "標準音声",
+          "standardHelp": "既存のIrodori v3で、台詞をそのまま読み上げます。",
+          "enableDesign": "声質をデザイン",
+          "designHelp": "プリセットと声質パーツをVoiceDesignへ反映します。",
+          "disabledByReference": "参照音声が選択されているため、声質は参照音声を優先します。参照なしに戻すとVoiceDesignが有効になります。",
+          "disabledByStandard": "現在は標準音声です。「声質をデザイン」を選ぶとVoiceDesignへ切り替わります。",
+          "prompt": "完成した声質プロンプト",
+          "promptHelp": "この文章がVoiceDesignのcaptionへそのまま渡されます。台詞内の絵文字による演技指定も併用できます。",
+          "presetNames": { "calmFemale": "落ち着いた女性声", "articulateMale": "ハキハキした男性声", "gentleNarrator": "やさしいナレーター", "brightYoungFemale": "明るい若い女性声", "warmLowMale": "低く温かい男性声", "neutralAnnouncer": "中性的なアナウンス" },
+          "groups": { "speaker": "話者", "pitch": "声の高さ", "delivery": "話し方", "pace": "話す速さ", "mood": "感情・雰囲気", "sound": "音の質感" },
+          "parts": { "youngFemale": "若い女性", "adultFemale": "大人の女性", "youngMale": "若い男性", "adultMale": "大人の男性", "neutral": "中性的", "high": "高め", "slightlyHigh": "やや高め", "middle": "中音域", "slightlyLow": "やや低め", "low": "低め", "calm": "落ち着いて", "articulate": "はっきり", "gentle": "やさしく", "whisper": "囁く", "narration": "ナレーション", "confident": "自信あり", "slow": "ゆっくり", "normal": "標準", "brisk": "テンポよく", "peaceful": "穏やか", "bright": "明るい", "friendly": "親しげ", "restrained": "感情控えめ", "serious": "真剣", "clear": "クリア", "close": "近接感", "soft": "柔らかな響き" }
+        },
+        "reference": { "title": "リファレンスオーディオ（任意）", "choose": "プロジェクト素材から音声を選択", "none": "参照なし", "chooseFromBrowser": "アセットブラウザから選択", "upload": "音声をアップロード", "browserTitle": "アセットブラウザ", "browserHelp": "プロジェクト素材、またはComfyUI Inputにある音声をリファレンスへ設定します。", "closeBrowser": "アセットブラウザを閉じる", "projectAssetsTab": "プロジェクト素材", "comfyInputTab": "ComfyUI Input", "searchComfyInput": "ComfyUI Inputの音声を検索…", "refreshComfyInput": "再読み込み", "scanningComfyInput": "ComfyUI Inputを走査しています…", "useComfyInput": "プロジェクトへ取り込んで使用", "importingComfyInput": "プロジェクトへ取り込み中…", "noComfyInputAudio": "ComfyUI Inputに対応音声がありません。", "noComfyInputMatches": "一致する音声がありません。", "browserCount": "音声素材 {{count}}件", "search": "既存の音声を検索…", "noAssets": "プロジェクト素材に音声がありません。音声をアップロードしてください。", "noMatches": "一致する音声素材がありません。", "empty": "参照なしでは、上の声質プロンプトを使って新しい声を生成します。", "emptyStandard": "参照なしの標準音声として、台詞をそのまま読み上げます。", "normalize": "参照音声を正規化（-16 dB）", "maxSeconds": "参照に使う最大秒数" },
+        "advanced": { "title": "詳細設定", "randomSeed": "Seedをランダム化" },
+        "actions": { "generate": "音声を生成", "generating": "生成中…" },
+        "messages": { "enterText": "読み上げる台詞を入力してください。", "selectReference": "参照音声を選択してください。", "enterVoicePrompt": "参照音声がない場合は声質プロンプトを入力してください。", "queueing": "音声生成をキューへ追加しています…", "queued": "キューへ追加しました。完了すると下の生成結果へ自動表示されます。", "notQueued": "ジョブを追加できませんでした。", "failed": "音声生成を開始できませんでした。" },
+        "results": { "title": "生成結果", "untitled": "Irodori ボイススタジオ", "saved": "プロジェクト素材に保存済み", "take": "テイク", "empty": "生成音声はまだありません", "emptyHelp": "ジョブが完了すると、ここに音声プレイヤーが自動表示されます。" }
       },
       "shortFilm": {
         "steps": { "story": "物語", "characters": "登場人物", "locations": "場所", "script": "台本", "voices": "音声", "shotPlan": "ショットプラン", "keyframes": "キーフレーム", "videos": "動画", "assemble": "編集" },
         "fields": { "title": "タイトル", "premise": "あらすじ", "creativeDirection": "クリエイティブ方針", "runtime": "上映時間" },
         "story": { "title": "短編映画を設定します。", "description": "LLM用の概要を作成します。台本の作成後は、その台本が各工程の基準になります。", "directionHelp": "台本を書く前に、トーン、ジャンル、テンポ、スタイルをLLMへ伝えます。", "outputPrefix": "出力は", "outputAt": "、フレームレート" },
         "voiceModes": { "text_to_speech": "テキスト読み上げ", "text_to_dialogue": "複数人物の会話生成", "speech_to_speech": "音声変換" },
-        "characters": { "title": "登場人物を設定します。" }, "locations": { "title": "ロケーションシートを作成します。" },
-        "script": { "title": "台本を作成または貼り付けます。", "brief": "LLM用概要", "briefHelp": "あらすじ、演出方針、登場人物、場所、必要な形式を含みます。", "screenplay": "脚本・ディレクター台本", "screenplayHelp": "音声、ショット、キーフレーム、編集の基準になります。" },
-        "voices": { "title": "登場人物の音声を生成します。" }, "shotPlan": { "title": "映像のカバレッジを確認します。" }, "keyframes": { "title": "キーフレームを作成します。" }, "videos": { "title": "ショット動画を生成します。" }, "assemble": { "title": "編集を組み立てます。" },
-        "sidebar": { "current": "現在の構想", "principle": "制作の仕組み", "principleHelp": "台本が物語、セリフ、タイミング、ショット選択を制御します。登場人物は顔と声、ロケーションシートは映像世界の一貫性を提供します。", "routing": "モデルの割り当て", "titleLabel": "タイトル", "cast": "登場人物", "locations": "場所", "voices": "音声", "output": "出力", "characterCount": "{{count}}人", "locationCount": "{{count}}か所", "ltxHelp": "短い動画ショット生成の標準モデルです。", "voiceHelp": "選択したElevenLabsまたはIrodori-TTSワークフローで、セリフを編集可能な音声クリップに変換します。", "locationSheets": "ロケーションシート", "locationSheetsHelp": "空間とアングルの一貫性を保つ参照画像です。", "notes": "実装状況", "notesHelp": "音声、キーフレーム、動画レンダリングは利用できます。タイムラインへの組み立ては次の実装段階です。" }
+        "common": { "slug": "SLUG", "shot": "ショット{{number}}" },
+        "status": { "ready": "準備完了", "failed": "失敗", "pending": "待機中", "missing": "未作成", "needs_keyframe": "キーフレームが必要", "voice_ready": "音声準備完了", "needs_voice": "音声が必要" },
+        "characters": { "title": "登場人物を設定します。", "description": "人物SLUGにより、顔、衣装、台詞、音声プロファイルの対応を維持します。", "add": "登場人物を追加", "character": "登場人物", "remove": "登場人物を削除", "role": "役割", "visualNotes": "外見メモ", "reference": "顔・衣装の参照画像", "chooseImage": "登場人物の画像を選択", "voiceSource": "音声ソース", "voicePreset": "音声プリセット", "voiceNotes": "音声メモ", "irodoriHelp": "ローカルv3の基本音声はシードで変化します。音声メモはショット内の演技指示に利用できます。", "elevenLabsHelp": "同梱のElevenLabs音声選択に対応します。" },
+        "locations": { "title": "ロケーションシートを作成します。", "description": "各場所に複数角度の参照画像を持たせ、キーフレームの世界観を統一します。", "add": "場所を追加", "name": "場所名", "remove": "場所を削除", "continuity": "一貫性の説明", "references": { "hero": "基準参照", "wide": "広角参照", "reverse": "反対角度参照", "detail": "ディテール参照" }, "choose": { "hero": "基準画像を選択", "wide": "広角画像を選択", "reverse": "反対角度画像を選択", "detail": "ディテール画像を選択" } },
+        "script": { "title": "台本を作成または貼り付けます。", "description": "概要をLLMへ渡し、返された脚本をここへ貼り付けてからショット構成を生成します。", "brief": "LLM用概要", "briefHelp": "あらすじ、演出方針、登場人物、場所、必要な形式を含みます。", "copyBrief": "概要をコピー", "screenplay": "脚本・ディレクター台本", "screenplayHelp": "音声、ショット、キーフレーム、編集の基準になります。", "generatePlan": "ショット構成を生成" },
+        "voices": { "title": "登場人物の音声を生成します。", "description": "台詞を各人物の音声プロファイルへ割り当てます。テキスト読み上げでは、台詞ごとに編集可能な音声クリップを1つ作成します。", "engine": "TTSエンジン", "workflow": "音声ワークフロー", "providers": { "elevenlabs": { "label": "ElevenLabs", "runtime": "クラウド", "description": "同梱のComfyUIパートナーワークフローと、名前付きElevenLabs音声プリセットを使用します。" }, "irodori": { "label": "Irodori-TTS", "runtime": "ローカル", "description": "最新のローカルIrodori-TTS v3モデルをComfyUIで実行し、台詞の長さを自動調整します。" } }, "modes": { "text_to_speech": "固定した音声プロファイルで、人物の台詞を1行ずつ生成します。", "text_to_dialogue": "脚本の1セクションから複数人物の会話を生成します。", "speech_to_speech": "ガイド音声の演技を出演者の声へ変換します。" }, "activeIrodori": "テキスト読み上げにはローカルIrodori-TTS v3を使用します。他の音声モードは今後の実装予定です。", "activeElevenLabs": "テキスト読み上げにはElevenLabsのComfyUIパートナーワークフローを使用します。他の音声モードは今後の実装予定です。", "dialogueLines": "台詞", "detectedLines": "台本から{{count}}行の台詞を検出しました。", "queue": "音声をキューに追加", "empty": "台詞はまだ検出されていません。CHARACTER: \"台詞\"形式または脚本の話者ブロックを使用してください。" },
+        "shotPlan": { "title": "映像のカバレッジを確認します。", "description": "脚本を、広角、クローズアップ、リアクション、挿入、カットアウェイを含む制作チェックリストとして表示します。", "clear": "構成を消去", "rebuild": "台本から再構築", "plannedShots": "予定ショット", "dialogueLines": "台詞", "locations": "場所", "empty": "脚本を貼り付けた後、ショット構成を生成してください。", "done": "完了", "edit": "編集", "fields": { "title": "ショット名", "type": "ショット種別", "duration": "長さ", "location": "場所", "character": "登場人物の参照", "noCharacter": "登場人物を指定しない", "dialogueAudio": "台詞音声", "noDialogueAudio": "台詞音声なし", "dialogueAudioValue": "台詞音声：\"{{text}}\"", "keyframePrompt": "キーフレームプロンプト", "motionPrompt": "モーションプロンプト" } },
+        "keyframes": { "title": "キーフレームを作成します。", "description": "承認した各ショットに、人物とロケーションシートの参照画像を使った開始画像を1枚作成します。", "create": "キーフレームを作成", "renderer": "キーフレーム生成方式", "runtime": { "local": "ローカル", "cloud": "クラウド" }, "workflows": { "image-edit": "完全ローカルで生成します。人物または場所の最適な参照画像を編集元として使用します。", "nano-banana-2": "クラウドで生成します。ショットプロンプトと任意の人物・場所参照から生成できます。" } },
+        "videos": { "title": "ショット動画を生成します。", "description": "LTX 2.3は承認済みキーフレームを先頭フレームに使用します。台詞ショットでは、生成済みの対応音声があれば使用します。", "queue": "動画をキューに追加", "model": "動画モデル", "readyVideos": "準備済み動画", "renderSize": "動画の生成サイズ", "renderSizeHelp": "新しいLTX 2.3動画ジョブにこのサイズを使用します。速度重視なら720p、仕上がり重視なら1080pを選択します。", "routing": "振り分け方針", "routingHelp": "無音ショットはLTX 2.3の画像から動画へ、台詞ショットは音声準備後にLTX 2.3の画像＋音声から動画へ送ります。", "alternateHelp": "短編映画のショットを直す場合は、上で選択し、ここで動画プロンプト全体を編集して、そのショットだけを別テイクとして再実行します。", "runSelected": "選択ショットを実行", "needsKeyframe": "動画を実行する前に、このショットのキーフレームが必要です。", "needsVoice": "動画を実行する前に、この台詞ショットの生成済み音声が必要です。", "editPrompt": "動画プロンプト全体を編集", "shotInfo": "ショット情報", "keyframe": "キーフレーム", "voice": "音声", "resetPrompt": "既定プロンプトへ戻す", "promptHelp": "脚本やショット構成は書き換えません。この選択ショット欄から次にキューへ送る生成だけを変更します。" },
+        "assemble": { "title": "編集を組み立てます。" },
+        "sidebar": { "current": "現在の構想", "principle": "制作の仕組み", "principleHelp": "台本が物語、セリフ、タイミング、ショット選択を制御します。登場人物は顔と声、ロケーションシートは映像世界の一貫性を提供します。", "routing": "モデルの割り当て", "titleLabel": "タイトル", "cast": "登場人物", "locations": "場所", "voices": "音声", "output": "出力", "characterCount": "{{count}}人", "locationCount": "{{count}}か所", "ltxHelp": "短い動画ショット生成の標準モデルです。", "voiceHelp": "選択したElevenLabsまたはIrodori-TTSワークフローで、セリフを編集可能な音声クリップに変換します。", "irodoriLocal": "Irodori-TTS・ローカル", "elevenLabsCloud": "ElevenLabs・クラウド", "irodoriHelp": "ローカルv3で会話音声を生成します。不足するノードやモデルファイルはワークフロー設定から案内します。", "locationSheets": "ロケーションシート", "locationSheetsHelp": "空間とアングルの一貫性を保つ参照画像です。", "notes": "実装状況", "notesHelp": "音声、キーフレーム、動画レンダリングは利用できます。タイムラインへの組み立ては次の実装段階です。" }
       },
       "ugc": {
         "steps": {
@@ -1166,6 +1528,10 @@
           "number": "ステップ {{number}}",
           "setup": "雰囲気",
           "references": "参照素材",
+          "script": "台本確認",
+          "voiceover": "音声",
+          "keyframes": "キーフレーム",
+          "videos": "動画＋タイムライン",
           "generate": "生成"
         },
         "header": {
@@ -1212,6 +1578,23 @@
           "premium-creator": "上質なクリエイター風",
           "funny-chaotic": "楽しくコミカル"
         },
+        "productionMode": {
+          "title": "制作モード",
+          "description": "広告全体を一括生成するか、台詞の言語とTTSを選べる編集可能なショット制作を使用します。",
+          "oneShot": "一括生成",
+          "oneShotHelp": "広告全体を1本のクリップとして生成します。",
+          "localJapanese": "ローカル日本語ショット",
+          "localJapaneseHelp": "日本語台本、Irodori-TTS、ローカルキーフレーム、LTXリップシンクを使用します。",
+          "localRoute": "ローカル経路：日本語台本 → Irodori-TTS → Qwen Image Editキーフレーム → LTX 2.3 ID-LoRAリップシンク",
+          "editableShots": "編集可能なショット",
+          "editableShotsHelp": "英語または日本語の台詞とTTSを選び、ショット単位で編集・生成します。",
+          "dialogueLanguage": "台詞の言語",
+          "japanese": "日本語",
+          "english": "英語",
+          "ttsEngine": "使用するTTS",
+          "japaneseOnly": "日本語のみ",
+          "editableRoute": "{{language}}台詞 → {{tts}} → キーフレーム → 元音声を保つリップシンク"
+        },
         "setup": {
           "kicker": "雰囲気",
           "title": "友人が投稿したような自然な仕上がりに。",
@@ -1230,13 +1613,17 @@
           "canvas": "画面比率",
           "duration": "長さ",
           "seconds": "秒",
+          "secondsShort": "秒",
+          "durationHelp": "推奨は{{min}}～{{max}}秒です。一括生成は最大15秒です。",
           "quality": "品質",
           "frameRate": "フレームレート",
           "frameRateHelp": "滑らかな動きとリップシンクのため、LTX 2.3のネイティブ値である25fpsに固定されます。",
           "details": "詳細を追加",
           "optionalDefaults": "任意・初期設定のままでも生成可能",
           "detailsHelp": "すべて任意です。空欄の場合は適切な初期値が使われます。追加すると結果を細かく調整でき、各行は後から台本確認でも変更できます。",
-          "minimumHelp": "形式、フック、商品、雰囲気を指定すれば生成できます。完全な台本は生成ステップで調整できます。"
+          "minimumHelp": "形式、フック、商品、雰囲気を指定すれば生成できます。完全な台本は生成ステップで調整できます。",
+          "aspectOptions": { "vertical_9x16": "9:16・TikTok / Reels", "square_1x1": "1:1・フィード投稿", "landscape_16x9": "16:9・YouTube" },
+          "detailsFields": { "brand": "ブランド名", "audience": "想定視聴者", "reason": "スクロールを止める理由", "proof": "信頼につながる実演・証拠", "creatorDirection": "クリエイターへの演出指示", "location": "撮影場所", "cta": "締めのセリフ・行動喚起", "cameraRules": "カメラのルール" }
         },
         "references": {
           "kicker": "参照素材",
@@ -1268,7 +1655,11 @@
           "generateFirst": "先に動画を1つ以上生成してください。",
           "tooltip": "完成したクリップをスマートフォン画面で連続プレビューします。",
           "stop": "停止",
-          "edit": "編集をプレビュー"
+          "edit": "編集をプレビュー",
+          "roughCut": "ラフカット {{current}}/{{total}}",
+          "shotCaption": "ショット{{number}}：{{caption}}",
+          "defaultCaption": "最近ずっと聞かれるのはこれ #広告",
+          "originalSound": "オリジナル音源・広告らしく見せない仕上がり"
         },
         "summary": {
           "title": "現在の設定",
@@ -1282,13 +1673,23 @@
         },
         "why": {
           "title": "この設定が効果的な理由",
-          "description": "UGC広告はフィード内で自然に見えるほど効果的です。手持ち撮影の構図、自然な肌の色、分かりやすい商品操作、ショット単位の編集を重視した初期設定です。"
+          "description": "UGC広告はフィード内で自然に見えるほど効果的です。手持ち撮影の構図、自然な肌の色、分かりやすい商品操作、ショット単位の編集を重視した初期設定です。",
+          "dialogueBeats": "セリフの流れ",
+          "productMoments": "商品の見せ場",
+          "editableClips": "編集可能なクリップ"
         },
         "actions": {
           "back": "戻る",
           "nextReferences": "次へ：参照素材を追加",
           "buildPrompt": "プロンプトを作成",
+          "reviewScript": "台本を確認",
+          "prepareJapaneseVoice": "日本語音声を準備",
+          "prepareVoice": "音声を準備",
           "startAnother": "別の広告を作成"
+        },
+        "voiceover": {
+          "irodoriHelp": "日本語の各台詞をIrodori-TTSでローカル生成します。推奨のExact Audioでは完成した音声を変更せず、その波形に合わせて各ショットの口元を同期します。",
+          "languageChanged": "台詞の言語を変更しました。更新された台詞を確認し、音声プランを作り直してください。"
         },
         "generate": {
           "kicker": "一括生成",
@@ -1313,7 +1714,16 @@
           "ltxButton": "生成（ローカル LTX 2.3、{{seconds}}秒）",
           "modelHelp": "Seedance（クラウド）は参照素材を使い、実際のシーン切り替えを含めて商品と人物の一貫性を保ちます。LTX 2.3（ローカル）は参照素材から最初のフレームを自動合成し、自分のGPUで連続した1ショットを生成します。参照素材がない場合はプロンプトのみで生成します。",
           "readyPrefix": "広告の生成が完了しました。",
-          "readySuffix": "で再生できます。プロジェクト素材にも保存されています。タイムラインへドラッグして編集または書き出しが可能です。必要に応じてプロンプトを調整し、再生成してください。"
+          "readySuffix": "で再生できます。プロジェクト素材にも保存されています。タイムラインへドラッグして編集または書き出しが可能です。必要に応じてプロンプトを調整し、再生成してください。",
+          "resultsTitle": "生成結果",
+          "resultsHelp": "完了した一括生成動画をここへ自動表示します。プロジェクト素材にも保存されます。",
+          "resultsCount": "{{count}}件 完了",
+          "untitledResult": "UGC生成動画",
+          "savedToAssets": "プロジェクト素材に保存済み",
+          "resultNumber": "結果 {{number}}",
+          "readyMessage": "この画面で動画を再生して確認できます。プロジェクト素材からタイムラインへドラッグし、編集や書き出しも行えます。",
+          "noResults": "完了した動画はまだありません",
+          "noResultsHelp": "キューへ追加した一括生成が完了して素材へ取り込まれると、再生可能な動画がここへ自動表示されます。"
         }
       }
     }
@@ -1327,6 +1737,8 @@
     "search": "検索",
     "home": "ホーム",
     "homeHelp": "人気・トレンド素材へ戻る",
+    "apiSettings": "API設定",
+    "apiSettingsHelp": "Pexels APIキーの設定を開く",
     "apiRequired": "Pexels APIキーが必要です",
     "apiInstructions": "で無料のAPIキーを取得し、設定（左パネル → 設定）に追加してください。",
     "refreshKey": "キーを追加済み — 更新",
@@ -1494,6 +1906,9 @@
     }
   },
   "apiKey": {
+    "providersTitle": "クラウドAPIキー",
+    "providersSubtitle": "Comfy.orgとFloyoを1か所で設定します。",
+    "provider": "サービス",
     "title": "クラウドワークフロー・Comfy.org APIキー",
     "subtitle": "Velornに付属するクラウドレンダリングワークフローを利用可能にします。",
     "unlocks": "利用可能になる機能",
@@ -1509,6 +1924,15 @@
     "checking": "Comfy.orgで確認中…",
     "checkingShort": "確認中…",
     "accepted": "Comfy.orgでキーが確認されました。",
+    "floyoAccepted": "Floyoでキーが確認されました。",
+    "securelyStored": "OSで保護された領域に保存済み",
+    "floyoFeatureRun": "読み込んだComfyUI APIワークフローを実行",
+    "floyoFeatureUpload": "入力ファイルを送信し、完了した出力をプロジェクトへ読み込み",
+    "floyoFeatureBalance": "利用可能なFloTimeとPartner Nodes残高を表示",
+    "floyoCoverage": "ワークフローによってFloTimeとPartner Nodes残高を消費する場合があります。",
+    "useFloyo": "読み込んだAPIワークフローをFloyoで実行",
+    "useFloyoHelp": "ComfyUI API形式で読み込んだワークフローの実行先をFloyoに設定します。",
+    "floyoStorage": "FloyoキーはOSで保護された領域に暗号化して保存します。平文はLumeweftのメインプロセスからHTTPSでFloyoへ接続するときだけ使用されます。",
     "pasteFirst": "先にキーを貼り付けてください。",
     "pasteBeforeSave": "保存する前にComfy.org APIキーを貼り付けてください。",
     "validateFailed": "現在キーを確認できません。",

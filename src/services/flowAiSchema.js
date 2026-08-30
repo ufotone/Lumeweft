@@ -156,7 +156,14 @@ const FIXED_IMAGE_VARIANT_BEHAVIOR = Object.freeze({
   max: 1,
 })
 
+const SINGLE_IMAGE_VARIANT_BEHAVIOR = Object.freeze({
+  mode: 'fixed',
+  fixedCount: 1,
+  max: 1,
+})
+
 const FLOW_IMAGE_VARIANT_BEHAVIORS = Object.freeze({
+  'minimax-h3-character-sheet': SINGLE_IMAGE_VARIANT_BEHAVIOR,
   'z-image-turbo': Object.freeze({
     mode: 'native',
     max: FLOW_AI_IMAGE_VARIANT_LIMIT,
@@ -265,6 +272,7 @@ export const FLOW_AI_NODE_LIBRARY = Object.freeze([
     inputs: [
       { id: 'in:text', type: 'text', label: 'Prompt' },
       { id: 'in:image', type: 'image', label: 'Input' },
+      { id: 'in:mask', type: 'mask', label: 'Mask' },
       { id: 'in:style', type: 'style', label: 'Style', multiple: true },
     ],
     outputs: [{ id: 'out:image', type: 'image', label: 'Image' }],
@@ -326,8 +334,23 @@ export const FLOW_AI_TEMPLATES = Object.freeze([
     description: 'Start with a clean canvas and add nodes yourself.',
   },
   {
+    id: 'character-sheet',
+    label: 'H3 Character Sheet',
+    description: 'Create a four-view character sheet from one to three reference images.',
+  },
+  {
+    id: 'anima-lora-dataset',
+    label: 'Anima LoRA Factory',
+    description: 'Generate an eight-angle character dataset for Anima LoRA training.',
+  },
+  {
+    id: 'sdxl-lora-dataset',
+    label: 'SDXL LoRA Factory',
+    description: 'Generate an eight-angle character dataset for SDXL LoRA training.',
+  },
+  {
     id: 'text-to-video',
-    label: 'Text -> Image -> Video',
+    label: 'Story Flow',
     description: 'Generate a keyframe image, then animate it into a video.',
   },
   {
@@ -356,6 +379,38 @@ export const FLOW_AI_TEMPLATES = Object.freeze([
     description: 'Analyze a project image or full video and generate a MiniMax H3 prompt.',
   },
 ])
+
+export const FLOW_AI_TEMPLATE_INFO = Object.freeze({
+  'character-sheet': Object.freeze({
+    title: 'H3 Character Sheet',
+    author: 'PoopMan333 (original workflow)',
+    repositoryUrl: 'https://huggingface.co/PoopMan333/H3_Character_Sheet_Generator',
+    license: 'Workflow attribution; model weights use the MiniMax H3 Community License',
+    description: 'Adapted for CANVAS from the H3 Character Sheet Generator workflow. Model and workflow terms are separate and both must be reviewed.',
+  }),
+  'anima-lora-dataset': Object.freeze({
+    title: 'Anima LoRA Factory',
+    presentation: 'recipe',
+    recipeKind: 'lora-dataset',
+    author: 'UNfukashigi',
+    repositoryUrl: 'https://github.com/UNfukashigi/Anima-LoRA-Factory',
+    license: 'Apache License 2.0 (factory software)',
+    description: 'CANVAS uses its existing Qwen multiple-angle workflow to prepare eight character views, then exports those images for use in the original Anima LoRA Factory GUI.',
+    notice: 'The Apache-2.0 license applies to the factory software. Anima base models, training images, generated images, and third-party dependencies can have separate terms.',
+    datasetExport: true,
+  }),
+  'sdxl-lora-dataset': Object.freeze({
+    title: 'SDXL LoRA Factory',
+    presentation: 'recipe',
+    recipeKind: 'lora-dataset',
+    author: 'UNfukashigi',
+    repositoryUrl: 'https://github.com/UNfukashigi/SDXL-LoRA-Factory',
+    license: 'Apache License 2.0 (factory software)',
+    description: 'CANVAS uses its existing Qwen multiple-angle workflow to prepare eight character views, then exports those images for use in the original SDXL LoRA Factory GUI.',
+    notice: 'The Apache-2.0 license applies to the factory software. SDXL checkpoints, training images, generated images, and third-party dependencies can have separate terms.',
+    datasetExport: true,
+  }),
+})
 
 export function getFlowNodeDefinition(type) {
   return FLOW_AI_NODE_LIBRARY.find((entry) => entry.type === type) || null
@@ -387,6 +442,7 @@ export function isValidFlowConnection(connection) {
   if (!sourceType || !targetType) return false
   if (sourceType === targetType) return true
   if (targetType === 'style') return sourceType === 'image'
+  if (targetType === 'mask') return sourceType === 'image'
   if (targetType === 'any') return ['image', 'video', 'audio', 'text'].includes(sourceType)
   return false
 }
@@ -725,6 +781,159 @@ function buildStyleEditTemplate() {
   }
 }
 
+function buildCharacterSheetTemplate() {
+  const primaryNode = createFlowNode(FLOW_AI_NODE_TYPES.imageInput, {
+    position: { x: 70, y: 80 },
+    data: { label: 'Primary Character' },
+  })
+  const referenceTwoNode = createFlowNode(FLOW_AI_NODE_TYPES.imageInput, {
+    position: { x: 70, y: 250 },
+    data: { label: 'Reference 2 (optional)' },
+  })
+  const referenceThreeNode = createFlowNode(FLOW_AI_NODE_TYPES.imageInput, {
+    position: { x: 70, y: 420 },
+    data: { label: 'Reference 3 (optional)' },
+  })
+  const promptNode = createFlowNode(FLOW_AI_NODE_TYPES.prompt, {
+    position: { x: 70, y: -110 },
+    data: {
+      label: 'Character Notes',
+      promptText: 'Keep the character identity, clothing, proportions, colors, and accessories consistent across every view.',
+    },
+  })
+  const generatorNode = createFlowNode(FLOW_AI_NODE_TYPES.imageGen, {
+    position: { x: 450, y: 150 },
+    data: {
+      label: 'H3 Character Sheet',
+      workflowId: 'minimax-h3-character-sheet',
+      width: 480,
+      height: 864,
+      variantCount: 1,
+    },
+  })
+  const outputNode = createFlowNode(FLOW_AI_NODE_TYPES.output, {
+    position: { x: 820, y: 190 },
+  })
+
+  return {
+    nodes: [primaryNode, referenceTwoNode, referenceThreeNode, promptNode, generatorNode, outputNode],
+    edges: [
+      createFlowEdge({ source: primaryNode.id, sourceHandle: 'out:image', target: generatorNode.id, targetHandle: 'in:image' }),
+      createFlowEdge({ source: referenceTwoNode.id, sourceHandle: 'out:image', target: generatorNode.id, targetHandle: 'in:style' }),
+      createFlowEdge({ source: referenceThreeNode.id, sourceHandle: 'out:image', target: generatorNode.id, targetHandle: 'in:style' }),
+      createFlowEdge({ source: promptNode.id, sourceHandle: 'out:text', target: generatorNode.id, targetHandle: 'in:text' }),
+      createFlowEdge({ source: generatorNode.id, sourceHandle: 'out:image', target: outputNode.id, targetHandle: 'in:image' }),
+    ],
+  }
+}
+
+function buildLoraDatasetTemplate(factory = 'anima') {
+  const sourceNode = createFlowNode(FLOW_AI_NODE_TYPES.imageInput, {
+    position: { x: 70, y: 120 },
+    data: { label: 'Character Source Image', datasetRole: 'source' },
+  })
+  const inpaintPromptNode = createFlowNode(FLOW_AI_NODE_TYPES.prompt, {
+    position: { x: 70, y: -110 },
+    data: {
+      label: 'Inpaint Prompt (optional)',
+      promptText: 'Replace only the masked area with the requested logo, prop, clothing, or design while preserving the character identity and every unmasked detail.',
+      excludeFromDatasetExport: true,
+    },
+  })
+  const inpaintMaskNode = createFlowNode(FLOW_AI_NODE_TYPES.imageInput, {
+    position: { x: 70, y: 350 },
+    data: {
+      label: 'Inpaint Mask (optional)',
+      assetRole: 'mask',
+      excludeFromDatasetExport: true,
+      statusMessage: 'Choose a black-and-white mask. White areas will be replaced.',
+    },
+  })
+  const inpaintReferenceNode = createFlowNode(FLOW_AI_NODE_TYPES.styleReference, {
+    position: { x: 70, y: 580 },
+    data: {
+      label: 'Inpaint Reference (optional)',
+      excludeFromDatasetExport: true,
+    },
+  })
+  const inpaintNode = createFlowNode(FLOW_AI_NODE_TYPES.imageGen, {
+    position: { x: 430, y: 170 },
+    data: {
+      label: 'Masked Inpaint Edit (optional)',
+      workflowId: 'image-edit',
+      width: 1024,
+      height: 1024,
+      variantCount: 1,
+      enabled: false,
+      optionalStage: 'inpaint',
+      preserveInputResolution: true,
+      datasetRole: 'source-transform',
+      statusMessage: 'Off — the original character image will pass through unchanged.',
+    },
+  })
+  const angleNode = createFlowNode(FLOW_AI_NODE_TYPES.imageGen, {
+    position: { x: 790, y: 170 },
+    data: {
+      label: 'Generate 8 Camera Angles',
+      workflowId: 'multi-angles',
+      width: 1024,
+      height: 1024,
+      variantCount: 1,
+    },
+  })
+  const factoryLabel = factory === 'sdxl' ? 'SDXL' : 'Anima'
+  const outputNode = createFlowNode(FLOW_AI_NODE_TYPES.output, {
+    position: { x: 1150, y: 190 },
+    data: {
+      label: `${factoryLabel} Training Images`,
+      folderName: `LoRA Training Sets - ${factoryLabel}`,
+      numberedRunFolders: true,
+    },
+  })
+
+  return {
+    nodes: [sourceNode, inpaintPromptNode, inpaintMaskNode, inpaintReferenceNode, inpaintNode, angleNode, outputNode],
+    edges: [
+      createFlowEdge({
+        source: sourceNode.id,
+        sourceHandle: 'out:image',
+        target: inpaintNode.id,
+        targetHandle: 'in:image',
+      }),
+      createFlowEdge({
+        source: inpaintPromptNode.id,
+        sourceHandle: 'out:text',
+        target: inpaintNode.id,
+        targetHandle: 'in:text',
+      }),
+      createFlowEdge({
+        source: inpaintMaskNode.id,
+        sourceHandle: 'out:image',
+        target: inpaintNode.id,
+        targetHandle: 'in:mask',
+      }),
+      createFlowEdge({
+        source: inpaintReferenceNode.id,
+        sourceHandle: 'out:image',
+        target: inpaintNode.id,
+        targetHandle: 'in:style',
+      }),
+      createFlowEdge({
+        source: inpaintNode.id,
+        sourceHandle: 'out:image',
+        target: angleNode.id,
+        targetHandle: 'in:image',
+      }),
+      createFlowEdge({
+        source: angleNode.id,
+        sourceHandle: 'out:image',
+        target: outputNode.id,
+        targetHandle: 'in:image',
+      }),
+    ],
+  }
+}
+
 function buildImageToVideoTemplate() {
   const imageNode = createFlowNode(FLOW_AI_NODE_TYPES.imageInput, {
     position: { x: 80, y: 160 },
@@ -894,6 +1103,9 @@ export function createFlowDocument(options = {}) {
   if (templateId === 'music-cue') template = buildMusicTemplate()
   if (templateId === 'style-edit') template = buildStyleEditTemplate()
   if (templateId === 'media-to-prompt') template = buildMediaToPromptTemplate()
+  if (templateId === 'character-sheet') template = buildCharacterSheetTemplate()
+  if (templateId === 'anima-lora-dataset') template = buildLoraDatasetTemplate('anima')
+  if (templateId === 'sdxl-lora-dataset') template = buildLoraDatasetTemplate('sdxl')
 
   return {
     id: options.id || createNodeId('flow'),
@@ -910,8 +1122,8 @@ export function createFlowDocument(options = {}) {
 
 export function createDefaultFlowAiProjectData() {
   const starter = createFlowDocument({
-    name: 'Story Flow',
-    templateId: 'text-to-video',
+    name: 'Blank Canvas',
+    templateId: 'blank',
   })
   return {
     version: FLOW_AI_VERSION,
@@ -997,12 +1209,97 @@ export function normalizeFlowNode(node = {}) {
   return result
 }
 
+function upgradeLegacyLoraInpaintStage(document, nodes, edges) {
+  const templateId = String(document?.templateId || '').trim()
+  if (!['anima-lora-dataset', 'sdxl-lora-dataset'].includes(templateId)) {
+    return { nodes, edges }
+  }
+  if (nodes.some((node) => node?.data?.optionalStage === 'inpaint')) {
+    return { nodes, edges }
+  }
+
+  const sourceNode = nodes.find((node) => (
+    node.type === FLOW_AI_NODE_TYPES.imageInput
+    && String(node?.data?.label || '').trim() === 'Character Source Image'
+  ))
+  const angleNode = nodes.find((node) => (
+    node.type === FLOW_AI_NODE_TYPES.imageGen
+    && node?.data?.workflowId === 'multi-angles'
+  ))
+  const legacyEdge = edges.find((edge) => (
+    edge.source === sourceNode?.id
+    && edge.target === angleNode?.id
+    && edge.targetHandle === 'in:image'
+  ))
+  if (!sourceNode || !angleNode || !legacyEdge) return { nodes, edges }
+
+  const sourceX = Number(sourceNode.position?.x) || 70
+  const sourceY = Number(sourceNode.position?.y) || 120
+  const inpaintNode = createFlowNode(FLOW_AI_NODE_TYPES.imageGen, {
+    position: { x: sourceX + 360, y: sourceY + 50 },
+    data: {
+      label: 'Masked Inpaint Edit (optional)',
+      workflowId: 'image-edit',
+      width: 1024,
+      height: 1024,
+      variantCount: 1,
+      enabled: false,
+      optionalStage: 'inpaint',
+      preserveInputResolution: true,
+      datasetRole: 'source-transform',
+      statusMessage: 'Off — the original character image will pass through unchanged.',
+    },
+  })
+  const promptNode = createFlowNode(FLOW_AI_NODE_TYPES.prompt, {
+    position: { x: sourceX, y: sourceY - 230 },
+    data: {
+      label: 'Inpaint Prompt (optional)',
+      promptText: 'Replace only the masked area with the requested logo, prop, clothing, or design while preserving the character identity and every unmasked detail.',
+      excludeFromDatasetExport: true,
+    },
+  })
+  const maskNode = createFlowNode(FLOW_AI_NODE_TYPES.imageInput, {
+    position: { x: sourceX, y: sourceY + 230 },
+    data: {
+      label: 'Inpaint Mask (optional)',
+      assetRole: 'mask',
+      excludeFromDatasetExport: true,
+      statusMessage: 'Choose a black-and-white mask. White areas will be replaced.',
+    },
+  })
+  const referenceNode = createFlowNode(FLOW_AI_NODE_TYPES.styleReference, {
+    position: { x: sourceX, y: sourceY + 460 },
+    data: { label: 'Inpaint Reference (optional)', excludeFromDatasetExport: true },
+  })
+  const upgradedNodes = nodes.map((node) => (
+    node.id === sourceNode.id
+      ? { ...node, data: { ...node.data, datasetRole: 'source' } }
+      : node.id === angleNode.id
+        ? { ...node, position: { x: Math.max(Number(node.position?.x) || 0, sourceX + 720), y: sourceY + 50 } }
+        : node.type === FLOW_AI_NODE_TYPES.output
+          ? { ...node, position: { x: Math.max(Number(node.position?.x) || 0, sourceX + 1080), y: sourceY + 70 } }
+        : node
+  ))
+  const upgradedEdges = edges.filter((edge) => edge.id !== legacyEdge.id)
+  upgradedEdges.push(
+    createFlowEdge({ source: sourceNode.id, sourceHandle: 'out:image', target: inpaintNode.id, targetHandle: 'in:image' }),
+    createFlowEdge({ source: promptNode.id, sourceHandle: 'out:text', target: inpaintNode.id, targetHandle: 'in:text' }),
+    createFlowEdge({ source: maskNode.id, sourceHandle: 'out:image', target: inpaintNode.id, targetHandle: 'in:mask' }),
+    createFlowEdge({ source: referenceNode.id, sourceHandle: 'out:image', target: inpaintNode.id, targetHandle: 'in:style' }),
+    createFlowEdge({ source: inpaintNode.id, sourceHandle: 'out:image', target: angleNode.id, targetHandle: 'in:image' }),
+  )
+  return {
+    nodes: [...upgradedNodes, promptNode, maskNode, referenceNode, inpaintNode],
+    edges: upgradedEdges,
+  }
+}
+
 export function normalizeFlowDocument(document = {}, fallbackName = 'Flow') {
-  const normalizedNodes = (Array.isArray(document?.nodes) ? document.nodes : [])
+  let normalizedNodes = (Array.isArray(document?.nodes) ? document.nodes : [])
     .map((node) => normalizeFlowNode(node))
     .filter(Boolean)
   const validNodeIds = new Set(normalizedNodes.map((node) => node.id))
-  const normalizedEdges = (Array.isArray(document?.edges) ? document.edges : [])
+  let normalizedEdges = (Array.isArray(document?.edges) ? document.edges : [])
     .filter((edge) => validNodeIds.has(edge?.source) && validNodeIds.has(edge?.target))
     .map((edge) => ({
       id: String(edge.id || createEdgeId()),
@@ -1012,6 +1309,9 @@ export function normalizeFlowDocument(document = {}, fallbackName = 'Flow') {
       targetHandle: edge.targetHandle || null,
       animated: Boolean(edge.animated),
     }))
+  const upgraded = upgradeLegacyLoraInpaintStage(document, normalizedNodes, normalizedEdges)
+  normalizedNodes = upgraded.nodes
+  normalizedEdges = upgraded.edges
 
   return {
     id: String(document?.id || createNodeId('flow')),
@@ -1034,7 +1334,7 @@ export function normalizeFlowAiProjectData(projectData) {
   const rawDocuments = Array.isArray(projectData?.documents) ? projectData.documents : []
   const documents = rawDocuments.length > 0
     ? rawDocuments.map((document, index) => normalizeFlowDocument(document, `Flow ${index + 1}`))
-    : [createFlowDocument({ name: 'Story Flow', templateId: 'text-to-video' })]
+    : [createFlowDocument({ name: 'Blank Canvas', templateId: 'blank' })]
 
   const activeDocumentId = documents.some((document) => document.id === projectData?.activeDocumentId)
     ? String(projectData.activeDocumentId)
