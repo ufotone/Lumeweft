@@ -481,7 +481,7 @@ export const loadLatestProjectAutosave = async (projectDir) => {
 }
 
 /**
- * Check if a directory is a valid Velorn project
+ * Check if a directory is a valid Lumeweft project
  * @param {string|FileSystemDirectoryHandle} dir - Directory to check
  * @returns {Promise<boolean>}
  */
@@ -645,6 +645,9 @@ export const importAsset = async (projectDir, file, category = 'video', options 
     let hasAudio = null
     let videoCodec = null
     let audioCodec = null
+    let pixelFormat = null
+    let videoProfile = null
+    let hasAlpha = false
     
     if (category === 'video' || category === 'audio' || category === 'images') {
       try {
@@ -696,6 +699,13 @@ export const importAsset = async (projectDir, file, category = 'video', options 
         if (typeof fpsResult?.audioCodec === 'string' && fpsResult.audioCodec) {
           audioCodec = fpsResult.audioCodec
         }
+        if (typeof fpsResult?.pixelFormat === 'string' && fpsResult.pixelFormat) {
+          pixelFormat = fpsResult.pixelFormat
+        }
+        if (typeof fpsResult?.videoProfile === 'string' && fpsResult.videoProfile) {
+          videoProfile = fpsResult.videoProfile
+        }
+        hasAlpha = fpsResult?.hasAlpha === true
       } catch (err) {
         console.warn('Could not get video FPS:', err)
       }
@@ -716,12 +726,21 @@ export const importAsset = async (projectDir, file, category = 'video', options 
       fps,
       videoCodec,
       audioCodec,
+      pixelFormat,
+      videoProfile,
       isImported: true,
     }
     if (category === 'video') {
       const resolvedHasAudio = hasAudio !== false
       importedAsset.hasAudio = resolvedHasAudio
       importedAsset.audioEnabled = resolvedHasAudio
+      if (hasAlpha) {
+        importedAsset.settings = {
+          hasAlpha: true,
+          duration,
+          fps,
+        }
+      }
     }
     
     return importedAsset

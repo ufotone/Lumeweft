@@ -32,11 +32,30 @@ import {
   startWorkflowInstall,
 } from './workflowInstallJobs'
 import { saveLocalComfyConnectionPort } from './localComfyConnection'
-import { getAbsoluteFileUrl, importAsset, writeGeneratedOverlayToProject } from './fileSystem'
+import { getAbsoluteFileUrl, importAsset, isElectron, writeGeneratedOverlayToProject } from './fileSystem'
 import { canImportImageSequences, importImageSequenceAsAsset } from './imageSequenceImport'
+import { canImportGifMedia, importGifAsset, isGifFilename } from './gifImport'
 import { detectImageSequences, parseSequenceFileName } from '../utils/imageSequenceDetection'
 import buildFcpXml from './fcpxmlExporter'
 import buildPremiereXml from './premiereXmlExporter'
+import { enqueuePlaybackTranscode } from './playbackCache'
+import { enqueueProxyTranscode, isProxyPlaybackEnabled } from './proxyCache'
+import { getPexelsApiKey } from './pexelsSettings'
+import {
+  PEXELS_DEFAULT_PER_PAGE,
+  PEXELS_MAX_MCP_IMPORT_ITEMS,
+  VELORN_OPEN_STOCK_EVENT,
+  buildDefaultPexelsFolderPath,
+  buildPexelsAssetRecord,
+  downloadPexelsMediaItem,
+  getExistingPexelsIds,
+  normalizePexelsMediaType,
+  normalizePexelsQuery,
+  searchPexelsMedia,
+  selectPexelsImportItems,
+  summarizePexelsMediaItem,
+  writePexelsStockPanelState,
+} from './pexelsStock'
 import {
   handleTranscribeCaptions,
   handleGetCaptionStatus,
@@ -44,7 +63,7 @@ import {
   handleGenerateCaptions,
 } from './mcpCaptions'
 
-export const MCP_ACTION_BRIDGE_VERSION = 5
+export const MCP_ACTION_BRIDGE_VERSION = 6
 
 const MCP_PROJECT_CHECKPOINTS = new Map()
 const MCP_PROJECT_CHECKPOINT_LIMIT = 20
@@ -306,7 +325,7 @@ async function buildCreateProjectPlan(payload = {}) {
   const fps = normalizeProjectFps(payload.fps, projectState.defaultFps ?? FPS_PRESETS.find((item) => item.value === 24)?.value ?? 24)
   const defaultProjectsHandle = projectState.defaultProjectsHandle
   if (!defaultProjectsHandle) {
-    throw new Error('No default projects folder is set. Choose a projects folder in Velorn before creating projects through MCP.')
+    throw new Error('No default projects folder is set. Choose a projects folder in Lumeweft before creating projects through MCP.')
   }
 
   const targetPath = await resolveProjectPath(defaultProjectsHandle, name)
@@ -552,7 +571,7 @@ async function buildDuplicateProjectPlan(payload = {}) {
       path: predictedPath,
     },
     willOpenDuplicate: true,
-    note: 'Uses Velorn duplicate behavior: copies the whole project folder, remaps saved paths, creates a sibling "copy" project, and opens it.',
+    note: 'Uses Lumeweft duplicate behavior: copies the whole project folder, remaps saved paths, creates a sibling "copy" project, and opens it.',
   }
 }
 
@@ -1155,7 +1174,7 @@ function buildEffectClipSummary(clip) {
 function getClipByIdForEffects(state, clipId) {
   const selectedIds = Array.isArray(state.selectedClipIds) ? state.selectedClipIds.filter(Boolean) : []
   const id = String(clipId || '').trim() || (selectedIds.length === 1 ? selectedIds[0] : '')
-  if (!id) throw new Error('Provide clipId for the target clip, or select exactly one visual clip in Velorn.')
+  if (!id) throw new Error('Provide clipId for the target clip, or select exactly one visual clip in Lumeweft.')
   const clip = (state.clips || []).find((candidate) => candidate.id === id)
   if (!clip) throw new Error(`Clip ${id} was not found.`)
   const clipType = String(clip.type || '').toLowerCase()
@@ -2019,7 +2038,7 @@ async function waitForGenerateWorkspaceReady(timeoutMs = 30000) {
       }))
       if (settled) return
       if (Date.now() - startedAt >= readyTimeoutMs) {
-        finish(reject, new Error('The Generate workspace did not become ready. Open a Velorn project and try again.'))
+        finish(reject, new Error('The Generate workspace did not become ready. Open a Lumeweft project and try again.'))
         return
       }
       probeTimer = setTimeout(probe, 100)
@@ -2170,7 +2189,7 @@ async function handleReplaceMusicVideoTimelineShot(payload = {}) {
 async function handleSaveProject(payload = {}) {
   const projectState = useProjectStore.getState()
   if (!projectState.currentProjectHandle || !projectState.currentProject) {
-    throw new Error('Open a Velorn project before saving.')
+    throw new Error('Open a Lumeweft project before saving.')
   }
   const previewOnly = payload.previewOnly !== false
   const project = {
@@ -2187,7 +2206,7 @@ async function handleSaveProject(payload = {}) {
     }
   }
   const saved = await projectState.saveProject()
-  if (!saved) throw new Error('Velorn could not save the current project.')
+  if (!saved) throw new Error('Lumeweft could not save the current project.')
   const nextProject = useProjectStore.getState().currentProject
   return {
     success: true,
@@ -2506,7 +2525,7 @@ async function handleInstallWorkflowSetup(payload = {}) {
     return { success: true, message: 'Nothing to install — dependencies are satisfied or manual-only.', plan: planSummary }
   }
   if (!rootValidation.isValid) {
-    throw new Error(rootValidation.error || 'The ComfyUI folder is not configured or failed validation — set it in Velorn first.')
+    throw new Error(rootValidation.error || 'The ComfyUI folder is not configured or failed validation — set it in Lumeweft first.')
   }
 
   const job = startWorkflowInstall({
@@ -3829,7 +3848,7 @@ function handleRemoveTrack(payload = {}) {
   }
 
   const removed = state.removeTrack?.(trackId)
-  if (!removed) throw new Error('Could not remove the track. Velorn may be protecting the last track of that type.')
+  if (!removed) throw new Error('Could not remove the track. Lumeweft may be protecting the last track of that type.')
   return {
     removed: true,
     trackId,
@@ -3940,7 +3959,7 @@ function handleDeleteTimeline(payload = {}) {
   }
 
   const deleted = projectState.deleteTimeline?.(timelineId)
-  if (!deleted) throw new Error('Could not delete the timeline. Velorn may be protecting the last sequence.')
+  if (!deleted) throw new Error('Could not delete the timeline. Lumeweft may be protecting the last sequence.')
   return {
     deleted: true,
     timelineId,
@@ -4874,6 +4893,7 @@ async function handleMoveUnusedAssetsToFolder(payload = {}) {
 }
 
 function summarizeAsset(asset) {
+  const stockSource = asset.stockSource || asset.settings?.stockSource || null
   return {
     id: asset.id,
     name: asset.name || asset.id,
@@ -4892,6 +4912,16 @@ function summarizeAsset(asset) {
     audioEnabled: typeof asset.audioEnabled === 'boolean' ? asset.audioEnabled : null,
     generationStatus: asset.generationStatus || asset.status || 'none',
     createdAt: asset.createdAt || asset.imported || null,
+    ...(stockSource ? {
+      stockSource: {
+        provider: stockSource.provider || '',
+        id: stockSource.id ?? null,
+        mediaType: stockSource.mediaType || '',
+        query: stockSource.query || '',
+        pageUrl: stockSource.pageUrl || '',
+        photographer: stockSource.photographer || '',
+      },
+    } : {}),
   }
 }
 
@@ -5005,6 +5035,17 @@ function buildReplaceClipWithAssetPlan(payload = {}) {
     cacheProgress: 0,
     cacheUrl: null,
     cachePath: null,
+    frameSampling: assetType === 'video' ? clip.frameSampling : 'frame',
+    opticalFlowCache: clip.opticalFlowCache?.path
+      ? {
+          ...clip.opticalFlowCache,
+          status: 'stale',
+          progress: 0,
+          url: undefined,
+          jobId: undefined,
+          error: 'The source asset changed. Rebuild Optical Flow.',
+        }
+      : undefined,
     metadata: {
       ...(safeClone(clip.metadata) || {}),
       replacedByMcp: true,
@@ -6042,6 +6083,7 @@ function handleDuplicateClip(payload = {}) {
     cacheProgress: 0,
     cacheUrl: null,
     cachePath: null,
+    opticalFlowCache: undefined,
     ...(preserveLinkGroup ? {} : { linkGroupId: undefined }),
     ...(preserveSyncLock ? {} : { lockMode: undefined, syncLock: undefined }),
     metadata: {
@@ -6682,7 +6724,7 @@ async function handleExportTimeline(payload = {}) {
   const format = String(payload.format || 'mp4').toLowerCase() === 'mp4' ? 'mp4' : 'mp4'
   const videoCodec = String(payload.videoCodec || 'h264').toLowerCase() === 'h265' ? 'h265' : 'h264'
   const outputExtension = 'mp4'
-  const filename = sanitizeExportBaseName(payload.filename || `${project.name || 'Velorn'}_export`)
+  const filename = sanitizeExportBaseName(payload.filename || `${project.name || 'Lumeweft'}_export`)
   const outputFolder = await api.pathJoin(projectPath, 'renders')
   await api.createDirectory(outputFolder)
   const defaultOutputPath = await api.pathJoin(outputFolder, `${filename}_${Date.now()}.${outputExtension}`)
@@ -6843,7 +6885,7 @@ async function handleExportFcpXml(payload = {}) {
     ? timelineState.getTimelineEndTime()
     : getTimelineEndTimeForMcp(timelineState.clips || [], timelineState.duration || currentTimeline?.duration || 0)
   const xml = exportConfig.buildXml({
-    projectName: project.name || 'Velorn Project',
+    projectName: project.name || 'Lumeweft Project',
     timelineName,
     timelineSettings: { width, height, fps },
     timeline: {
@@ -6861,7 +6903,7 @@ async function handleExportFcpXml(payload = {}) {
   const outputPath = String(payload.outputPath || '').trim()
     || await api.pathJoin(
       outputFolder,
-      `${sanitizeExportBaseName(payload.filename || `${project.name || 'Velorn'}_${timelineName}`)}_${Date.now()}.${exportConfig.extension}`
+      `${sanitizeExportBaseName(payload.filename || `${project.name || 'Lumeweft'}_${timelineName}`)}_${Date.now()}.${exportConfig.extension}`
     )
   const writeResult = await api.writeFile(outputPath, xml, { encoding: 'utf8' })
   if (!writeResult?.success) {
@@ -7671,7 +7713,7 @@ function handleCreateProjectCheckpoint(payload = {}) {
     label: checkpoint.label,
     createdAt: checkpoint.createdAt,
     checkpointCount: MCP_PROJECT_CHECKPOINTS.size,
-    message: 'Created an in-memory MCP project checkpoint for this Velorn session.',
+    message: 'Created an in-memory MCP project checkpoint for this Lumeweft session.',
   }
 }
 
@@ -7749,7 +7791,238 @@ async function handleRestoreProjectCheckpoint(payload = {}) {
     savedProject: Boolean(savedProject),
     message: savedProject
       ? 'Restored the MCP checkpoint and saved the project file.'
-      : 'Restored the MCP checkpoint in the open Velorn session.',
+      : 'Restored the MCP checkpoint in the open Lumeweft session.',
+  }
+}
+
+function publishPexelsSearchToStockTab(searchResult, { openStockTab = true } = {}) {
+  const stockState = {
+    searchQuery: searchResult.query,
+    mediaType: searchResult.mediaType,
+    results: searchResult.items,
+    page: searchResult.page,
+    totalResults: searchResult.totalResults,
+    isDefaultContent: false,
+  }
+  writePexelsStockPanelState(stockState)
+  if (openStockTab && typeof window !== 'undefined') {
+    window.dispatchEvent(new CustomEvent(VELORN_OPEN_STOCK_EVENT, { detail: { stockState } }))
+  }
+  return stockState
+}
+
+async function getPexelsKeyForMcp() {
+  const apiKey = String(await getPexelsApiKey() || '').trim()
+  if (!apiKey) {
+    throw new Error('Add a Pexels API key in Lumeweft Settings > Stock (Pexels), then try again.')
+  }
+  return apiKey
+}
+
+async function runPexelsMcpSearch(payload = {}, { minimumPerPage = 1 } = {}) {
+  const query = normalizePexelsQuery(payload.query || payload.search || payload.searchQuery)
+  if (!query) throw new Error('Provide a Pexels search query.')
+  const mediaType = normalizePexelsMediaType(payload.mediaType || payload.type || payload.kind, 'photos')
+  const requestedPerPage = Number(payload.perPage ?? payload.per_page ?? payload.limit)
+  const perPage = Math.max(
+    minimumPerPage,
+    Number.isFinite(requestedPerPage) && requestedPerPage > 0 ? Math.round(requestedPerPage) : PEXELS_DEFAULT_PER_PAGE,
+  )
+  return searchPexelsMedia({
+    apiKey: await getPexelsKeyForMcp(),
+    query,
+    mediaType,
+    page: payload.page,
+    perPage,
+    orientation: payload.orientation,
+  })
+}
+
+async function handleSearchStockMedia(payload = {}) {
+  const searchResult = await runPexelsMcpSearch(payload)
+  const stockTabOpened = payload.openStockTab !== false
+  publishPexelsSearchToStockTab(searchResult, { openStockTab: stockTabOpened })
+  return {
+    success: true,
+    action: 'search_stock_media',
+    provider: 'pexels',
+    query: searchResult.query,
+    mediaType: searchResult.mediaType,
+    orientation: searchResult.orientation,
+    page: searchResult.page,
+    perPage: searchResult.perPage,
+    totalResults: searchResult.totalResults,
+    returnedCount: searchResult.results.length,
+    results: searchResult.results,
+    stockTabOpened,
+    message: `Found ${searchResult.results.length} Pexels ${searchResult.mediaType} result${searchResult.results.length === 1 ? '' : 's'} for "${searchResult.query}"${stockTabOpened ? ' and opened them in the Stock tab' : ''}.`,
+  }
+}
+
+function resolveStockImportFolder(payload, query) {
+  const explicitFolderId = String(payload.folderId || '').trim()
+  if (explicitFolderId) {
+    const folder = (useAssetsStore.getState().folders || []).find((candidate) => candidate?.id === explicitFolderId)
+    if (!folder) throw new Error(`Asset folder ${explicitFolderId} was not found.`)
+    return {
+      folderId: explicitFolderId,
+      folderPath: getAssetFolderPathSegments(useAssetsStore.getState().folders || [], explicitFolderId),
+      folderPlan: null,
+    }
+  }
+
+  if (payload.organizeInFolder === false) {
+    return { folderId: null, folderPath: [], folderPlan: null }
+  }
+
+  const requestedPath = payload.folderPath || payload.targetFolderPath || payload.folderName
+  const folderPath = requestedPath || buildDefaultPexelsFolderPath(query)
+  const folderPlan = buildCreateAssetFolderPlan({ path: folderPath, previewOnly: true })
+  return {
+    folderId: null,
+    folderPath: folderPlan.path,
+    folderPlan,
+  }
+}
+
+async function buildStockMediaImportPlan(payload = {}) {
+  if (!useProjectStore.getState().currentProjectHandle) {
+    throw new Error('Open a saved Lumeweft project before importing stock media.')
+  }
+
+  const resultIds = normalizeStringArray(payload.resultIds || payload.pexelsIds || payload.ids)
+  if (resultIds.length > PEXELS_MAX_MCP_IMPORT_ITEMS) {
+    throw new Error(`Import at most ${PEXELS_MAX_MCP_IMPORT_ITEMS} Pexels results per call.`)
+  }
+  const requestedCount = Number(payload.count ?? payload.limit ?? (resultIds.length || 10))
+  const count = Math.max(1, Math.min(PEXELS_MAX_MCP_IMPORT_ITEMS, Number.isFinite(requestedCount) ? Math.round(requestedCount) : 10))
+  const searchResult = await runPexelsMcpSearch(payload, {
+    minimumPerPage: Math.max(PEXELS_DEFAULT_PER_PAGE, count, resultIds.length),
+  })
+  const existingIds = getExistingPexelsIds(useAssetsStore.getState().assets || [])
+  const selection = selectPexelsImportItems({
+    items: searchResult.items,
+    resultIds,
+    count,
+    existingIds,
+    skipExisting: payload.skipExisting !== false,
+  })
+  if (selection.missingIds.length > 0) {
+    throw new Error(`Pexels result IDs were not found on page ${searchResult.page}: ${selection.missingIds.join(', ')}. Search again or pass the matching page/perPage values.`)
+  }
+  const target = resolveStockImportFolder(payload, searchResult.query)
+  return {
+    action: 'import_stock_media',
+    provider: 'pexels',
+    query: searchResult.query,
+    mediaType: searchResult.mediaType,
+    orientation: searchResult.orientation,
+    page: searchResult.page,
+    perPage: searchResult.perPage,
+    totalResults: searchResult.totalResults,
+    requestedCount: count,
+    requestedIds: selection.requestedIds,
+    skipExisting: payload.skipExisting !== false,
+    candidates: selection.candidates,
+    candidateResults: selection.candidates.map((item) => summarizePexelsMediaItem(item, searchResult.mediaType)),
+    duplicateResults: selection.duplicateItems.map((item) => summarizePexelsMediaItem(item, searchResult.mediaType)),
+    targetFolderId: target.folderId,
+    targetFolderPath: target.folderPath,
+    folderPlan: target.folderPlan,
+    openStockTab: payload.openStockTab !== false,
+    searchResult,
+  }
+}
+
+async function handleImportStockMedia(payload = {}) {
+  const plan = await buildStockMediaImportPlan(payload)
+  publishPexelsSearchToStockTab(plan.searchResult, { openStockTab: plan.openStockTab })
+
+  if (payload.previewOnly !== false) {
+    return {
+      previewOnly: true,
+      action: 'import_stock_media',
+      message: `Pexels import plan only. ${plan.candidateResults.length} item${plan.candidateResults.length === 1 ? '' : 's'} would be downloaded; ${plan.duplicateResults.length} existing item${plan.duplicateResults.length === 1 ? '' : 's'} would be skipped.`,
+      provider: plan.provider,
+      query: plan.query,
+      mediaType: plan.mediaType,
+      page: plan.page,
+      perPage: plan.perPage,
+      totalResults: plan.totalResults,
+      requestedCount: plan.requestedCount,
+      requestedIds: plan.requestedIds,
+      candidates: plan.candidateResults,
+      skippedExisting: plan.duplicateResults,
+      targetFolderId: plan.targetFolderId,
+      targetFolderPath: plan.targetFolderPath,
+      folderPlan: plan.folderPlan,
+      stockTabOpened: plan.openStockTab,
+    }
+  }
+
+  let folderId = plan.targetFolderId
+  if (!folderId && plan.targetFolderPath.length > 0) {
+    folderId = await resolveMcpFolderIdForImportedAsset({ folderPath: plan.targetFolderPath })
+  }
+
+  const projectHandle = useProjectStore.getState().currentProjectHandle
+  const importedAssets = []
+  const failures = []
+  for (const item of plan.candidates) {
+    try {
+      const downloaded = await downloadPexelsMediaItem({ item, mediaType: plan.mediaType })
+      const imported = await importAsset(projectHandle, downloaded.file, downloaded.spec.category)
+      const blobUrl = typeof globalThis.URL?.createObjectURL === 'function'
+        ? globalThis.URL.createObjectURL(downloaded.blob)
+        : imported.url
+      const asset = useAssetsStore.getState().addAsset(buildPexelsAssetRecord({
+        item,
+        mediaType: plan.mediaType,
+        query: plan.query,
+        imported,
+        blobUrl,
+        folderId,
+        sourceTool: 'import_stock_media',
+      }))
+      importedAssets.push(asset)
+
+      if (downloaded.spec.assetType === 'video' && isElectron() && projectHandle && asset?.absolutePath) {
+        enqueuePlaybackTranscode(projectHandle, asset.id, asset.absolutePath).catch(() => {})
+        if (isProxyPlaybackEnabled()) {
+          enqueueProxyTranscode(projectHandle, asset.id, asset.absolutePath).catch(() => {})
+        }
+      }
+    } catch (error) {
+      failures.push({
+        id: String(item?.id ?? ''),
+        error: error?.message || String(error),
+      })
+      if (payload.stopOnError === true) break
+    }
+  }
+
+  if (importedAssets.length === 0 && failures.length > 0) {
+    throw new Error(`No Pexels media was imported. ${failures.map((failure) => `${failure.id}: ${failure.error}`).join('; ')}`)
+  }
+  const savedProject = importedAssets.length > 0 && typeof useProjectStore.getState().saveProject === 'function'
+    ? await useProjectStore.getState().saveProject()
+    : null
+  return {
+    success: failures.length === 0,
+    partial: failures.length > 0,
+    action: 'import_stock_media',
+    message: `Imported ${importedAssets.length} Pexels ${plan.mediaType} item${importedAssets.length === 1 ? '' : 's'}${plan.duplicateResults.length > 0 ? `; skipped ${plan.duplicateResults.length} already in the project` : ''}${failures.length > 0 ? `; ${failures.length} failed` : ''}.`,
+    provider: plan.provider,
+    query: plan.query,
+    mediaType: plan.mediaType,
+    folderId,
+    folderPath: plan.targetFolderPath,
+    importedCount: importedAssets.length,
+    importedAssets: importedAssets.map(summarizeAsset),
+    skippedExisting: plan.duplicateResults,
+    failures,
+    savedProject: Boolean(savedProject),
+    stockTabOpened: plan.openStockTab,
   }
 }
 
@@ -7810,7 +8083,7 @@ async function resolveMcpImageSequence(sourcePath) {
 async function handleImportAssetFromPath(payload = {}) {
   const sourcePath = String(payload.path || payload.filePath || payload.sourcePath || '').trim()
   if (!sourcePath) throw new Error('Provide path, filePath, or sourcePath for import_asset_from_path.')
-  if (!useProjectStore.getState().currentProjectHandle) throw new Error('Open a saved Velorn project before importing assets.')
+  if (!useProjectStore.getState().currentProjectHandle) throw new Error('Open a saved Lumeweft project before importing assets.')
   if (!isAbsoluteMcpFilePath(sourcePath)) throw new Error('Provide an absolute local file path to import.')
 
   // Image sequences: a directory or any numbered frame imports the whole run
@@ -7894,7 +8167,7 @@ async function handleImportAssetFromPath(payload = {}) {
     }
   }
 
-  const category = inferMcpAssetCategory(sourcePath, payload.category || payload.type || payload.assetType)
+  let category = inferMcpAssetCategory(sourcePath, payload.category || payload.type || payload.assetType)
 
   let exists = true
   if (typeof window !== 'undefined' && window.electronAPI?.exists) {
@@ -7902,13 +8175,32 @@ async function handleImportAssetFromPath(payload = {}) {
   }
   if (!exists) throw new Error(`File does not exist: ${sourcePath}`)
 
+  const useGifImport = isGifFilename(sourcePath) && canImportGifMedia()
+  let gifProbe = null
+  if (useGifImport) {
+    gifProbe = await window.electronAPI.probeGif({ inputPath: sourcePath })
+    if (!gifProbe?.success) throw new Error(gifProbe?.error || 'Could not inspect the GIF.')
+    category = gifProbe.animated ? 'video' : 'images'
+  }
+
   if (payload.previewOnly !== false) {
     return {
       previewOnly: true,
       action: 'import_asset_from_path',
-      message: 'Asset import plan only. No file was copied.',
+      message: gifProbe?.animated
+        ? 'Animated GIF import plan only. It will be converted once into an editable video asset; no file was copied.'
+        : 'Asset import plan only. No file was copied.',
       sourcePath,
       category,
+      ...(gifProbe ? {
+        gif: {
+          animated: gifProbe.animated,
+          frameCount: gifProbe.frameCount,
+          duration: gifProbe.animated ? gifProbe.duration : null,
+          fps: gifProbe.animated ? gifProbe.fps : null,
+          hasTransparency: gifProbe.hasTransparency,
+        },
+      } : {}),
       targetFolder: payload.folderId || payload.folderPath || payload.folderName || null,
       suggestedApplyPayload: {
         ...payload,
@@ -7920,8 +8212,10 @@ async function handleImportAssetFromPath(payload = {}) {
 
   const folderId = await resolveMcpFolderIdForImportedAsset(payload)
   const projectHandle = useProjectStore.getState().currentProjectHandle
-  const imported = await importAsset(projectHandle, sourcePath, category)
-  const url = imported.absolutePath ? await getAbsoluteFileUrl(imported.absolutePath) : imported.url
+  const imported = useGifImport
+    ? await importGifAsset(projectHandle, sourcePath)
+    : await importAsset(projectHandle, sourcePath, category)
+  const url = imported.url || (imported.absolutePath ? await getAbsoluteFileUrl(imported.absolutePath) : null)
   const asset = useAssetsStore.getState().addAsset({
     ...imported,
     url: url || imported.url || null,
@@ -7930,7 +8224,10 @@ async function handleImportAssetFromPath(payload = {}) {
     settings: {
       ...(imported.settings || {}),
       importedViaMcp: true,
-      sourcePath,
+      // Normalized GIF assets already carry portable source-format
+      // provenance. Do not persist the external machine's absolute path into
+      // that project-owned master.
+      ...(useGifImport ? {} : { sourcePath }),
     },
   })
   const savedProject = typeof useProjectStore.getState().saveProject === 'function'
@@ -7939,7 +8236,7 @@ async function handleImportAssetFromPath(payload = {}) {
   return {
     success: true,
     action: 'import_asset_from_path',
-    message: 'Imported local file into the active Velorn project.',
+    message: 'Imported local file into the active Lumeweft project.',
     sourcePath,
     category,
     folderId,
@@ -8029,6 +8326,35 @@ async function handleRelinkAsset(payload = {}) {
         previewOnly: false,
       },
     }
+  }
+
+  const affectedOpticalFlowClips = (useTimelineStore.getState().clips || [])
+    .filter((clip) => clip?.type === 'video' && clip.assetId === asset.id)
+  if (affectedOpticalFlowClips.length > 0) {
+    try {
+      const { cancelOpticalFlowCache } = await import('./opticalFlowCache')
+      await Promise.all(affectedOpticalFlowClips.map((clip) => cancelOpticalFlowCache(clip.id)))
+    } catch (error) {
+      console.warn('Could not cancel active Optical Flow work during relink:', error)
+    }
+    useTimelineStore.setState((timelineState) => ({
+      clips: (timelineState.clips || []).map((clip) => {
+        if (clip?.type !== 'video' || clip.assetId !== asset.id) return clip
+        return {
+          ...clip,
+          opticalFlowCache: clip.opticalFlowCache?.path
+            ? {
+                ...clip.opticalFlowCache,
+                status: 'stale',
+                progress: 0,
+                url: undefined,
+                error: 'The source media was relinked. Rebuild Optical Flow.',
+                jobId: undefined,
+              }
+            : undefined,
+        }
+      }),
+    }))
   }
 
   useAssetsStore.getState().updateAsset(asset.id, updates)
@@ -8441,6 +8767,10 @@ async function handleMcpAction(request = {}) {
       return handleCreateProjectCheckpoint(request.payload || {})
     case 'restore_project_checkpoint':
       return handleRestoreProjectCheckpoint(request.payload || {})
+    case 'search_stock_media':
+      return handleSearchStockMedia(request.payload || {})
+    case 'import_stock_media':
+      return handleImportStockMedia(request.payload || {})
     case 'import_asset_from_path':
       return handleImportAssetFromPath(request.payload || {})
     case 'relink_asset':

@@ -5,6 +5,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
   // Platform info
   platform: process.platform,
   isElectron: true,
+  getSystemFonts: (forceRefresh = false) => ipcRenderer.invoke('fonts:listSystem', forceRefresh === true),
   
   // ============================================
   // Dialog Operations
@@ -99,6 +100,17 @@ contextBridge.exposeInMainWorld('electronAPI', {
    * @returns {Promise<{success: boolean, error?: string}>}
    */
   encodeVideo: (options) => ipcRenderer.invoke('export:encodeVideo', options),
+  // High-quality animated GIF delivery uses a cancellable two-pass palette
+  // encode after the renderer writes its lossless temporary PNG frames.
+  encodeGif: (options) => ipcRenderer.invoke('export:gifEncode', options),
+  abortGifEncode: (sessionId) => ipcRenderer.invoke('export:abortGifEncode', sessionId),
+  generateOpticalFlowCache: (options) => ipcRenderer.invoke('opticalFlow:generate', options),
+  cancelOpticalFlowCache: (jobId) => ipcRenderer.invoke('opticalFlow:cancel', jobId),
+  onOpticalFlowProgress: (callback) => {
+    const handler = (_event, progress) => callback(progress)
+    ipcRenderer.on('opticalFlow:progress', handler)
+    return () => ipcRenderer.removeListener('opticalFlow:progress', handler)
+  },
   startFramePipe: (options) => ipcRenderer.invoke('export:startFramePipe', options),
   writeFrameToPipe: (sessionId, frameBuffer) => ipcRenderer.invoke('export:writeFrameToPipe', sessionId, frameBuffer),
   finishFramePipe: (sessionId) => ipcRenderer.invoke('export:finishFramePipe', sessionId),
@@ -162,7 +174,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
   },
 
   // Direct NVIDIA RTX Video Super Resolution. The optional runtime is
-  // managed by Velorn and does not require a running ComfyUI server.
+  // managed by Lumeweft and does not require a running ComfyUI server.
   checkRtxVideoUpscaleRuntime: () => ipcRenderer.invoke('rtx:checkRuntime'),
   installRtxVideoUpscaleRuntime: () => ipcRenderer.invoke('rtx:installRuntime'),
   runRtxVideoUpscale: (options) => ipcRenderer.invoke('rtx:run', options),
@@ -203,6 +215,22 @@ contextBridge.exposeInMainWorld('electronAPI', {
    * @returns {Promise<{ success: boolean, error?: string }>}
    */
   transcodeForPlayback: (options) => ipcRenderer.invoke('playback:transcode', options),
+
+  /**
+   * Inspect GIF structure without decoding it. Used to deterministically keep
+   * single-frame GIFs as images and normalize multi-frame GIFs as video.
+   * @param {{ inputPath: string }} options
+   * @returns {Promise<{ success: boolean, animated?: boolean, frameCount?: number,
+   *   width?: number, height?: number, duration?: number, fps?: number,
+   *   hasTransparency?: boolean, loopCount?: number|null, error?: string }>}
+   */
+  probeGif: (options) => ipcRenderer.invoke('gif:probe', options),
+
+  /**
+   * Convert a probed animated GIF into a project-importable MP4 or alpha WebM.
+   * @param {{ inputPath: string, outputDir: string, baseName?: string }} options
+   */
+  transcodeAnimatedGif: (options) => ipcRenderer.invoke('gif:transcodeAnimated', options),
 
   /**
    * Transcode a numbered image sequence (ordered frame paths + per-frame hold
@@ -532,7 +560,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
   },
 
   // ============================================
-  // Velorn Bridge
+  // Lumeweft Bridge
   // ============================================
 
   comfyBridge: {

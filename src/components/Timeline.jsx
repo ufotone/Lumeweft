@@ -22,6 +22,11 @@ import { getAllKeyframeTimes } from '../utils/keyframes'
 import { TRANSITION_TYPES, TRANSITION_DURATIONS, FRAME_RATE } from '../constants/transitions'
 import { getAudioClipFadeValues } from '../utils/audioClipFades'
 import { buildAudioClipSplitState } from '../utils/audioClipSplit'
+import {
+  createMultiClipTrimSession,
+  getMultiClipTrimTargetIds,
+  resolveMultiClipTrim,
+} from '../utils/multiClipTrim.mjs'
 import { getSpriteFramePosition } from '../services/thumbnailSprites'
 import { getEffectTypeDefinition } from '../utils/effects'
 import { isTextEditingElement } from '../utils/keyboardFocus'
@@ -44,9 +49,10 @@ import {
 import MasterAudioMeter from './AudioMeter'
 import GenerateMusicPopover from './GenerateMusicPopover'
 import { analyzeAudioSource } from '../services/audioAnalysis'
-import { getClipPlaybackTimeAtTimeline } from './CanvasPreviewRenderer'
+import { getClipPlaybackTimeAtTimeline } from '../utils/clipPlaybackTiming'
 import { canRevealAssetInFileManager, getRevealInFileManagerLabel, revealAssetInFileManager } from '../utils/revealInFileManager'
 import { useI18n } from '../i18n/I18nContext'
+import { quoteCssFontFamily } from '../utils/fontFamily'
 
 const TRANSITION_DEFAULT_DURATION_KEY = 'comfystudio-transition-default-duration-frames'
 const DEFAULT_WAVEFORM_SAMPLES = 8192
@@ -541,7 +547,7 @@ const TIMELINE_STORE_KEYS = [
   'rippleDeleteSelectedClips', 'rippleDeleteSelectedGap', 'moveClip',
   'moveSelectedClips', 'setSelectedClipsStartTimes', 'setSelectedClipPositions',
   'duplicateClipsForDrag', 'removeDragDuplicates',
-  'resizeClip', 'updateClipTrim', 'updateAudioClipProperties', 'selectClip',
+  'resizeClip', 'updateClipTrim', 'updateClipsTrim', 'updateAudioClipProperties', 'selectClip',
   'selectClips', 'clearSelection', 'setPlayheadPosition', 'setZoom',
   'toggleTrackMute', 'toggleTrackSolo', 'toggleTrackLock', 'toggleTrackVisibility',
   'setClipsEnabled', 'setClipLabelColor', 'addTrack', 'addTransition',
@@ -910,6 +916,7 @@ function Timeline({ onActiveToolChange, onStatusChange }) {
     removeDragDuplicates,
     resizeClip,
     updateClipTrim,
+    updateClipsTrim,
     updateAudioClipProperties,
     selectClip,
     selectClips,
@@ -1048,10 +1055,16 @@ function Timeline({ onActiveToolChange, onStatusChange }) {
   const toggleClipEnabledHotkeyLabel = formatEditorHotkey(editorHotkeys[EDITOR_HOTKEY_IDS.TOGGLE_CLIP_ENABLED])
   const addTextClipHotkeyLabel = formatEditorHotkey(editorHotkeys[EDITOR_HOTKEY_IDS.ADD_TEXT_CLIP])
   const addTransitionHotkeyLabel = formatEditorHotkey(editorHotkeys[EDITOR_HOTKEY_IDS.ADD_TRANSITION])
+  const frameAllHotkeyLabel = formatEditorHotkey(editorHotkeys[EDITOR_HOTKEY_IDS.FRAME_ALL])
+  const zoomOutHotkeyLabel = formatEditorHotkey(editorHotkeys[EDITOR_HOTKEY_IDS.ZOOM_OUT])
+  const zoomInHotkeyLabel = formatEditorHotkey(editorHotkeys[EDITOR_HOTKEY_IDS.ZOOM_IN])
   const isMacPlatform = typeof navigator !== 'undefined' && /mac|iphone|ipad/i.test(navigator.platform || '')
   const copyHotkeyLabel = `${isMacPlatform ? 'Cmd' : 'Ctrl'}+C`
   const pasteHotkeyLabel = `${isMacPlatform ? 'Cmd' : 'Ctrl'}+V`
   const durationByHotkeyHint = durationByHotkeyLabel === 'Not set' ? '' : durationByHotkeyLabel
+  const frameAllHotkeyHint = frameAllHotkeyLabel === 'Not set' ? '' : ` (${frameAllHotkeyLabel})`
+  const zoomOutHotkeyHint = zoomOutHotkeyLabel === 'Not set' ? '' : ` (${zoomOutHotkeyLabel})`
+  const zoomInHotkeyHint = zoomInHotkeyLabel === 'Not set' ? '' : ` (${zoomInHotkeyLabel})`
   const isClipEnabled = useCallback((clip) => clip?.enabled !== false, [])
   const getTrackGapAtTime = useCallback((trackId, time) => {
     if (!trackId || !Number.isFinite(time)) return null
@@ -1145,7 +1158,7 @@ function Timeline({ onActiveToolChange, onStatusChange }) {
     // Same speed/ramp/reverse/trim math the preview uses, so the source
     // player lands on the frame the monitor is showing.
     const seekTime = playheadInside
-      ? getClipPlaybackTimeAtTimeline(targetClip, playhead, 0)
+      ? getClipPlaybackTimeAtTimeline(targetClip, playhead, 0, { useFrameSampling: false })
       : (Number(targetClip.trimStart) || 0)
 
     const trimStart = Number(targetClip.trimStart) || 0
@@ -1163,7 +1176,7 @@ function Timeline({ onActiveToolChange, onStatusChange }) {
 
   // Hotkey target: a selected clip passing the predicate (preferring one
   // under the playhead), else the active track's clip at the playhead — the
-  // Premiere "targeted track" idiom adapted to Velorn's active track.
+  // Premiere "targeted track" idiom adapted to Lumeweft's active track.
   const resolveTargetedClip = useCallback((predicate) => {
     const state = useTimelineStore.getState()
     const playhead = getLivePlayhead()
@@ -2089,7 +2102,7 @@ function Timeline({ onActiveToolChange, onStatusChange }) {
   }, [getMinZoom, pixelsPerSecond, setZoom, zoom])
 
   // Frame all: fit full timeline or all clips in view
-  const handleFrameAll = () => {
+  const handleFrameAll = useCallback(() => {
     if (!timelineRef.current) return
     const visibleWidth = timelineRef.current.clientWidth
     if (visibleWidth <= 0) return
@@ -2109,7 +2122,7 @@ function Timeline({ onActiveToolChange, onStatusChange }) {
         timelineRef.current.scrollLeft = Math.max(0, startTime * newPixelsPerSecond)
       }
     })
-  }
+  }, [clips, duration, setZoom])
 
   // Filtered tracks by type (moved up for use in effects)
   const videoTracks = tracks.filter(t => t.type === 'video')
@@ -2878,6 +2891,7 @@ function Timeline({ onActiveToolChange, onStatusChange }) {
       enabled: isClipEnabled(clip),
       transform: clip.transform,
       effects: clip.effects,
+      frameSampling: clip.type === 'video' ? clip.frameSampling : undefined,
       ...(audioSplitState?.rightClipOptions || {}),
       saveHistory: false,
     })
@@ -3012,6 +3026,24 @@ function Timeline({ onActiveToolChange, onStatusChange }) {
       // shortcuts like Space, V/T/B/Y, and zoom still feel global.
       const active = document.activeElement
       if (isTextEditingElement(active)) return
+
+      if (matchEditorHotkey(e, editorHotkeys[EDITOR_HOTKEY_IDS.FRAME_ALL])) {
+        e.preventDefault()
+        handleFrameAll()
+        return
+      }
+
+      if (matchEditorHotkey(e, editorHotkeys[EDITOR_HOTKEY_IDS.ZOOM_OUT])) {
+        e.preventDefault()
+        applyZoomWithPlayheadPivot(zoom - 20)
+        return
+      }
+
+      if (matchEditorHotkey(e, editorHotkeys[EDITOR_HOTKEY_IDS.ZOOM_IN])) {
+        e.preventDefault()
+        applyZoomWithPlayheadPivot(zoom + 20)
+        return
+      }
 
       if (!e.ctrlKey && !e.metaKey && !e.altKey) {
         if (key === 'a') {
@@ -3244,7 +3276,7 @@ function Timeline({ onActiveToolChange, onStatusChange }) {
     return () => {
       window.removeEventListener('keydown', handleKeyDown)
     }
-  }, [toggleSnapping, toggleRippleEdit, addMarker, selectedClipIds, selectedGap, selectedTransitionId, selectedMarkerId, removeSelectedClips, rippleDeleteSelectedClips, rippleDeleteSelectedGap, removeTransition, removeMarker, clearSelection, selectMarker, clips, handleUndoAction, handleRedoAction, activeTrackId, saveToHistory, resizeClip, addClip, addTextClip, addShapeClip, addTextClipAtPlayhead, addShapeClipAtPlayhead, addAdjustmentClip, updateClipTrim, assets, timelineFps, copySelectedClips, pasteClipsAtPlayhead, copiedClips, selectClipsFromPlayheadToEnd, selectClipsFromTimelineStartToPlayhead, splitClipAtTime, splitAllTracksAtPlayhead, openMoveOffsetDialog, openDurationDeltaDialog, moveOffsetDialogOpen, durationDeltaDialogOpen, editorHotkeys, linkSelectedClips, unlinkSelectedClips, lockSyncClips, unlockSyncLockedClips, toggleClipSelectionEnabled, applyZoomWithPlayheadPivot, zoom, rippleEditMode, activeTrackClipAtPlayhead, canDeleteCurrentSelection, handleCopySelection, handleDeleteCurrentSelection, handlePasteAtPlayhead, handleSplitActiveTrackAtPlayhead, jumpPlayheadToClipBoundary, jumpPlayheadToMarker, clipContextSyncEligibleClips, clipContextSyncLockByClipId, clipContextAllSyncLocked])
+  }, [toggleSnapping, toggleRippleEdit, addMarker, selectedClipIds, selectedGap, selectedTransitionId, selectedMarkerId, removeSelectedClips, rippleDeleteSelectedClips, rippleDeleteSelectedGap, removeTransition, removeMarker, clearSelection, selectMarker, clips, handleUndoAction, handleRedoAction, activeTrackId, saveToHistory, resizeClip, addClip, addTextClip, addShapeClip, addTextClipAtPlayhead, addShapeClipAtPlayhead, addAdjustmentClip, updateClipTrim, assets, timelineFps, copySelectedClips, pasteClipsAtPlayhead, copiedClips, selectClipsFromPlayheadToEnd, selectClipsFromTimelineStartToPlayhead, splitClipAtTime, splitAllTracksAtPlayhead, openMoveOffsetDialog, openDurationDeltaDialog, moveOffsetDialogOpen, durationDeltaDialogOpen, editorHotkeys, linkSelectedClips, unlinkSelectedClips, lockSyncClips, unlockSyncLockedClips, toggleClipSelectionEnabled, applyZoomWithPlayheadPivot, handleFrameAll, zoom, rippleEditMode, activeTrackClipAtPlayhead, canDeleteCurrentSelection, handleCopySelection, handleDeleteCurrentSelection, handlePasteAtPlayhead, handleSplitActiveTrackAtPlayhead, jumpPlayheadToClipBoundary, jumpPlayheadToMarker, clipContextSyncEligibleClips, clipContextSyncLockByClipId, clipContextAllSyncLocked])
 
   // Spacebar panning key state (dedicated listeners so keyup cannot get "stuck")
   useEffect(() => {
@@ -4045,6 +4077,7 @@ function Timeline({ onActiveToolChange, onStatusChange }) {
               enabled: isClipEnabled(clip),
               transform: clip.transform,
               effects: clip.effects,
+              frameSampling: clip.type === 'video' ? clip.frameSampling : undefined,
               ...(clip.type === 'audio'
                 ? {
                     gainDb: clip.gainDb,
@@ -4140,24 +4173,35 @@ function Timeline({ onActiveToolChange, onStatusChange }) {
     if (slipState) setSlipState(null)
     if (fadeDragState) setFadeDragState(null)
     clearActiveSnap()
-    
-    // Save to history before trimming starts
-    saveToHistory()
-    
-    const timeScale = getTimeScale(clip)
-    const startTrimEnd = clip.trimEnd ?? clip.sourceDuration ?? ((clip.trimStart || 0) + clip.duration * timeScale)
 
-    setTrimState({
-      clipId,
-      edge,
-      startX: e.clientX,
-      startTime: clip.startTime,
-      startDuration: clip.duration,
-      startTrimStart: clip.trimStart || 0,
-      startTrimEnd: startTrimEnd,
+    const requestedTargetIds = getMultiClipTrimTargetIds({
+      selectedClipIds,
+      primaryClipId: clipId,
     })
-    
-    selectClip(clipId)
+    const editableTargetIds = requestedTargetIds.filter((targetClipId) => {
+      const targetClip = clips.find((candidate) => candidate.id === targetClipId)
+      const targetTrack = targetClip ? tracks.find((track) => track.id === targetClip.trackId) : null
+      return Boolean(targetClip) && !isSyncLockedClip(targetClip) && targetTrack?.locked !== true
+    })
+    const trimSession = createMultiClipTrimSession({
+      clips,
+      targetClipIds: editableTargetIds,
+      primaryClipId: clipId,
+      edge,
+      fps: timelineFps || 24,
+    })
+    if (!trimSession) return
+
+    // One history snapshot covers the full shared gesture, regardless of how
+    // many mousemove updates occur or how many selected clips are affected.
+    saveToHistory()
+    setTrimState({ ...trimSession, clipId, startX: e.clientX })
+
+    // Grabbing an edge on an already-selected clip must preserve the group.
+    // An unselected clip keeps the familiar single-clip trim behavior.
+    if (!selectedClipIds.includes(clipId)) {
+      selectClip(clipId)
+    }
   }
 
   const handleFadeDragStart = (e, clip, edge) => {
@@ -4222,159 +4266,21 @@ function Timeline({ onActiveToolChange, onStatusChange }) {
     
     const handleMouseMove = (e) => {
       const deltaX = e.clientX - trimState.startX
-      const deltaTime = deltaX / pixelsPerSecond
-      
-      const clip = clips.find(c => c.id === trimState.clipId)
-      if (!clip) return
-      const timeScale = getTimeScale(clip)
-      
-      // Find neighboring clips on the same track to prevent trimming past them
-      const trackClips = clips.filter(c => c.trackId === clip.trackId && c.id !== clip.id)
-      
-      // Find the clip immediately to the left (ends before or at our start)
-      const leftNeighbor = trackClips
-        .filter(c => c.startTime + c.duration <= clip.startTime + 0.01) // Small tolerance
-        .sort((a, b) => (b.startTime + b.duration) - (a.startTime + a.duration))[0]
-      
-      // Find the clip immediately to the right (starts at or after our end)
-      const rightNeighbor = trackClips
-        .filter(c => c.startTime >= clip.startTime + clip.duration - 0.01) // Small tolerance
-        .sort((a, b) => a.startTime - b.startTime)[0]
-      
-      if (trimState.edge === 'left') {
-        // Trimming from left: adjust startTime, duration, and trimStart
-        // When extending the head (dragging left), we're revealing more footage from the start
-        // When shortening the head (dragging right), we're hiding footage from the start
-        
-        let newStartTime = Math.max(0, trimState.startTime + deltaTime)
-        const minClipDurationSec = 1 / (timelineFps || 24)
-        const maxStartTime = trimState.startTime + trimState.startDuration - minClipDurationSec
-        newStartTime = Math.min(newStartTime, maxStartTime)
-        
-        // Calculate how much we're trying to change the head position
-        let timeDelta = newStartTime - trimState.startTime
-        
-        // Calculate what the new trimStart would be
-        // If timeDelta is negative (extending left), trimStart decreases
-        // trimStart can't go below 0 (can't reveal footage before the source start)
-        let newTrimStart = trimState.startTrimStart + timeDelta * timeScale
-        if (newTrimStart < 0 && !isInfinitelyExtendableClip(clip)) {
-          // Clamp: can only extend to where trimStart would be 0
-          const minStartTime = trimState.startTime - (trimState.startTrimStart / timeScale)
-          newStartTime = Math.max(newStartTime, minStartTime)
-          timeDelta = newStartTime - trimState.startTime
-          newTrimStart = 0
-        }
-        
-        // Don't trim past the left neighbor's end
-        if (leftNeighbor) {
-          const leftNeighborEnd = leftNeighbor.startTime + leftNeighbor.duration
-          if (newStartTime < leftNeighborEnd) {
-            newStartTime = leftNeighborEnd
-            timeDelta = newStartTime - trimState.startTime
-            newTrimStart = trimState.startTrimStart + timeDelta * timeScale
-          }
-        }
-        
-        // Apply snapping to the new start time
-        const snapResult = snapTrim(newStartTime, trimState.clipId)
-        if (snapResult.snapped) {
-          // Only apply snap if it doesn't violate constraints
-          let snappedTime = snapResult.time
-          
-          // Check source footage constraint
-          const snappedTrimStart = trimState.startTrimStart + (snappedTime - trimState.startTime) * timeScale
-          if (snappedTrimStart < 0 && !isInfinitelyExtendableClip(clip)) {
-            snappedTime = trimState.startTime - (trimState.startTrimStart / timeScale)
-          }
-          
-          // Check neighbor constraint
-          if (leftNeighbor) {
-            snappedTime = Math.max(snappedTime, leftNeighbor.startTime + leftNeighbor.duration)
-          }
-          
-          if (snappedTime === snapResult.time) {
-            newStartTime = snapResult.time
-            timeDelta = newStartTime - trimState.startTime
-            newTrimStart = trimState.startTrimStart + timeDelta * timeScale
-            setActiveSnapTime(snapResult.time)
-          } else {
-            clearActiveSnap()
-          }
-        } else {
-          clearActiveSnap()
-        }
-        
-        // Calculate the new duration
-        const newDuration = trimState.startDuration - timeDelta
-        
-        // Update the clip with all trim-related properties at once
-        updateClipTrim(trimState.clipId, {
-          startTime: newStartTime,
-          duration: newDuration,
-          trimStart: Math.max(0, newTrimStart) // Ensure trimStart doesn't go negative
-        })
+      const rawDelta = deltaX / pixelsPerSecond
+      const proposedPrimaryEdge = trimState.primaryEdgeTime + rawDelta
+      const snapResult = snapTrim(proposedPrimaryEdge, trimState.targetClipIds)
+      const requestedDelta = snapResult.snapped
+        ? snapResult.time - trimState.primaryEdgeTime
+        : rawDelta
+      const resolved = resolveMultiClipTrim(trimState, requestedDelta)
+
+      if (snapResult.snapped && Math.abs(resolved.delta - requestedDelta) < 1e-7) {
+        setActiveSnapTime(snapResult.time)
       } else {
-        // Trimming from right: adjust duration and trimEnd
-        let newEndTime = trimState.startTime + trimState.startDuration + deltaTime
-        
-        // Don't trim past the right neighbor's start
-        if (rightNeighbor) {
-          newEndTime = Math.min(newEndTime, rightNeighbor.startTime)
-        }
-        
-        // Apply snapping to the new end time
-        const snapResult = snapTrim(newEndTime, trimState.clipId)
-        if (snapResult.snapped) {
-          // Only apply snap if it doesn't go past the neighbor
-          let snappedTime = snapResult.time
-          if (rightNeighbor) {
-            snappedTime = Math.min(snappedTime, rightNeighbor.startTime)
-          }
-          if (snappedTime === snapResult.time) {
-            newEndTime = snapResult.time
-            setActiveSnapTime(snapResult.time)
-          } else {
-            clearActiveSnap()
-          }
-        } else {
-          clearActiveSnap()
-        }
-        
-        const minClipDurationSec = 1 / (timelineFps || 24)
-        let newDuration = Math.max(minClipDurationSec, newEndTime - trimState.startTime)
-        
-        // Don't exceed source duration if we have it
-        // The maximum duration is limited by how much source footage is available
-        // from the current trimStart to the end of the source
-        const currentTrimStart = trimState.startTrimStart
-        const rawSourceDuration = clip.sourceDuration
-        const parsedSourceDuration = rawSourceDuration === Infinity || rawSourceDuration === 'Infinity'
-          ? Infinity
-          : (rawSourceDuration === null || rawSourceDuration === undefined || rawSourceDuration === ''
-              ? null
-              : Number(rawSourceDuration))
-        const sourceDuration = parsedSourceDuration === Infinity || isInfinitelyExtendableClip(clip)
-          ? Infinity
-          : ((Number.isFinite(parsedSourceDuration) && parsedSourceDuration > 0)
-              ? parsedSourceDuration
-              : trimState.startTrimEnd)
-        if (Number.isFinite(sourceDuration)) {
-          const maxPossibleDuration = (sourceDuration - currentTrimStart) / timeScale
-          newDuration = Math.max(0.01, Math.min(newDuration, maxPossibleDuration))
-        }
-        
-        // Calculate the new trimEnd (where in the source footage the clip ends)
-        const unclampedTrimEnd = currentTrimStart + (newDuration * timeScale)
-        const newTrimEnd = Number.isFinite(sourceDuration)
-          ? Math.min(unclampedTrimEnd, sourceDuration)
-          : unclampedTrimEnd
-        
-        updateClipTrim(trimState.clipId, {
-          duration: newDuration,
-          trimEnd: newTrimEnd
-        })
+        clearActiveSnap()
       }
+
+      updateClipsTrim(resolved.updates)
     }
     
     const handleMouseUp = () => {
@@ -4389,7 +4295,7 @@ function Timeline({ onActiveToolChange, onStatusChange }) {
       window.removeEventListener('mousemove', handleMouseMove)
       window.removeEventListener('mouseup', handleMouseUp)
     }
-  }, [trimState, clips, pixelsPerSecond, moveClip, resizeClip, snapTrim, setActiveSnapTime, clearActiveSnap])
+  }, [trimState, pixelsPerSecond, snapTrim, setActiveSnapTime, clearActiveSnap, updateClipsTrim])
 
   // Handle clip drag start (mousedown on clip body, not trim handles)
   const handleClipDragStart = (e, clip) => {
@@ -5601,7 +5507,7 @@ function Timeline({ onActiveToolChange, onStatusChange }) {
           <button
             onClick={handleFrameAll}
             className="p-1.5 hover:bg-sf-dark-600 rounded text-sf-text-muted"
-            title={t('timelineEditor.tooltips.frameAll')}
+            title={`${t('timelineEditor.tooltips.frameAll')}${frameAllHotkeyHint}`}
           >
             <Maximize2 className="w-3.5 h-3.5" />
           </button>
@@ -5630,7 +5536,7 @@ function Timeline({ onActiveToolChange, onStatusChange }) {
             <button
               onClick={() => applyZoomWithPlayheadPivot(zoom - 50)}
               className="p-0.5 hover:bg-sf-dark-600 rounded text-sf-text-muted"
-              title={t('timelineEditor.tooltips.zoomOut')}
+              title={`${t('timelineEditor.tooltips.zoomOut')}${zoomOutHotkeyHint}`}
             >
               <span className="text-xs">−</span>
             </button>
@@ -5645,7 +5551,7 @@ function Timeline({ onActiveToolChange, onStatusChange }) {
             <button
               onClick={() => applyZoomWithPlayheadPivot(zoom + 50)}
               className="p-0.5 hover:bg-sf-dark-600 rounded text-sf-text-muted"
-              title={t('timelineEditor.tooltips.zoomIn')}
+              title={`${t('timelineEditor.tooltips.zoomIn')}${zoomInHotkeyHint}`}
             >
               <span className="text-xs">+</span>
             </button>
@@ -6209,7 +6115,7 @@ function Timeline({ onActiveToolChange, onStatusChange }) {
                     <div
                       className={`absolute top-0 bottom-0 rounded-sm overflow-hidden ${
                         selectedClipIds.includes(clip.id) ? 'ring-2 ring-white ring-offset-1 ring-offset-sf-dark-900' : ''
-                      } ${trimState?.clipId === clip.id ? 'ring-2 ring-sf-accent' : ''} ${
+                      } ${trimState?.targetClipIds?.includes(clip.id) ? 'ring-2 ring-sf-accent' : ''} ${
                         slipState?.clipId === clip.id ? 'ring-2 ring-yellow-400 cursor-ew-resize z-30' : ''
                       } ${
                         clipDragState?.movingClipIds?.includes(clip.id)
@@ -6288,7 +6194,7 @@ function Timeline({ onActiveToolChange, onStatusChange }) {
                             className="text-[11px] text-sf-text-primary font-medium truncate"
                             style={{
                               textShadow: '0 1px 2px rgba(0,0,0,0.5)',
-                              fontFamily: clip.textProperties?.fontFamily || 'Inter'
+                              fontFamily: quoteCssFontFamily(clip.textProperties?.fontFamily)
                             }}
                           >
                             {clip.textProperties?.text || 'Text'}

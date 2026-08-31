@@ -109,7 +109,7 @@ export async function importImageSequenceAsAsset({ projectDir, sequence, fps, jo
     baseName: sequenceBaseName(sequence),
     alpha: 'auto',
     // Linear EXR baked to display through the standard curve; experimental
-    // until Velorn does real color management.
+    // until Lumeweft does real color management.
     applyTrc: isExr ? 'bt709' : null,
     jobId: jobId || null,
   })
@@ -134,6 +134,7 @@ export async function importImageSequenceAsAsset({ projectDir, sequence, fps, jo
     settings: {
       duration: assetInfo.duration,
       fps: assetInfo.fps || safeFps,
+      hasAlpha: Boolean(result.alpha),
       // The provenance tag: everything needed to re-interpret or regenerate
       // this sequence later (different fps, better transform) from the
       // original frames on disk.

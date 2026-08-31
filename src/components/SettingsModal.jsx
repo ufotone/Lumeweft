@@ -3,7 +3,7 @@ import {
   X, Server, FolderOpen, Palette, Monitor, Save,
   HardDrive, Film, Keyboard, Wrench, Power,
   KeyRound, CheckCircle2, ExternalLink, Loader2, RefreshCcw,
-  Volume2, Play, Bot, Copy, Globe2, Cloud,
+  Volume2, Play, Bot, Copy, MessageSquare, Globe2, Cloud,
 } from 'lucide-react'
 import useProjectStore, { RESOLUTION_PRESETS, FPS_PRESETS } from '../stores/projectStore'
 import useTimelineStore from '../stores/timelineStore'
@@ -24,6 +24,7 @@ import {
   DEFAULT_EDITOR_HOTKEYS,
   EDITOR_HOTKEY_DEFINITIONS,
   EDITOR_HOTKEY_PRESETS,
+  assignEditorHotkeyBinding,
   formatEditorHotkey,
   getEditorHotkeys,
   getEditorHotkeyPresetMatch,
@@ -63,6 +64,12 @@ import {
   setImportedWorkflowRuntime,
   testCloudRuntime,
 } from '../services/cloudRuntimes'
+import {
+  DISCOVER_TAB_VISIBILITY_CHANGED_EVENT,
+  getShowDiscoverTab,
+  hydrateShowDiscoverTab,
+  setShowDiscoverTab,
+} from '../services/discoverTabVisibilitySettings.mjs'
 
 const AUTO_IMPORT_KEY = 'comfystudio-auto-import-comfy-outputs'
 const OUTPUT_DIRECTORY_SETTING_KEY = 'outputDirectory'
@@ -219,6 +226,7 @@ function GeneralTab({ initialSection = null, initialFocusTarget = '', workflowSe
     getGenerationCompletionSoundSettings()
   ))
   const [showCloudCreditBalance, setShowCloudCreditBalanceState] = useState(() => getShowCloudCreditBalance())
+  const [showDiscoverTab, setShowDiscoverTabState] = useState(getShowDiscoverTab)
   const [pexelsApiKey, setPexelsApiKeyLocal] = useState('')
   const [comfyOrgApiKey, setComfyOrgApiKey] = useState('')
   const [apiKeyDialogOpen, setApiKeyDialogOpen] = useState(false)
@@ -425,16 +433,7 @@ function GeneralTab({ initialSection = null, initialFocusTarget = '', workflowSe
         return
       }
 
-      setEditorHotkeysState((prev) => {
-        const next = { ...prev }
-        for (const definition of EDITOR_HOTKEY_DEFINITIONS) {
-          if (definition.id !== recordingHotkeyId && next[definition.id] === binding) {
-            next[definition.id] = ''
-          }
-        }
-        next[recordingHotkeyId] = binding
-        return next
-      })
+      setEditorHotkeysState((prev) => assignEditorHotkeyBinding(prev, recordingHotkeyId, binding))
       setRecordingHotkeyId(null)
       setHotkeysError('')
     }
@@ -502,6 +501,22 @@ function GeneralTab({ initialSection = null, initialFocusTarget = '', workflowSe
     return () => window.removeEventListener(GENERATION_COMPLETION_SOUND_CHANGED_EVENT, handler)
   }, [])
 
+  useEffect(() => {
+    let cancelled = false
+    hydrateShowDiscoverTab().then((show) => {
+      if (!cancelled) setShowDiscoverTabState(show)
+    }).catch(() => {})
+
+    const handler = (event) => {
+      setShowDiscoverTabState(event?.detail?.show !== false)
+    }
+    window.addEventListener(DISCOVER_TAB_VISIBILITY_CHANGED_EVENT, handler)
+    return () => {
+      cancelled = true
+      window.removeEventListener(DISCOVER_TAB_VISIBILITY_CHANGED_EVENT, handler)
+    }
+  }, [])
+
   // Keep the Settings view in sync if the key is saved/cleared from any
   // other surface (Onboarding, Workflow Setup gallery, Generate tab).
   useEffect(() => {
@@ -531,6 +546,12 @@ function GeneralTab({ initialSection = null, initialFocusTarget = '', workflowSe
   const handleToggleCloudCreditBalance = () => {
     const next = setShowCloudCreditBalance(!showCloudCreditBalance)
     setShowCloudCreditBalanceState(next)
+  }
+
+  const handleToggleDiscoverTab = () => {
+    const next = !showDiscoverTab
+    setShowDiscoverTabState(next)
+    setShowDiscoverTab(next).catch(() => {})
   }
 
   const handleCopyMcpText = async (id, text) => {
@@ -1730,6 +1751,27 @@ function GeneralTab({ initialSection = null, initialFocusTarget = '', workflowSe
               <div className={`w-4 h-4 bg-white rounded-full transition-transform ${showTimelineClipThumbnails ? 'translate-x-5' : 'translate-x-0.5'}`} />
             </button>
           </div>
+
+          <div className="flex items-center justify-between rounded-lg border border-sf-dark-700 bg-sf-dark-900/60 px-3 py-3">
+            <div className="pr-4">
+              <label className="text-sm text-sf-text-primary">{t('settings.appearance.discoverTab')}</label>
+              <p className="text-[10px] text-sf-text-muted">{t('settings.appearance.discoverTabHelp')}</p>
+            </div>
+            <button
+              type="button"
+              role="switch"
+              aria-checked={showDiscoverTab}
+              aria-label={t('settings.appearance.discoverTab')}
+              onClick={handleToggleDiscoverTab}
+              className={`relative h-5 w-10 flex-shrink-0 rounded-full transition-colors ${showDiscoverTab ? 'bg-sf-accent' : 'bg-sf-dark-600'}`}
+              title={t(showDiscoverTab ? 'settings.appearance.hideDiscoverTab' : 'settings.appearance.showDiscoverTab')}
+            >
+              <span
+                className={`absolute top-0.5 h-4 w-4 rounded-full bg-white shadow transition-all ${showDiscoverTab ? 'left-[calc(100%-1.25rem)]' : 'left-0.5'}`}
+                aria-hidden
+              />
+            </button>
+          </div>
         </div>
       )
       break
@@ -1910,7 +1952,7 @@ function GeneralTab({ initialSection = null, initialFocusTarget = '', workflowSe
                   <button
                     type="button"
                     onClick={() => {
-                      setEditorHotkeysState((prev) => ({ ...prev, [definition.id]: definition.defaultBinding || '' }))
+                      setEditorHotkeysState((prev) => assignEditorHotkeyBinding(prev, definition.id, definition.defaultBinding || ''))
                       setHotkeysError('')
                     }}
                     className="rounded bg-sf-dark-700 px-2.5 py-1.5 text-[10px] text-sf-text-muted transition-colors hover:bg-sf-dark-600"

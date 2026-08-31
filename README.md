@@ -13,6 +13,8 @@
 
 [Help translate the Lumeweft interface](docs/LOCALIZATION.md)
 
+[Help translate the Velorn interface](docs/LOCALIZATION.md)
+
 </div>
 
 Lumeweft is an independent, open-source desktop AI media workstation for creators who use ComfyUI. It brings planning, generation, asset management, timeline editing, captions, effects, and export into one project-based app.

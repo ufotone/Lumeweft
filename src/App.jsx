@@ -33,6 +33,12 @@ import { startMcpSnapshotPublisher } from './services/mcpSnapshot'
 import { MCP_ACTION_BRIDGE_VERSION, startMcpActionBridge } from './services/mcpActions'
 import { attachProjectDirtyWatchers, isProjectDirty } from './services/projectDirtyTracker'
 import { COMFY_IFRAME_LOADED_EVENT, OPEN_COMFY_TAB_EVENT } from './config/generateWorkspaceConfig'
+import { VELORN_OPEN_STOCK_EVENT } from './services/pexelsStock'
+import {
+  DISCOVER_TAB_VISIBILITY_CHANGED_EVENT,
+  getShowDiscoverTab,
+  hydrateShowDiscoverTab,
+} from './services/discoverTabVisibilitySettings.mjs'
 
 // Tab workspaces load on first visit instead of shipping in the startup
 // bundle. This keeps launch parse time down; GenerateWorkspace alone carries
@@ -47,6 +53,7 @@ const AgentWorkspace = lazy(() => import('./components/AgentWorkspace'))
 const MOGWorkspace = lazy(() => import('./components/MOGWorkspace'))
 const loadStockPanel = () => import('./components/StockPanel')
 const StockPanel = lazy(loadStockPanel)
+const DiscoverWorkspace = lazy(() => import('./components/DiscoverWorkspace'))
 
 const WORKSPACE_LOADING_FALLBACK = (
   <div className="flex-1 flex items-center justify-center bg-sf-dark-950 text-xs text-sf-text-muted">
@@ -80,6 +87,7 @@ function App() {
   const [flowAiReloadNonce, setFlowAiReloadNonce] = useState(0)
   const [flowAiTemplateRequest, setFlowAiTemplateRequest] = useState(null)
   const [hasMountedGenerate, setHasMountedGenerate] = useState(false)
+  const [showDiscoverTab, setShowDiscoverTabState] = useState(getShowDiscoverTab)
   const [bottomEditorView, setBottomEditorView] = useState('timeline')
   const [activeTimelineToolLabel, setActiveTimelineToolLabel] = useState('Move tool')
   const [timelineStatusText, setTimelineStatusText] = useState('')
@@ -357,6 +365,28 @@ function App() {
     }
   }, [mainTab])
 
+  useEffect(() => {
+    let cancelled = false
+    hydrateShowDiscoverTab().then((show) => {
+      if (!cancelled) setShowDiscoverTabState(show)
+    }).catch(() => {})
+
+    const handleVisibilityChanged = (event) => {
+      setShowDiscoverTabState(event?.detail?.show !== false)
+    }
+    window.addEventListener(DISCOVER_TAB_VISIBILITY_CHANGED_EVENT, handleVisibilityChanged)
+    return () => {
+      cancelled = true
+      window.removeEventListener(DISCOVER_TAB_VISIBILITY_CHANGED_EVENT, handleVisibilityChanged)
+    }
+  }, [])
+
+  useEffect(() => {
+    if (!showDiscoverTab && mainTab === 'discover') {
+      setMainTab('editor')
+    }
+  }, [mainTab, showDiscoverTab])
+
   // When user sends timeline frame to Generate (right-click preview → Extend with AI / Starting keyframe for AI)
   useEffect(() => {
     const handler = () => setMainTab('generate')
@@ -368,6 +398,12 @@ function App() {
     const handler = () => setMainTab('generate')
     window.addEventListener('comfystudio-open-generate-tab', handler)
     return () => window.removeEventListener('comfystudio-open-generate-tab', handler)
+  }, [])
+
+  useEffect(() => {
+    const handler = () => setMainTab('stock')
+    window.addEventListener(VELORN_OPEN_STOCK_EVENT, handler)
+    return () => window.removeEventListener(VELORN_OPEN_STOCK_EVENT, handler)
   }, [])
 
   // Reveal-in-assets (timeline clip menu / Shift+F): make sure the Assets
@@ -667,6 +703,7 @@ function App() {
         projectName={currentProject?.name || 'Untitled'}
         activeTab={mainTab}
         onTabChange={setMainTab}
+        showDiscoverTab={showDiscoverTab}
         editorLayout={editorLayout}
         onEditorLayoutChange={handleEditorLayoutChange}
       />
@@ -925,6 +962,13 @@ function App() {
           <WorkspaceErrorBoundary>
             <Suspense fallback={WORKSPACE_LOADING_FALLBACK}>
               <StockPanel onOpenApiSettings={() => openSettingsModal('stock')} />
+            </Suspense>
+          </WorkspaceErrorBoundary>
+        )}
+        {mainTab === 'discover' && showDiscoverTab && (
+          <WorkspaceErrorBoundary>
+            <Suspense fallback={WORKSPACE_LOADING_FALLBACK}>
+              <DiscoverWorkspace />
             </Suspense>
           </WorkspaceErrorBoundary>
         )}

@@ -6,39 +6,24 @@ import { importAsset, isElectron } from '../services/fileSystem'
 import { enqueuePlaybackTranscode } from '../services/playbackCache'
 import { enqueueProxyTranscode, isProxyPlaybackEnabled } from '../services/proxyCache'
 import { getPexelsApiKey, PEXELS_API_KEY_CHANGED_EVENT } from '../services/pexelsSettings'
+import {
+  PEXELS_DEFAULT_PER_PAGE,
+  VELORN_OPEN_STOCK_EVENT,
+  buildPexelsAssetRecord,
+  downloadPexelsMediaItem,
+  getBestPexelsVideoFile,
+  loadDefaultPexelsMedia,
+  readPexelsStockPanelState,
+  searchPexelsMedia,
+  writePexelsStockPanelState,
+} from '../services/pexelsStock'
 import { useI18n } from '../i18n/I18nContext'
 
-const PEXELS_PHOTOS_URL = 'https://api.pexels.com/v1/search'
-const PEXELS_VIDEOS_URL = 'https://api.pexels.com/videos/search'
-const PEXELS_CURATED_PHOTOS_URL = 'https://api.pexels.com/v1/curated'
-const PEXELS_POPULAR_VIDEOS_URL = 'https://api.pexels.com/videos/popular'
-const PER_PAGE = 20
-const STOCK_PANEL_STORAGE_KEY = 'comfystudio-stock-panel-state-v1'
-
-function loadPersistedStockState() {
-  try {
-    const raw = localStorage.getItem(STOCK_PANEL_STORAGE_KEY)
-    if (!raw) return null
-    return JSON.parse(raw)
-  } catch (error) {
-    console.error('Failed to load Stock panel state:', error)
-    return null
-  }
-}
-
-/** Pick best video file for playback or download (prefer HD mp4). */
-function getBestVideoUrl(item) {
-  const files = item?.video_files || []
-  const best = files.find(f => f.quality === 'hd' && f.file_type === 'video/mp4')
-    || files.find(f => f.quality === 'hd')
-    || files.find(f => f.file_type === 'video/mp4')
-    || files[0]
-  return best?.link || null
-}
+const PER_PAGE = PEXELS_DEFAULT_PER_PAGE
 
 function StockPanel({ onOpenApiSettings = null }) {
   const { t } = useI18n()
-  const persistedState = loadPersistedStockState()
+  const persistedState = readPexelsStockPanelState()
   const [apiKey, setApiKey] = useState(null)
   const [searchQuery, setSearchQuery] = useState(persistedState?.searchQuery || '')
   const [mediaType, setMediaType] = useState(
@@ -71,19 +56,35 @@ function StockPanel({ onOpenApiSettings = null }) {
 
   // Persist panel state so tab switches keep current stock context/results.
   useEffect(() => {
-    try {
-      localStorage.setItem(STOCK_PANEL_STORAGE_KEY, JSON.stringify({
-        searchQuery,
-        mediaType,
-        results,
-        page,
-        totalResults,
-        isDefaultContent,
-      }))
-    } catch (error) {
-      console.error('Failed to save Stock panel state:', error)
-    }
+    writePexelsStockPanelState({
+      searchQuery,
+      mediaType,
+      results,
+      page,
+      totalResults,
+      isDefaultContent,
+    })
   }, [searchQuery, mediaType, results, page, totalResults, isDefaultContent])
+
+  // MCP searches can open an already-mounted Stock tab. A newly-mounted tab
+  // hydrates the same payload from localStorage above; this event handles the
+  // case where the tab was already visible when the search completed.
+  useEffect(() => {
+    const handler = (event) => {
+      const state = event?.detail?.stockState
+      if (!state || !Array.isArray(state.results)) return
+      setSearchQuery(String(state.searchQuery || ''))
+      setMediaType(state.mediaType === 'photos' ? 'photos' : 'videos')
+      setResults(state.results)
+      setPage(Math.max(1, Number(state.page) || 1))
+      setTotalResults(Math.max(0, Number(state.totalResults) || 0))
+      setIsDefaultContent(Boolean(state.isDefaultContent))
+      setError(null)
+      setPreviewVideo(null)
+    }
+    window.addEventListener(VELORN_OPEN_STOCK_EVENT, handler)
+    return () => window.removeEventListener(VELORN_OPEN_STOCK_EVENT, handler)
+  }, [])
 
   // Fetch trending/popular content when no search query (first visit or cleared search)
   const loadDefaultContent = useCallback(async (pageNum = 1) => {
@@ -91,31 +92,18 @@ function StockPanel({ onOpenApiSettings = null }) {
     setError(null)
     setLoading(true)
     try {
-      const url = mediaType === 'videos'
-        ? `${PEXELS_POPULAR_VIDEOS_URL}?per_page=${PER_PAGE}&page=${pageNum}`
-        : `${PEXELS_CURATED_PHOTOS_URL}?per_page=${PER_PAGE}&page=${pageNum}`
-      const res = await fetch(url, { headers: { Authorization: apiKey } })
-      if (!res.ok) {
-        if (res.status === 401) throw new Error('Invalid Pexels API key.')
-        throw new Error(`Request failed: ${res.status}`)
-      }
-      const data = await res.json()
-      if (mediaType === 'videos') {
-        setResults(data.videos || [])
-        setTotalResults(data.total_results || 0)
-      } else {
-        setResults(data.photos || [])
-        setTotalResults(data.total_results || 0)
-      }
-      setPage(pageNum)
+      const response = await loadDefaultPexelsMedia({ apiKey, mediaType, page: pageNum, perPage: PER_PAGE })
+      setResults(response.items)
+      setTotalResults(response.totalResults)
+      setPage(response.page)
       setIsDefaultContent(true)
     } catch (err) {
-      setError(err.message || 'Failed to load content')
+      setError(err.message || t('stock.loadFailed'))
       setResults([])
     } finally {
       setLoading(false)
     }
-  }, [apiKey, mediaType])
+  }, [apiKey, mediaType, t])
 
   // When API key is ready and there's no search query, show trending/popular
   useEffect(() => {
@@ -126,103 +114,57 @@ function StockPanel({ onOpenApiSettings = null }) {
 
   const search = useCallback(async (pageNum = 1) => {
     if (!apiKey) {
-      setError('Add your Pexels API key in Settings (left panel → Settings).')
+      setError(t('stock.apiKeyMissing'))
       return
     }
     const query = searchQuery.trim()
     if (!query) {
-      setError('Enter a search term.')
+      setError(t('stock.searchTermRequired'))
       return
     }
     setError(null)
     setIsDefaultContent(false)
     setLoading(true)
     try {
-      const url = mediaType === 'videos'
-        ? `${PEXELS_VIDEOS_URL}?query=${encodeURIComponent(query)}&per_page=${PER_PAGE}&page=${pageNum}`
-        : `${PEXELS_PHOTOS_URL}?query=${encodeURIComponent(query)}&per_page=${PER_PAGE}&page=${pageNum}`
-      const res = await fetch(url, {
-        headers: { Authorization: apiKey },
-      })
-      if (!res.ok) {
-        const errText = await res.text()
-        if (res.status === 401) throw new Error('Invalid Pexels API key.')
-        throw new Error(errText || `Request failed: ${res.status}`)
-      }
-      const data = await res.json()
-      if (mediaType === 'videos') {
-        setResults(data.videos || [])
-        setTotalResults(data.total_results || 0)
-      } else {
-        setResults(data.photos || [])
-        setTotalResults(data.total_results || 0)
-      }
-      setPage(pageNum)
+      const response = await searchPexelsMedia({ apiKey, query, mediaType, page: pageNum, perPage: PER_PAGE })
+      setResults(response.items)
+      setTotalResults(response.totalResults)
+      setPage(response.page)
     } catch (err) {
-      setError(err.message || 'Search failed')
+      setError(err.message || t('stock.searchFailed'))
       setResults([])
     } finally {
       setLoading(false)
     }
-  }, [apiKey, searchQuery, mediaType])
+  }, [apiKey, searchQuery, mediaType, t])
 
   const handleAddToProject = async (item) => {
     if (!currentProjectHandle) {
-      setError('Open or create a project first.')
+      setError(t('stock.projectRequired'))
       return
     }
     setAddingId(item.id)
     setError(null)
     try {
-      if (mediaType === 'photos') {
-        const url = item.src?.original || item.src?.large
-        if (!url) throw new Error('No image URL')
-        const res = await fetch(url)
-        if (!res.ok) throw new Error('Failed to download image')
-        const blob = await res.blob()
-        const ext = blob.type === 'image/png' ? 'png' : 'jpg'
-        const file = new File([blob], `pexels_${item.id}.${ext}`, { type: blob.type })
-        const assetInfo = await importAsset(currentProjectHandle, file, 'images')
-        const blobUrl = URL.createObjectURL(blob)
-        addAsset({
-          ...assetInfo,
-          name: assetInfo.name || `Pexels_${item.id}`,
-          type: 'image',
-          url: blobUrl,
-          folderId: null,
-          isImported: true,
-        })
-      } else {
-        // Pick best video file (prefer hd, then first mp4)
-        const videoUrl = getBestVideoUrl(item)
-        if (!videoUrl) throw new Error('No video download URL')
-        const res = await fetch(videoUrl)
-        if (!res.ok) throw new Error('Failed to download video')
-        const blob = await res.blob()
-        const file = new File([blob], `pexels_${item.id}.mp4`, { type: 'video/mp4' })
-        const assetInfo = await importAsset(currentProjectHandle, file, 'video')
-        const blobUrl = URL.createObjectURL(blob)
-        const best = item.video_files?.find(f => f.quality === 'hd' && f.file_type === 'video/mp4')
-          || item.video_files?.find(f => f.quality === 'hd')
-          || item.video_files?.[0]
-        const newAsset = addAsset({
-          ...assetInfo,
-          name: assetInfo.name || `Pexels_${item.id}`,
-          type: 'video',
-          url: blobUrl,
-          folderId: null,
-          isImported: true,
-          settings: { duration: item.duration, fps: best?.fps },
-        })
-        if (isElectron() && currentProjectHandle && newAsset?.absolutePath) {
-          enqueuePlaybackTranscode(currentProjectHandle, newAsset.id, newAsset.absolutePath).catch(() => {})
-          if (isProxyPlaybackEnabled()) {
-            enqueueProxyTranscode(currentProjectHandle, newAsset.id, newAsset.absolutePath).catch(() => {})
-          }
+      const downloaded = await downloadPexelsMediaItem({ item, mediaType })
+      const assetInfo = await importAsset(currentProjectHandle, downloaded.file, downloaded.spec.category)
+      const blobUrl = URL.createObjectURL(downloaded.blob)
+      const newAsset = addAsset(buildPexelsAssetRecord({
+        item,
+        mediaType,
+        query: searchQuery,
+        imported: assetInfo,
+        blobUrl,
+        sourceTool: 'stock_panel',
+      }))
+      if (downloaded.spec.assetType === 'video' && isElectron() && currentProjectHandle && newAsset?.absolutePath) {
+        enqueuePlaybackTranscode(currentProjectHandle, newAsset.id, newAsset.absolutePath).catch(() => {})
+        if (isProxyPlaybackEnabled()) {
+          enqueueProxyTranscode(currentProjectHandle, newAsset.id, newAsset.absolutePath).catch(() => {})
         }
       }
     } catch (err) {
-      setError(err.message || 'Failed to add to project')
+      setError(err.message || t('stock.addFailed'))
     } finally {
       setAddingId(null)
     }
@@ -323,7 +265,7 @@ function StockPanel({ onOpenApiSettings = null }) {
             <AlertCircle className="w-12 h-12 text-sf-accent mx-auto mb-3" />
             <p className="text-sm text-sf-text-primary mb-2">{t('stock.apiRequired')}</p>
             <p className="text-xs text-sf-text-muted mb-4">
-              Get a free API key at{' '}
+              {t('stock.apiGetKeyAt')}{' '}
               <a href="https://www.pexels.com/api/" target="_blank" rel="noopener noreferrer" className="text-sf-accent hover:underline">
                 pexels.com/api
               </a>
@@ -485,7 +427,7 @@ function StockPanel({ onOpenApiSettings = null }) {
             </button>
             <div className="flex-1 min-h-0 flex items-center justify-center p-4">
               <video
-                src={getBestVideoUrl(previewVideo)}
+                src={getBestPexelsVideoFile(previewVideo)?.link || ''}
                 controls
                 className="max-w-full max-h-[70vh] w-full rounded"
                 preload="metadata"

@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react'
+import { lazy, Suspense, useState, useEffect, useRef } from 'react'
 import { FolderOpen, Plus, Film, AlertCircle, Loader2, Trash2, KeyRound, CheckCircle2, Compass, LayoutGrid, List, Minus, Square, Copy, X } from 'lucide-react'
 import useProjectStore from '../stores/projectStore'
 import useAssetsStore from '../stores/assetsStore'
@@ -15,6 +15,8 @@ import {
 import { CLOUD_RUNTIME_SETTINGS_CHANGED_EVENT, getCloudRuntimeSettings } from '../services/cloudRuntimes'
 import { resolveThumbnailUrl } from '../utils/projectThumbnail'
 import { useI18n } from '../i18n/I18nContext'
+
+const DiscoverModal = lazy(() => import('./DiscoverModal'))
 
 const WELCOME_ASSET_BASE_URL = (() => {
   const rawBase = typeof import.meta !== 'undefined' && import.meta.env?.BASE_URL
@@ -161,6 +163,7 @@ function WelcomeScreen() {
   // by project path (Electron) or name (web fallback).
   const [thumbnailUrls, setThumbnailUrls] = useState({})
   const [gettingStartedOpen, setGettingStartedOpen] = useState(false)
+  const [discoverOpen, setDiscoverOpen] = useState(false)
   const [apiKeyDialogOpen, setApiKeyDialogOpen] = useState(false)
   const [partnerKeyConfigured, setPartnerKeyConfigured] = useState(false)
   const [externalRuntimeKeyConfigured, setExternalRuntimeKeyConfigured] = useState(false)
@@ -491,7 +494,7 @@ function WelcomeScreen() {
           <div className="max-w-md w-full mx-4">
           {/* Branding */}
           <div className="text-center mb-8">
-            <h1 className="text-4xl font-bold text-sf-text-primary">Velorn</h1>
+            <h1 className="text-4xl font-bold text-sf-text-primary">Lumeweft</h1>
           </div>
           
           {/* Browser Support Warning - only show in web mode */}
@@ -607,6 +610,15 @@ function WelcomeScreen() {
       </div>
 
       <div className="flex items-center gap-3">
+        <button
+          type="button"
+          onClick={() => setDiscoverOpen(true)}
+          className="flex h-9 items-center gap-2 rounded-lg border border-sf-dark-700 bg-sf-dark-900 px-3 text-xs font-medium text-sf-text-secondary transition-colors hover:bg-sf-dark-800 hover:text-sf-text-primary"
+          title={t('welcome.discoverHelp')}
+        >
+          <Film className="h-4 w-4 text-sf-accent" />
+          {t('welcome.discover')}
+        </button>
         <button
           onClick={() => setGettingStartedOpen(true)}
           className="flex h-9 w-9 items-center justify-center rounded-lg text-sf-text-muted transition-colors hover:bg-sf-dark-800 hover:text-sf-text-primary"
@@ -993,6 +1005,21 @@ function WelcomeScreen() {
         }}
         onNavigate={null}
       />
+
+      {discoverOpen && (
+        <Suspense
+          fallback={(
+            <div className="fixed inset-0 z-[95] flex items-center justify-center bg-black/75">
+              <div className="flex items-center gap-2 rounded-xl border border-sf-dark-700 bg-sf-dark-900 px-4 py-3 text-sm text-sf-text-secondary shadow-2xl">
+                <Loader2 className="h-4 w-4 animate-spin text-sf-accent" />
+                {t('welcome.discoverLoading')}
+              </div>
+            </div>
+          )}
+        >
+          <DiscoverModal isOpen={discoverOpen} onClose={() => setDiscoverOpen(false)} />
+        </Suspense>
+      )}
 
       {/* Settings Modal (reachable from Getting Started while no project is open) */}
       {settingsOpen && (

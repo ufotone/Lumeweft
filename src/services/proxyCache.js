@@ -28,6 +28,7 @@
  */
 
 import { isElectron } from './fileSystem'
+import { canUseOpaqueVideoDerivative } from '../utils/alphaMedia.mjs'
 import { getProjectFileUrl } from './fileSystem'
 
 const CACHE_DIR = 'cache'
@@ -88,7 +89,11 @@ export async function isProxySourceStale(projectDir, asset) {
  * disagree on what "ready" means.
  */
 export function hasUsableProxy(asset) {
-  return Boolean(asset?.proxyStatus === 'ready' && asset?.proxyPath)
+  return Boolean(
+    canUseOpaqueVideoDerivative(asset)
+    && asset?.proxyStatus === 'ready'
+    && asset?.proxyPath
+  )
 }
 
 /**
@@ -104,6 +109,10 @@ export function hasUsableProxy(asset) {
  */
 export function isProxyableVideoAsset(asset) {
   if (!asset || asset.type !== 'video') return false
+  // Proxy output is H.264 MP4 and cannot represent alpha. Keep transparent
+  // masters on their canonical source path instead of baking opacity into a
+  // cache that preview could prefer over the source.
+  if (asset.settings?.hasAlpha === true) return false
   return Boolean(asset.absolutePath || asset.path)
 }
 
@@ -197,6 +206,8 @@ export async function enqueueProxyTranscode(projectDir, assetId, sourcePath, opt
 
   const { useAssetsStore } = await import('../stores/assetsStore')
   const store = useAssetsStore.getState()
+  const currentAsset = store.assets.find((asset) => asset.id === assetId)
+  if (currentAsset && !isProxyableVideoAsset(currentAsset)) return
   // Signature of the source as it exists RIGHT NOW — recorded with the
   // proxy on success so later loads can detect in-place source replacement.
   const currentSignature = await buildProxySourceSignature(sourcePath)
@@ -204,7 +215,7 @@ export async function enqueueProxyTranscode(projectDir, assetId, sourcePath, opt
   // but a ready proxy whose recorded source signature no longer matches
   // the file on disk is stale and DOES re-encode.
   if (!options.force) {
-    const existing = store.assets.find((a) => a.id === assetId)
+    const existing = currentAsset
     const existingIsStale = Boolean(
       existing?.proxySourceSignature
       && currentSignature

@@ -1,6 +1,8 @@
 import useTimelineStore from '../stores/timelineStore'
 import useAssetsStore from '../stores/assetsStore'
 import useProjectStore from '../stores/projectStore'
+import { hasUsableProxy } from './proxyCache'
+import { shouldUseWebCodecsForAsset, supportsTransparentExport } from '../utils/alphaMedia.mjs'
 import { getAnimatedTransform, getAnimatedAdjustmentSettings, getAnimatedTextProperties, getAnimatedShapeProperties, getAnimatedShapeMask } from '../utils/keyframes'
 import {
   applyAdjustmentSettingsToImageData,
@@ -38,9 +40,10 @@ import {
 import { applyGlslEffectsToCanvas, hasGlslEffect } from '../utils/glslEffects'
 import { cullVisualLayerEntries, getTransitionClipIds } from '../utils/layerCompositing'
 import { parseTrackMatte, resolveTrackMatteAssignments, applyTrackMatteToCanvas } from '../utils/trackMatte'
-import { hasSpeedRamp, getRampedSourceOffset } from '../utils/timeRemap'
+import { getRenderableVideoClipIds } from '../utils/exportVideoClipEligibility'
 import { hasActiveCornerPin, applyCornerPinToQuad } from '../utils/cornerPin'
 import { drawShape, getShapeCanvasRect } from '../utils/shapes'
+import { quoteCssFontFamily } from '../utils/fontFamily'
 import { getMotionBlurSamples, getVelocityMotionBlurOptions } from '../utils/motionBlur'
 import { applyVelocityMotionBlurToCanvas, buildVelocityBlurUniformValues, canUseVelocityMotionBlur } from '../utils/velocityMotionBlur'
 import {
@@ -53,6 +56,17 @@ import {
 } from './exportFrameSource'
 import { applyTransitionClip, getFadeOverlayInfo, getTransitionCanvasStyle } from '../utils/transitionStyles'
 import { isFullBakeFresh } from '../utils/clipBakeSignature'
+import { getClipPlaybackTimeAtTimeline, getClipPlaybackTimingAtTimeline } from '../utils/clipPlaybackTiming'
+import {
+  FRAME_SAMPLING_MODE,
+  getClipMinimumSpeed,
+  getOpticalFlowSourceSignature,
+  getOpticalFlowCacheUsability,
+  getRequiredOpticalFlowHandleSeconds,
+  isSafeOpticalFlowCachePath,
+  mapOriginalSourceTimeToOpticalFlowCache,
+  normalizeFrameSamplingMode,
+} from '../utils/frameSampling'
 import { createGpuCompositor, isGpuExportEnabled } from './gpuCompositor'
 import { isAbsoluteRecordedPath } from './assetRelinkFallback'
 import {
@@ -225,9 +239,17 @@ async function getExportAssetPath(asset, projectHandle) {
   return null
 }
 
+async function getExportAssetSignature(asset, projectHandle) {
+  const sourcePath = await getExportAssetPath(asset, projectHandle)
+  if (!sourcePath || !window.electronAPI?.getFileInfo) return null
+  const result = await window.electronAPI.getFileInfo(sourcePath)
+  if (result?.success === false) return null
+  return getOpticalFlowSourceSignature(result)
+}
+
 async function getExportProxyUrl(asset, projectHandle) {
   if (!asset || asset.type !== 'video') return null
-  if (asset.proxyStatus !== 'ready' || !asset.proxyPath) return null
+  if (!hasUsableProxy(asset)) return null
   if (isElectron() && projectHandle && asset.proxyPath) {
     try {
       const filePath = await window.electronAPI.pathJoin(projectHandle, asset.proxyPath)
@@ -874,7 +896,7 @@ export const drawText = (ctx, rect, clip, textScale = 1, clipTime = null) => {
   const verticalAlign = textProps.verticalAlign || 'center'
   const padding = (textProps.backgroundPadding || 20) * scale
   
-  ctx.font = `${fontStyle} ${fontWeight} ${fontSize}px ${fontFamily}`
+  ctx.font = `${fontStyle} ${fontWeight} ${fontSize}px ${quoteCssFontFamily(fontFamily)}`
   ctx.textAlign = textAlign
   ctx.textBaseline = 'middle'
   
@@ -940,9 +962,15 @@ export const drawText = (ctx, rect, clip, textScale = 1, clipTime = null) => {
   })
 }
 
-const getMaskFrameInfo = (clip, maskAsset, time) => {
+const getMaskFrameInfo = (clip, maskAsset, time, allowHandles = false) => {
   if (!maskAsset) return null
-  const sourceTime = time - clip.startTime + (clip.trimStart || 0)
+  // Mask sequences are indexed in the original asset's time domain. Never
+  // use cache-relative Optical Flow seconds here, or a slowed/ramped clip's
+  // picture and mask drift apart.
+  const sourceTime = getClipPlaybackTimeAtTimeline(clip, time, 0.001, {
+    useFrameSampling: false,
+    allowHandles,
+  })
   const sourceDuration = clip.sourceDuration || maskAsset.settings?.duration || clip.duration
   const progress = sourceDuration > 0 ? clamp(sourceTime / sourceDuration, 0, 1) : 0
   const frames = maskAsset.maskFrames || []
@@ -1007,25 +1035,30 @@ const formatFrameNumber = (index) => String(index).padStart(6, '0')
  * fallback). Used only to warm frame cursors in parallel before the serial
  * draw loop; the draw loop's own computation stays authoritative.
  */
-const getPreSeekSourceTime = (clip, timelineTime, usingCached) => {
+const getPreSeekSourceTime = (
+  clip,
+  timelineTime,
+  usingCached,
+  opticalFlowCache = null,
+  allowHandles = false
+) => {
   const clipTime = timelineTime - (clip.startTime || 0)
   if (usingCached) {
     return clamp(clipTime, 0, Math.max(0, (Number(clip.duration) || 0) - 0.01))
   }
-  const baseScale = clip.sourceTimeScale || (clip.timelineFps && clip.sourceFps
-    ? clip.timelineFps / clip.sourceFps
-    : 1)
-  const speed = Number(clip.speed)
-  const speedScale = Number.isFinite(speed) && speed > 0 ? speed : 1
-  const timeScale = baseScale * speedScale
-  const trimStart = clip.trimStart || 0
-  const rawTrimEnd = clip.trimEnd ?? clip.sourceDuration ?? trimStart
-  const trimEnd = Number.isFinite(rawTrimEnd) ? rawTrimEnd : trimStart
-  const rawSourceTime = hasSpeedRamp(clip)
-    ? trimStart + getRampedSourceOffset(clip, clipTime) * baseScale
-    : trimStart + clipTime * timeScale
-  const maxSourceTime = clip.sourceDuration || clip.trimEnd || trimEnd
-  return Math.max(0, Math.min(rawSourceTime, Math.max(0, maxSourceTime - 0.001)))
+  const clampedSourceTime = getClipPlaybackTimeAtTimeline(clip, timelineTime, 0.001, {
+    useFrameSampling: false,
+    allowHandles,
+  })
+  if (opticalFlowCache) {
+    const mapping = mapOriginalSourceTimeToOpticalFlowCache(clip, clampedSourceTime, {
+      requireUrl: false,
+      endOffset: 0.001,
+      handleSeconds: opticalFlowCache.handleSeconds,
+    })
+    if (mapping) return mapping.time
+  }
+  return clampedSourceTime
 }
 
 // ---------------------------------------------------------------------------
@@ -1164,12 +1197,19 @@ const runExportTimeline = async (options = {}, onProgress = () => {}) => {
     transparent: requestedTransparency = false,
   } = options
   const pngSequenceExport = format === 'png-seq'
-  // An image sequence is a visual-only delivery. Keep this defensive in the
-  // renderer even though the export panel also hides/disables video/audio
-  // encoder settings for the format.
-  const includeAudio = pngSequenceExport ? false : requestedIncludeAudio
-  const useDirectFramePipe = pngSequenceExport ? false : requestedDirectFramePipe
-  const transparent = pngSequenceExport ? false : requestedTransparency
+  const gifExport = format === 'gif'
+  const losslessFrameDelivery = pngSequenceExport || gifExport
+  // Image sequences and animated GIFs are visual-only deliveries. GIF uses
+  // the lossless PNG-frame path deliberately: a global palette on the live
+  // raw pipe buffers the entire animation and can consume multiple GB.
+  const includeAudio = losslessFrameDelivery ? false : requestedIncludeAudio
+  const useDirectFramePipe = losslessFrameDelivery ? false : requestedDirectFramePipe
+  // Image-sequence and GIF transparency remain separate follow-up work.
+  // V1 delivery supports WebM and ProRes 4444 only.
+  const transparent = losslessFrameDelivery ? false : requestedTransparency
+  if (transparent && !supportsTransparentExport({ format, proresProfile })) {
+    throw new Error('Transparent export requires WebM (VP9) or ProRes 4444.')
+  }
   const pngSequenceBaseName = pngSequenceExport
     ? sanitizePngSequenceBaseName(filename)
     : null
@@ -1184,11 +1224,11 @@ const runExportTimeline = async (options = {}, onProgress = () => {}) => {
   
   const totalDuration = Math.max(0, rangeEnd - rangeStart)
   const totalFrames = Math.ceil(totalDuration * fps)
-  if (pngSequenceExport && (!Number.isFinite(Number(fps)) || Number(fps) <= 0 || totalFrames <= 0)) {
-    throw new Error('The PNG sequence export range must contain at least one frame at a valid FPS.')
+  if (losslessFrameDelivery && (!Number.isFinite(Number(fps)) || Number(fps) <= 0 || totalFrames <= 0)) {
+    throw new Error(`The ${gifExport ? 'GIF' : 'PNG sequence'} export range must contain at least one frame at a valid FPS.`)
   }
-  if (pngSequenceExport && (!Number.isFinite(Number(width)) || Number(width) <= 0 || !Number.isFinite(Number(height)) || Number(height) <= 0)) {
-    throw new Error('The PNG sequence export dimensions must be greater than zero.')
+  if (losslessFrameDelivery && (!Number.isFinite(Number(width)) || Number(width) <= 0 || !Number.isFinite(Number(height)) || Number(height) <= 0)) {
+    throw new Error(`The ${gifExport ? 'GIF' : 'PNG sequence'} export dimensions must be greater than zero.`)
   }
   const normalizedDeliveryFraming = ['fill', 'cover', 'center_crop', 'center-crop'].includes(String(deliveryFraming || '').toLowerCase())
     ? 'fill'
@@ -1229,7 +1269,7 @@ const runExportTimeline = async (options = {}, onProgress = () => {}) => {
   const audioOnlyExport = format === 'audio'
   const outputExtension = audioOnlyExport
     ? (audioCodec === 'mp3' ? 'mp3' : (audioCodec === 'wav' ? 'wav' : 'm4a'))
-    : (format === 'webm' ? 'webm' : (format === 'prores' ? 'mov' : 'mp4'))
+    : (gifExport ? 'gif' : (format === 'webm' ? 'webm' : (format === 'prores' ? 'mov' : 'mp4')))
   let outputPath = options.outputPath
   if (pngSequenceExport && !outputPath) {
     throw new Error('Choose an output folder for the PNG sequence.')
@@ -1266,6 +1306,19 @@ const runExportTimeline = async (options = {}, onProgress = () => {}) => {
   } else {
     await window.electronAPI.createDirectory(tempFolder)
   }
+  let gifTempCleanupAttempted = false
+  const cleanupGifTempFolder = async () => {
+    gifTempCleanupAttempted = true
+    try {
+      const cleanup = await window.electronAPI.deleteDirectory(tempFolder, { recursive: true })
+      return cleanup?.success === false
+        ? (cleanup.error || 'Unknown temporary-folder cleanup error.')
+        : null
+    } catch (error) {
+      return error?.message || String(error)
+    }
+  }
+  try {
   const framesFolder = pngSequenceExport
     ? outputPath
     : await window.electronAPI.pathJoin(tempFolder, 'frames')
@@ -1435,6 +1488,8 @@ const runExportTimeline = async (options = {}, onProgress = () => {}) => {
   const maskElements = new Map()
   const maskRenderBuffers = new Map()
   const cachedVideoSources = new Map()
+  const opticalFlowSources = new Map()
+  const resolvedClipSourceUrls = new Map()
   const webCodecsEnabled = isWebCodecsExportEnabled()
 
   const applyAdvancedAdjustmentsToCanvas = (sourceCanvas, settings, extraBlurPx = null) => {
@@ -1469,9 +1524,28 @@ const runExportTimeline = async (options = {}, onProgress = () => {}) => {
   ))
   const imageClips = timelineState.clips.filter(c => c.type === 'image')
 
+  // Optical Flow is an explicit export dependency, but only for clips that
+  // can actually contribute to this render. Hidden, disabled, out-of-range,
+  // and non-solo clips must not block an unrelated In→Out or solo export.
+  // Between-transition participants are included for their spill range even
+  // when their nominal clip interval does not overlap the export range.
+  const renderableVideoClipIds = getRenderableVideoClipIds({
+    clips: timelineState.clips,
+    tracks: timelineState.tracks,
+    transitions: timelineState.transitions,
+    rangeStart,
+    rangeEnd,
+    soloClipIds: soloClipSet ? [...soloClipSet] : null,
+  })
+  const renderableVideoClips = videoClips.filter((clip) => renderableVideoClipIds.has(clip.id))
+
   if (useCachedRenders) {
-    for (const clip of videoClips) {
+    for (const clip of renderableVideoClips) {
       if (clip.cacheStatus !== 'cached') continue
+      if (
+        clip.cacheKind !== 'full'
+        && normalizeFrameSamplingMode(clip.frameSampling) === FRAME_SAMPLING_MODE.OPTICAL_FLOW
+      ) continue
       // Full bakes must match the clip's current content; legacy (mask)
       // bakes keep the old status-only contract.
       if (clip.cacheKind === 'full' && !isFullBakeFresh(clip)) continue
@@ -1492,12 +1566,74 @@ const runExportTimeline = async (options = {}, onProgress = () => {}) => {
       }
     }
   }
+
+  for (const clip of renderableVideoClips) {
+    if (clip.type !== 'video' || cachedVideoSources.has(clip.id)) continue
+    if (normalizeFrameSamplingMode(clip.frameSampling) !== FRAME_SAMPLING_MODE.OPTICAL_FLOW) continue
+    const handleSeconds = getRequiredOpticalFlowHandleSeconds(
+      clip,
+      timelineState.transitions,
+      timelineState.clips
+    )
+    const usability = getOpticalFlowCacheUsability(clip, {
+      requireUrl: false,
+      timelineFps: Number(clip.timelineFps) || Number(timelineState.timelineFps) || 24,
+      sourceFps: clip.sourceFps,
+      handleSeconds,
+    })
+    if (!usability.usable) {
+      throw new Error(
+        `Cannot export — Optical Flow is selected for "${clip.name || clip.id}", but its cache is not ready or no longer covers this edit. `
+        + 'Build or rebuild Optical Flow in the Inspector, or choose Frame sampling.'
+      )
+    }
+    if (!isSafeOpticalFlowCachePath(usability.cache.path)) {
+      throw new Error(`Cannot export — the Optical Flow cache path for "${clip.name || clip.id}" is invalid. Rebuild it from the Inspector.`)
+    }
+    if (typeof projectState.currentProjectHandle !== 'string' || !projectState.currentProjectHandle) {
+      throw new Error('Cannot export Optical Flow from an unsaved project. Save the project and rebuild the cache.')
+    }
+    const sourceAsset = assetsState.getAssetById(clip.assetId)
+    const currentSourceSignature = await getExportAssetSignature(
+      sourceAsset,
+      projectState.currentProjectHandle
+    )
+    if (
+      !usability.cache.sourceSignature
+      || !currentSourceSignature
+      || currentSourceSignature !== usability.cache.sourceSignature
+    ) {
+      throw new Error(
+        `Cannot export — the source media for "${clip.name || clip.id}" changed or is offline. `
+        + 'Relink it if needed, then rebuild Optical Flow in the Inspector.'
+      )
+    }
+    let cachePath = null
+    try {
+      cachePath = await window.electronAPI.pathJoin(projectState.currentProjectHandle, usability.cache.path)
+    } catch (error) {
+      throw new Error(`Cannot export — the Optical Flow cache path for "${clip.name || clip.id}" could not be resolved (${getMediaErrorMessage(error)}).`)
+    }
+    if (!window.electronAPI?.exists || !(await window.electronAPI.exists(cachePath))) {
+      throw new Error(
+        `Cannot export — the Optical Flow cache file for "${clip.name || clip.id}" is missing. `
+        + 'Rebuild Optical Flow in the Inspector.'
+      )
+    }
+    try {
+      const cacheUrl = usability.cache.url || await window.electronAPI.getFileUrlDirect(cachePath)
+      if (!cacheUrl) throw new Error('cache URL unavailable')
+      opticalFlowSources.set(clip.id, { ...usability.cache, url: cacheUrl, handleSeconds })
+    } catch (error) {
+      throw new Error(`Cannot export — the Optical Flow cache for "${clip.name || clip.id}" could not be opened (${getMediaErrorMessage(error)}).`)
+    }
+  }
   
   const projectHandle = projectState.currentProjectHandle
   const resolvedAssetUrls = new Map()
   const resolvedVideoInputPaths = new Map()
-  for (const clip of [...videoClips, ...imageClips]) {
-    const overrideUrl = cachedVideoSources.get(clip.id) || null
+  for (const clip of [...renderableVideoClips, ...imageClips]) {
+    const overrideUrl = cachedVideoSources.get(clip.id) || opticalFlowSources.get(clip.id)?.url || null
     const asset = assetsState.getAssetById(clip.assetId)
     // Baked text/shape clips have no asset; their only source is the bake.
     if (!asset?.url && !overrideUrl) continue
@@ -1510,6 +1646,7 @@ const runExportTimeline = async (options = {}, onProgress = () => {}) => {
     if (clip.type === 'video' || overrideUrl) {
       const sourceUrl = overrideUrl || resolvedUrl
       if (!sourceUrl) continue
+      resolvedClipSourceUrls.set(clip.id, sourceUrl)
       if (!overrideUrl && !resolvedVideoInputPaths.has(sourceUrl)) {
         let inputPath = null
         if (proxyUrl && asset?.proxyPath) {
@@ -1556,9 +1693,11 @@ const runExportTimeline = async (options = {}, onProgress = () => {}) => {
   const sourcePreparation = { candidates: 0, reused: 0, remuxed: 0, transcoded: 0, failed: 0 }
   if (webCodecsEnabled && window.electronAPI?.prepareVideoSourceForExport) {
     const candidates = new Map()
-    for (const clip of videoClips) {
-      if (clip.type !== 'video' || clip.reverse || cachedVideoSources.has(clip.id)) continue
-      const sourceUrl = resolvedAssetUrls.get(clip.assetId)
+    for (const clip of renderableVideoClips) {
+      if (clip.type !== 'video' || clip.reverse || cachedVideoSources.has(clip.id) || opticalFlowSources.has(clip.id)) continue
+      const asset = assetsState.getAssetById(clip.assetId)
+      if (asset?.settings?.hasAlpha === true) continue
+      const sourceUrl = resolvedClipSourceUrls.get(clip.id)
       const sourceVideo = sourceUrl ? videoElements.get(sourceUrl) : null
       if (!sourceUrl || !sourceVideo || candidates.has(sourceUrl)) continue
       const cursorStartTime = Math.max(0, (Number(clip.trimStart) || 0) - 1.5)
@@ -1567,7 +1706,6 @@ const runExportTimeline = async (options = {}, onProgress = () => {}) => {
         startTime: cursorStartTime,
       })
       if (!needsPreparation) continue
-      const asset = assetsState.getAssetById(clip.assetId)
       candidates.set(sourceUrl, {
         sourceUrl,
         inputPath: resolvedVideoInputPaths.get(sourceUrl) || null,
@@ -1581,12 +1719,13 @@ const runExportTimeline = async (options = {}, onProgress = () => {}) => {
     // intermediate in the export temp folder stands in for them. This
     // overrides a long-source remux candidacy — a stream copy of an
     // undecodable codec would still be undecodable.
-    for (const clip of videoClips) {
-      if (clip.type !== 'video' || cachedVideoSources.has(clip.id)) continue
-      const sourceUrl = resolvedAssetUrls.get(clip.assetId)
+    for (const clip of renderableVideoClips) {
+      if (clip.type !== 'video' || cachedVideoSources.has(clip.id) || opticalFlowSources.has(clip.id)) continue
+      const asset = assetsState.getAssetById(clip.assetId)
+      if (asset?.settings?.hasAlpha === true) continue
+      const sourceUrl = resolvedClipSourceUrls.get(clip.id)
       if (!sourceUrl || !failedVideoSourceNames.has(sourceUrl)) continue
       if (candidates.get(sourceUrl)?.mode === 'transcode') continue
-      const asset = assetsState.getAssetById(clip.assetId)
       candidates.set(sourceUrl, {
         sourceUrl,
         inputPath: resolvedVideoInputPaths.get(sourceUrl) || null,
@@ -1667,9 +1806,9 @@ const runExportTimeline = async (options = {}, onProgress = () => {}) => {
   // through the whole export while the audio mix still works.
   if (failedVideoSourceNames.size > 0) {
     const affected = []
-    for (const clip of videoClips) {
+    for (const clip of renderableVideoClips) {
       if (clip.type !== 'video') continue
-      const clipUrl = cachedVideoSources.get(clip.id) || resolvedAssetUrls.get(clip.assetId)
+      const clipUrl = resolvedClipSourceUrls.get(clip.id)
       const failure = clipUrl ? failedVideoSourceNames.get(clipUrl) : null
       if (failure && !affected.some((entry) => entry.name === failure.name)) {
         affected.push(failure)
@@ -1744,16 +1883,25 @@ const runExportTimeline = async (options = {}, onProgress = () => {}) => {
 
   const getClipCursorEntry = (clip) => {
     if (!webCodecsEnabled || clip.type !== 'video' || clip.reverse || standardDecoderClipIds.has(clip.id)) return null
+    const asset = assetsState.getAssetById(clip.assetId)
+    // The WebCodecs cursor composites into an opaque canvas. Chromium's
+    // HTMLVideoElement path is required for VP9's separate alpha plane.
+    if (!shouldUseWebCodecsForAsset(asset)) return null
     const existing = clipFrameCursors.get(clip.id)
     if (existing) return existing
     const cachedUrl = cachedVideoSources.get(clip.id)
-    const sourceUrl = cachedUrl || resolvedAssetUrls.get(clip.assetId)
+    const opticalFlow = opticalFlowSources.get(clip.id) || null
+    const sourceUrl = resolvedClipSourceUrls.get(clip.id)
     if (!sourceUrl || failedVideoSources.has(sourceUrl)) return null
     const preparedSourceUrl = preparedFrameSourceUrls.get(sourceUrl) || null
     const sourcePrepared = preparedFrameSourceUrls.has(sourceUrl)
     const usingCached = !!cachedUrl
-    const trimStart = usingCached ? 0 : (clip.trimStart || 0)
-    const cursorStartTime = Math.max(0, trimStart - 1.5)
+    const trimStart = usingCached
+      ? 0
+      : opticalFlow
+        ? Math.max(0, (Number(clip.trimStart) || 0) - Number(opticalFlow.sourceStart || 0))
+        : (clip.trimStart || 0)
+    const cursorStartTime = opticalFlow ? 0 : Math.max(0, trimStart - 1.5)
     const sourceVideo = videoElements.get(sourceUrl)
     const fallbackReason = getWebCodecsExportFallbackReason({
       sourceDuration: sourceVideo?.duration,
@@ -1773,7 +1921,9 @@ const runExportTimeline = async (options = {}, onProgress = () => {}) => {
     const rawTrimEnd = clip.trimEnd ?? clip.sourceDuration
     const sourceEnd = usingCached
       ? (Number(clip.duration) || null)
-      : (Number.isFinite(Number(rawTrimEnd)) && Number(rawTrimEnd) > trimStart ? Number(rawTrimEnd) : null)
+      : opticalFlow
+        ? Math.max(0, Number(opticalFlow.sourceEnd) - Number(opticalFlow.sourceStart))
+        : (Number.isFinite(Number(rawTrimEnd)) && Number(rawTrimEnd) > trimStart ? Number(rawTrimEnd) : null)
     const entry = {
       cursor: null,
       settled: false,
@@ -1843,6 +1993,7 @@ const runExportTimeline = async (options = {}, onProgress = () => {}) => {
       format: outputExtension,
       duration: totalDuration,
       alpha: !!transparent,
+      alphaCache: Boolean(soloClipSet),
       videoCodec,
       proresProfile: format === 'prores' ? proresProfile : undefined,
       useHardwareEncoder,
@@ -1916,7 +2067,7 @@ const runExportTimeline = async (options = {}, onProgress = () => {}) => {
   // Track matte raster: draw the consumed layer above into a full-frame
   // canvas with its own animated transform/crop/opacity. Base content only
   // — the matte's own effects/masks are out of scope, matching the preview.
-  const rasterExportMatteClip = async (matteEntry, time) => {
+  const rasterExportMatteClip = async (matteEntry, time, allowHandles = false) => {
     const matteClip = matteEntry?.clip
     if (!matteClip) return null
     let buffers = maskRenderBuffers.get('__track-matte__')
@@ -1966,29 +2117,29 @@ const runExportTimeline = async (options = {}, onProgress = () => {}) => {
       }
 
       if (matteClip.type === 'video') {
-        const sourceUrl = cachedVideoSources.get(matteClip.id) || resolvedAssetUrls.get(matteClip.assetId)
+        const sourceUrl = resolvedClipSourceUrls.get(matteClip.id)
         const video = sourceUrl && !failedVideoSources.has(sourceUrl) ? videoElements.get(sourceUrl) : null
         if (!video) return matteCanvas
-        const baseScale = matteClip.sourceTimeScale || (matteClip.timelineFps && matteClip.sourceFps
-          ? matteClip.timelineFps / matteClip.sourceFps
-          : 1)
-        const speed = Number(matteClip.speed)
-        const speedScale = Number.isFinite(speed) && speed > 0 ? speed : 1
-        const timeScale = baseScale * speedScale
-        const reverse = !!matteClip.reverse
-        const trimStart = matteClip.trimStart || 0
-        const rawTrimEnd = matteClip.trimEnd ?? matteClip.sourceDuration ?? trimStart
-        const trimEnd = Number.isFinite(rawTrimEnd) ? rawTrimEnd : trimStart
         const usingCachedRender = !!cachedVideoSources.get(matteClip.id)
-        const rawSourceTime = usingCachedRender
-          ? matteClipTime
-          : hasSpeedRamp(matteClip)
-            ? trimStart + getRampedSourceOffset(matteClip, matteClipTime) * baseScale
-            : (reverse ? trimEnd - matteClipTime * timeScale : trimStart + matteClipTime * timeScale)
-        const maxSourceTime = usingCachedRender
-          ? matteClip.duration
-          : (matteClip.sourceDuration || matteClip.trimEnd || video.duration || trimEnd)
-        const sourceTime = Math.max(0, Math.min(rawSourceTime, maxSourceTime - 0.001))
+        const opticalFlowCache = opticalFlowSources.get(matteClip.id) || null
+        const sourceTiming = usingCachedRender
+          ? {
+              time: clamp(matteClipTime, 0, Math.max(0, (Number(matteClip.duration) || 0) - 0.001)),
+              maxTime: Number(matteClip.duration) || 0,
+            }
+          : getClipPlaybackTimingAtTimeline(matteClip, time, 0.001, {
+              useFrameSampling: false,
+              allowHandles,
+            })
+        const originalSourceTime = sourceTiming.time
+        const opticalMapping = opticalFlowCache
+          ? mapOriginalSourceTimeToOpticalFlowCache(matteClip, originalSourceTime, {
+              requireUrl: false,
+              endOffset: 0.001,
+              handleSeconds: opticalFlowCache.handleSeconds,
+            })
+          : null
+        const sourceTime = opticalMapping ? opticalMapping.time : originalSourceTime
 
         let matteSource = null
         let cursor = null
@@ -2095,10 +2246,11 @@ const runExportTimeline = async (options = {}, onProgress = () => {}) => {
     const matteVisibleLayerClips = consumedClipIds.size > 0
       ? rawVisualLayerClips.filter((layerEntry) => !consumedClipIds.has(layerEntry.clip?.id))
       : rawVisualLayerClips
+    const transitionClipIds = getTransitionClipIds(transitionInfo)
     const visualLayerClips = cullVisualLayerEntries(matteVisibleLayerClips, {
       time,
       getAssetById: assetsState.getAssetById,
-      transitionClipIds: getTransitionClipIds(transitionInfo),
+      transitionClipIds,
       timelineWidth: width,
       timelineHeight: height,
     })
@@ -2115,7 +2267,13 @@ const runExportTimeline = async (options = {}, onProgress = () => {}) => {
         if (!clip || clip.type !== 'video' || clip.reverse) continue
         const cursor = clipFrameCursors.get(clip.id)?.cursor
         if (!cursor || cursor.dead) continue
-        const preTarget = getPreSeekSourceTime(clip, time, cachedVideoSources.has(clip.id))
+        const preTarget = getPreSeekSourceTime(
+          clip,
+          time,
+          cachedVideoSources.has(clip.id),
+          opticalFlowSources.get(clip.id) || null,
+          transitionClipIds.has(clip.id)
+        )
         preSeeks.push(cursor.seek(preTarget).catch(() => {}))
       }
       if (preSeeks.length > 1) {
@@ -2243,7 +2401,11 @@ const runExportTimeline = async (options = {}, onProgress = () => {}) => {
         if (!matteEntry) {
           if (!matteInfo.invert) continue
         } else {
-          matteCanvas2d = await rasterExportMatteClip(matteEntry, time)
+          matteCanvas2d = await rasterExportMatteClip(
+            matteEntry,
+            time,
+            transitionClipIds.has(matteEntry.clip?.id)
+          )
           if (matteCanvas2d && gpu) {
             matteSpec = {
               source: matteCanvas2d,
@@ -2476,6 +2638,7 @@ const runExportTimeline = async (options = {}, onProgress = () => {}) => {
       const asset = assetsState.getAssetById(clip.assetId)
       const cachedSourceUrl = cachedVideoSources.get(clip.id)
       const usingCachedRender = !!cachedSourceUrl
+      const opticalFlowCache = opticalFlowSources.get(clip.id) || null
       // Parametric shape masks synthesize a mask effect with the feathered
       // raster pre-baked (invert included), so the three mask bodies below
       // run byte-identical logic for shapes and AI raster masks alike. The
@@ -2499,46 +2662,50 @@ const runExportTimeline = async (options = {}, onProgress = () => {}) => {
       let shouldBlend = false
       
       if (clip.type === 'video' || isFullBake) {
-        const sourceUrl = cachedSourceUrl || resolvedAssetUrls.get(clip.assetId) || asset?.url
+        const sourceUrl = resolvedClipSourceUrls.get(clip.id) || asset?.url
         if (sourceUrl && failedVideoSources.has(sourceUrl)) {
           continue
         }
         const video = sourceUrl ? videoElements.get(sourceUrl) : null
         if (!video) continue
         
-        // Calculate source time matching preview logic
-        const baseScale = clip.sourceTimeScale || (clip.timelineFps && clip.sourceFps
-          ? clip.timelineFps / clip.sourceFps
-          : 1)
-        const speed = Number(clip.speed)
-        const speedScale = Number.isFinite(speed) && speed > 0 ? speed : 1
-        const timeScale = baseScale * speedScale
-        const reverse = !!clip.reverse
-        const trimStart = clip.trimStart || 0
-        const rawTrimEnd = clip.trimEnd ?? clip.sourceDuration ?? trimStart
-        const trimEnd = Number.isFinite(rawTrimEnd) ? rawTrimEnd : trimStart
-        const rawSourceTime = usingCachedRender
-          ? clipTime
-          : hasSpeedRamp(clip)
-            // Speed ramp: source consumed = integral of the keyframed speed.
-            ? trimStart + getRampedSourceOffset(clip, clipTime) * baseScale
-            : (reverse
-              ? trimEnd - clipTime * timeScale
-              : trimStart + clipTime * timeScale)
-
-        // Clamp to valid range (matching VideoLayerRenderer behavior)
-        maxSourceTime = usingCachedRender 
-          ? clip.duration 
-          : (clip.sourceDuration || clip.trimEnd || video.duration || trimEnd)
-        const clampedSourceTime = Math.max(0, Math.min(rawSourceTime, maxSourceTime - 0.001))
+        const sourceTiming = usingCachedRender
+          ? {
+              time: clamp(clipTime, 0, Math.max(0, (Number(clip.duration) || 0) - 0.001)),
+              maxTime: Number(clip.duration) || 0,
+            }
+          : getClipPlaybackTimingAtTimeline(clip, time, 0.001, {
+              useFrameSampling: false,
+              allowHandles: !!transitionStyle,
+            })
+        maxSourceTime = sourceTiming.maxTime
+        const originalSourceTime = sourceTiming.time
+        const opticalMapping = opticalFlowCache
+          ? mapOriginalSourceTimeToOpticalFlowCache(clip, originalSourceTime, {
+              requireUrl: false,
+              endOffset: 0.001,
+              handleSeconds: opticalFlowCache.handleSeconds,
+            })
+          : null
+        if (opticalMapping) maxSourceTime = opticalMapping.maxTime
+        const clampedSourceTime = opticalMapping ? opticalMapping.time : originalSourceTime
         sourceTime = clampedSourceTime
         videoElement = video
-        const assetFps = Number(asset?.settings?.fps)
-        sourceFps = Number.isFinite(assetFps) && assetFps > 0 ? assetFps : null
+        const assetFps = Number(asset?.settings?.fps ?? asset?.fps ?? clip.sourceFps)
+        sourceFps = opticalFlowCache
+          ? Number(opticalFlowCache.targetFps)
+          : (Number.isFinite(assetFps) && assetFps > 0 ? assetFps : null)
+        const preserveGifFrameHolds = asset?.settings?.gifSource?.animated === true
+        const frameBlendRequested = normalizeFrameSamplingMode(clip.frameSampling) === FRAME_SAMPLING_MODE.BLEND
+          && (getClipMinimumSpeed(clip) < 0.999 || !!(sourceFps && sourceFps < fps - 0.5))
 
         // Matted clips on the 2D path skip low-fps frame blending — the
         // matte needs the buffered draw, which the blend path bypasses.
-        shouldBlend = !isFullBake && !!(sourceFps && sourceFps < fps - 0.5 && !maskEffect && !hasMotionBlurSamples && !velocityMotionBlur) && !(matteInfo && !gpu)
+        shouldBlend = !preserveGifFrameHolds
+          && !isFullBake
+          && !opticalFlowCache
+          && !!(sourceFps && frameBlendRequested && !maskEffect && !hasMotionBlurSamples && !velocityMotionBlur)
+          && !(matteInfo && !gpu)
 
         // Prefer the WebCodecs sequential frame cursor; any doubt (or a
         // mid-clip cursor failure) falls back to the element seek path.
@@ -2673,7 +2840,7 @@ const runExportTimeline = async (options = {}, onProgress = () => {}) => {
           } catch (err) {
             console.warn('[Export] Failed blended seek/draw, skipping clip frame:', getMediaErrorMessage(err))
             if (clip.type === 'video') {
-              const badSourceUrl = cachedVideoSources.get(clip.id) || resolvedAssetUrls.get(clip.assetId) || asset?.url
+              const badSourceUrl = resolvedClipSourceUrls.get(clip.id) || asset?.url
               if (badSourceUrl) failedVideoSources.add(badSourceUrl)
             }
             offCtx.restore()
@@ -2690,7 +2857,9 @@ const runExportTimeline = async (options = {}, onProgress = () => {}) => {
         let advancedOutputCanvas = offCanvas
         if (maskEffect) {
           const maskAsset = maskEffect.shapeCanvas ? null : assetsState.getAssetById(maskEffect.maskAssetId)
-          const maskFrameUrl = maskEffect.shapeCanvas ? null : getMaskFrameInfo(clip, maskAsset, time)
+          const maskFrameUrl = maskEffect.shapeCanvas
+            ? null
+            : getMaskFrameInfo(clip, maskAsset, time, !!transitionStyle)
           const maskImageMap = maskEffect.shapeCanvas ? null : maskElements.get(maskAsset?.id)
           const maskImage = maskEffect.shapeCanvas || maskImageMap?.get(maskFrameUrl)
 
@@ -2789,7 +2958,7 @@ const runExportTimeline = async (options = {}, onProgress = () => {}) => {
           } catch (err) {
             console.warn('[Export] Failed blended seek/draw, skipping clip frame:', getMediaErrorMessage(err))
             if (clip.type === 'video') {
-              const badSourceUrl = cachedVideoSources.get(clip.id) || resolvedAssetUrls.get(clip.assetId) || asset?.url
+              const badSourceUrl = resolvedClipSourceUrls.get(clip.id) || asset?.url
               if (badSourceUrl) failedVideoSources.add(badSourceUrl)
             }
             offCtx.restore()
@@ -2836,7 +3005,9 @@ const runExportTimeline = async (options = {}, onProgress = () => {}) => {
         let gpuMaskSpec = null
         if (maskEffect) {
           const maskAsset = maskEffect.shapeCanvas ? null : assetsState.getAssetById(maskEffect.maskAssetId)
-          const maskFrameUrl = maskEffect.shapeCanvas ? null : getMaskFrameInfo(clip, maskAsset, time)
+          const maskFrameUrl = maskEffect.shapeCanvas
+            ? null
+            : getMaskFrameInfo(clip, maskAsset, time, !!transitionStyle)
           const maskImageMap = maskEffect.shapeCanvas ? null : maskElements.get(maskAsset?.id)
           const maskImage = maskEffect.shapeCanvas || maskImageMap?.get(maskFrameUrl)
           // Masks run natively unless the clip also has velocity blur —
@@ -2962,7 +3133,7 @@ const runExportTimeline = async (options = {}, onProgress = () => {}) => {
             } catch (err) {
               console.warn('[Export] Failed blended seek/draw, skipping clip frame:', getMediaErrorMessage(err))
               if (clip.type === 'video') {
-                const badSourceUrl = cachedVideoSources.get(clip.id) || resolvedAssetUrls.get(clip.assetId) || asset?.url
+                const badSourceUrl = resolvedClipSourceUrls.get(clip.id) || asset?.url
                 if (badSourceUrl) failedVideoSources.add(badSourceUrl)
               }
               continue
@@ -3078,7 +3249,7 @@ const runExportTimeline = async (options = {}, onProgress = () => {}) => {
         } catch (err) {
           console.warn('[Export] Failed blended seek/draw, skipping clip frame:', getMediaErrorMessage(err))
           if (clip.type === 'video') {
-            const badSourceUrl = cachedVideoSources.get(clip.id) || resolvedAssetUrls.get(clip.assetId) || asset?.url
+            const badSourceUrl = resolvedClipSourceUrls.get(clip.id) || asset?.url
             if (badSourceUrl) failedVideoSources.add(badSourceUrl)
           }
           ctx.restore()
@@ -3090,7 +3261,9 @@ const runExportTimeline = async (options = {}, onProgress = () => {}) => {
       }
       if (maskEffect) {
         const maskAsset = maskEffect.shapeCanvas ? null : assetsState.getAssetById(maskEffect.maskAssetId)
-        const maskFrameUrl = maskEffect.shapeCanvas ? null : getMaskFrameInfo(clip, maskAsset, time)
+        const maskFrameUrl = maskEffect.shapeCanvas
+          ? null
+          : getMaskFrameInfo(clip, maskAsset, time, !!transitionStyle)
         const maskImageMap = maskEffect.shapeCanvas ? null : maskElements.get(maskAsset?.id)
         const maskImage = maskEffect.shapeCanvas || maskImageMap?.get(maskFrameUrl)
 
@@ -3250,7 +3423,7 @@ const runExportTimeline = async (options = {}, onProgress = () => {}) => {
     // cuts don't pay init latency, and release decoders (a scarce hardware
     // resource) for clips the playhead has passed.
     if (webCodecsEnabled) {
-      for (const clip of videoClips) {
+      for (const clip of renderableVideoClips) {
         if (clipFrameCursors.has(clip.id)) continue
         const clipStart = Number(clip.startTime) || 0
         if (clipStart > time && clipStart <= time + FRAME_CURSOR_PREFETCH_SEC) {
@@ -3860,11 +4033,38 @@ const runExportTimeline = async (options = {}, onProgress = () => {}) => {
     }
   }
   
-  onProgress({ status: EXPORT_STATUS.encoding, progress: 90 })
+  onProgress({
+    status: gifExport ? 'Building optimized 256-color GIF...' : EXPORT_STATUS.encoding,
+    progress: 90,
+  })
   await yieldToMain()
 
   let encodeResult = null
-  if (framePipeEncoderUsed) {
+  if (gifExport) {
+    if (!window.electronAPI?.encodeGif || !window.electronAPI?.abortGifEncode) {
+      throw new Error('GIF export requires the Lumeweft desktop app. Restart Lumeweft and try again.')
+    }
+    throwIfCancelled()
+    const gifEncodeSessionId = globalThis.crypto?.randomUUID?.()
+      || `gif-${Date.now()}-${Math.random().toString(16).slice(2)}`
+    const abortNativeGifEncode = () => {
+      Promise.resolve(window.electronAPI.abortGifEncode(gifEncodeSessionId)).catch(() => {
+        // The main process may already have observed cancellation or exited.
+      })
+    }
+    signal?.addEventListener?.('abort', abortNativeGifEncode, { once: true })
+    try {
+      throwIfCancelled()
+      encodeResult = await window.electronAPI.encodeGif({
+        sessionId: gifEncodeSessionId,
+        framePattern,
+        fps,
+        outputPath,
+      })
+    } finally {
+      signal?.removeEventListener?.('abort', abortNativeGifEncode)
+    }
+  } else if (framePipeEncoderUsed) {
     if (audioFilePath && pipedVideoPath !== outputPath) {
       onProgress({ status: 'Muxing fast-pipe video with audio...', progress: 92 })
       const muxResult = await window.electronAPI.muxAudioVideo({
@@ -3911,6 +4111,8 @@ const runExportTimeline = async (options = {}, onProgress = () => {}) => {
       audioSampleRate,
       normalizeAudio,
       loudnessTarget,
+      alpha: !!transparent,
+      alphaCache: Boolean(soloClipSet),
     })
   }
   
@@ -3921,8 +4123,15 @@ const runExportTimeline = async (options = {}, onProgress = () => {}) => {
     console.log(`Export encoded with: ${encodeResult.encoderUsed}`)
   }
 
-  // Cleanup temp render files
-  if (getLocalStorageFlag('exportKeepFrames')) {
+  // Cleanup temp render files. GIF scratch is never retained, but a cleanup
+  // failure is surfaced with the otherwise successful delivery.
+  let gifTempCleanupError = null
+  if (gifExport) {
+    gifTempCleanupError = await cleanupGifTempFolder()
+    if (gifTempCleanupError) {
+      console.warn('Failed to clean GIF export temp folder:', gifTempCleanupError)
+    }
+  } else if (getLocalStorageFlag('exportKeepFrames')) {
     console.log('[Export] Keeping temp frame folder for diagnostics:', tempFolder)
   } else {
     try {
@@ -3936,8 +4145,22 @@ const runExportTimeline = async (options = {}, onProgress = () => {}) => {
   
   const perFrameMs = (ms) => (totalFrames > 0 ? Number((ms / totalFrames).toFixed(2)) : 0)
   return {
+    ...(gifExport ? { format: 'gif' } : {}),
     outputPath,
     encoderUsed: encodeResult.encoderUsed || null,
+    ...(gifExport ? {
+      frameCount: totalFrames,
+      fps,
+      width,
+      height,
+      dimensions: { width, height },
+      cleanupWarning: [
+        encodeResult.cleanupWarning,
+        gifTempCleanupError
+          ? `The GIF was saved, but temporary render frames could not be removed: ${gifTempCleanupError}`
+          : null,
+      ].filter(Boolean).join(' ') || null,
+    } : {}),
     // Set when a requested hardware encoder failed its runtime probe and the
     // export fell back to software ({requestedEncoder, fallbackEncoder,
     // reason}); surfaced in the worker-complete log and MCP export results.
@@ -3967,6 +4190,15 @@ const runExportTimeline = async (options = {}, onProgress = () => {}) => {
       frameSource: getFrameSourceStats(),
     },
   }
+  } finally {
+    // GIF scratch is never a user-owned delivery. Remove its lossless frames
+    // after success, failure, or cancellation; the native encoder separately
+    // owns and cleans its palette/staged output files.
+    if (gifExport && !gifTempCleanupAttempted) {
+      const cleanupError = await cleanupGifTempFolder()
+      if (cleanupError) console.warn('Failed to clean GIF export temp folder:', cleanupError)
+    }
+  }
 }
 
 /**
@@ -3983,7 +4215,7 @@ export const exportTimeline = async (options = {}, onProgress = () => {}) => {
 
   const api = typeof window !== 'undefined' ? window.electronAPI : null
   if (!api?.exists || !api?.createDirectory || !api?.deleteDirectory || !api?.pathJoin || !api?.writeFileFromArrayBuffer) {
-    throw new Error('PNG sequence export requires the Velorn desktop app.')
+    throw new Error('PNG sequence export requires the Lumeweft desktop app.')
   }
 
   return withOwnedPngSequenceOutput({

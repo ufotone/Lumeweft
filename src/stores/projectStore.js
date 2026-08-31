@@ -123,6 +123,15 @@ const getDisplayName = (handleOrPath) => {
   return handleOrPath.name
 }
 
+const hydrateActiveOpticalFlowCaches = (projectHandle) => {
+  if (!projectHandle || typeof projectHandle !== 'string') return
+  import('../services/opticalFlowCache')
+    .then((mod) => mod.hydrateOpticalFlowCaches(projectHandle))
+    .catch((error) => {
+      console.warn('Background Optical Flow cache hydration failed:', error)
+    })
+}
+
 const normalizeOpenedProjectData = (projectData) => {
   const normalizedProject = { ...(projectData || {}) }
 
@@ -201,6 +210,7 @@ const hydrateOpenedProjectSession = async (projectHandleOrPath, rawProjectData, 
     // is not immediately "overdue" from a previous session's timestamp.
     lastAutoSave: new Date().toISOString(),
   }))
+  hydrateActiveOpticalFlowCaches(projectHandleOrPath)
 
   // Hydration replaced every watched store slice; none of it is an unsaved
   // user change.
@@ -268,7 +278,7 @@ export const useProjectStore = create(
       lastAutoSave: null,
 
       // Startup behavior (persisted)
-      // When false (default), Velorn lands on the project picker so
+      // When false (default), Lumeweft lands on the project picker so
       // users can explicitly choose what to work on (Resolve-style hub).
       // Power users can flip this on to jump straight back into their
       // last project.
@@ -322,7 +332,7 @@ export const useProjectStore = create(
           
           // Try to restore current project (only when the user has opted
           // in via Settings → General → "Reopen last project on startup").
-          // By default Velorn lands on the project picker instead.
+          // By default Lumeweft lands on the project picker instead.
           const shouldReopenLast = get().reopenLastProjectOnStartup === true
           const storedProject = shouldReopenLast
             ? await getStoredDirectoryHandle('currentProject')
@@ -750,6 +760,7 @@ export const useProjectStore = create(
           projectFuture: nextFuture,
           projectHistoryLastChangedAt: Date.now(),
         }))
+        hydrateActiveOpticalFlowCaches(state.currentProjectHandle)
 
         return true
       },
@@ -787,6 +798,7 @@ export const useProjectStore = create(
           projectFuture: remainingFuture,
           projectHistoryLastChangedAt: Date.now(),
         }))
+        hydrateActiveOpticalFlowCaches(state.currentProjectHandle)
 
         return true
       },
@@ -908,6 +920,7 @@ export const useProjectStore = create(
         
         // Update current timeline ID
         set({ currentTimelineId: timelineId })
+        hydrateActiveOpticalFlowCaches(state.currentProjectHandle)
         
         return true
       },
@@ -1111,6 +1124,7 @@ export const useProjectStore = create(
             },
             currentTimelineId: nextTimeline.id,
           }))
+          hydrateActiveOpticalFlowCaches(state.currentProjectHandle)
         } else {
           set((state) => ({
             currentProject: {
@@ -1269,7 +1283,7 @@ export const useProjectStore = create(
       },
 
       /**
-       * Toggle whether Velorn should reopen the last project on
+       * Toggle whether Lumeweft should reopen the last project on
        * startup (true) or show the project picker (false, default).
        */
       setReopenLastProjectOnStartup: (enabled) => {

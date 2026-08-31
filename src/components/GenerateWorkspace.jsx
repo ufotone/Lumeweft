@@ -69,6 +69,7 @@ import {
   saveProject as saveProjectFile,
 } from '../services/fileSystem'
 import { planGenerationResultDeletion } from '../services/generationResultDeletion'
+import { canImportGifMedia, importGifAsset, isGifFilename } from '../services/gifImport'
 import { enqueuePlaybackTranscode } from '../services/playbackCache'
 import { enqueueProxyTranscode, isProxyPlaybackEnabled } from '../services/proxyCache'
 import { formatCaptionCuesAsSrt, transcribeAsset } from '../services/captionTranscription'
@@ -531,7 +532,7 @@ function buildGenerationErrorClipboardText({
   generationMode = '',
 } = {}) {
   const lines = [
-    'Velorn error report',
+    'Lumeweft error report',
     `Timestamp: ${new Date().toISOString()}`,
   ]
 
@@ -2226,7 +2227,7 @@ function buildMusicVideoCoveragePlanPrompt(coveragePlan) {
     'B-roll, environmental, and detail coverage must tile as adjacent video clips: each shot has a Start at, and its Length should end exactly at the next shot Start at. The final shot must end at the full audio duration.',
     'B-roll shot starts must NOT be constrained to lyric/SRT offsets. Use lyric timings only as emotional/story landmarks, then create continuous b-roll coverage between and beyond those lyric moments.',
     'Do not write one long take for any pass. Break every pass into 2-8 second clips aligned to the song timing.',
-    'Use the exact Coverage type and Coverage label fields shown below so Velorn can group the shots later.',
+    'Use the exact Coverage type and Coverage label fields shown below so Lumeweft can group the shots later.',
   ]
   plan.sections.forEach((section, index) => {
     lines.push(`  Coverage ${index + 1}: ${section.label}`)
@@ -5089,7 +5090,7 @@ function GenerateWorkspace({
   const handleImportYoloMusicAudio = useCallback(async () => {
     if (yoloMusicAudioImporting) return
     if (!currentProjectHandle) {
-      setFormError('Open or create a project first so Velorn can import the song file.')
+      setFormError('Open or create a project first so Lumeweft can import the song file.')
       addComfyLog('error', 'Song audio import requires an open project folder.')
       return
     }
@@ -5286,7 +5287,7 @@ function GenerateWorkspace({
   const handleImportYoloMusicCastImage = useCallback(async () => {
     if (yoloMusicCastImageImporting) return null
     if (!currentProjectHandle) {
-      setFormError('Open or create a project first so Velorn can import the reference image.')
+      setFormError('Open or create a project first so Lumeweft can import the reference image.')
       addComfyLog('error', 'Cast reference import requires an open project folder.')
       return null
     }
@@ -5477,7 +5478,7 @@ function GenerateWorkspace({
       '2': {
         class_type: 'PrimitiveStringMultiline',
         inputs: {
-          value: 'Velorn will inject the shot keyframe prompt here.',
+          value: 'Lumeweft will inject the shot keyframe prompt here.',
         },
         _meta: {
           title: 'VELORN_PROMPT',
@@ -5520,7 +5521,7 @@ function GenerateWorkspace({
           crop: 'center',
         },
         _meta: {
-          title: 'Velorn Output Resize',
+          title: 'Lumeweft Output Resize',
         },
       },
       '7': {
@@ -5536,7 +5537,7 @@ function GenerateWorkspace({
     }
     const validation = validateCustomKeyframeWorkflow(starter)
     return {
-      name: 'Velorn custom keyframe starter',
+      name: 'Lumeweft custom keyframe starter',
       workflow: starter,
       jsonText: JSON.stringify(starter, null, 2),
       validation,
@@ -5557,7 +5558,7 @@ function GenerateWorkspace({
       '2': {
         class_type: 'PrimitiveStringMultiline',
         inputs: {
-          value: 'Velorn will inject the ad shot keyframe prompt here.',
+          value: 'Lumeweft will inject the ad shot keyframe prompt here.',
         },
         _meta: {
           title: 'VELORN_PROMPT',
@@ -5600,7 +5601,7 @@ function GenerateWorkspace({
           crop: 'center',
         },
         _meta: {
-          title: 'Velorn Output Resize',
+          title: 'Lumeweft Output Resize',
         },
       },
       '7': {
@@ -5616,7 +5617,7 @@ function GenerateWorkspace({
     }
     const validation = validateCustomKeyframeWorkflow(starter, { requireInputImage: false })
     return {
-      name: 'Velorn custom ad keyframe starter',
+      name: 'Lumeweft custom ad keyframe starter',
       workflow: starter,
       jsonText: JSON.stringify(starter, null, 2),
       validation,
@@ -5637,7 +5638,7 @@ function GenerateWorkspace({
       '2': {
         class_type: 'PrimitiveStringMultiline',
         inputs: {
-          value: 'Velorn will inject the shot video prompt here.',
+          value: 'Lumeweft will inject the shot video prompt here.',
         },
         _meta: {
           title: 'VELORN_PROMPT',
@@ -5707,7 +5708,7 @@ function GenerateWorkspace({
           crop: 'center',
         },
         _meta: {
-          title: 'Velorn Output Resize',
+          title: 'Lumeweft Output Resize',
         },
       },
       '10': {
@@ -5723,7 +5724,7 @@ function GenerateWorkspace({
     }
     const validation = validateCustomVideoWorkflow(starter)
     return {
-      name: 'Velorn custom video starter',
+      name: 'Lumeweft custom video starter',
       workflow: starter,
       jsonText: JSON.stringify(starter, null, 2),
       validation,
@@ -5828,7 +5829,7 @@ function GenerateWorkspace({
       validateOptionalEndpoints: false,
     })
     return {
-      name: 'Velorn custom image starter',
+      name: 'Lumeweft custom image starter',
       workflow: starter,
       jsonText: JSON.stringify(starter, null, 2),
       validation,
@@ -5849,7 +5850,7 @@ function GenerateWorkspace({
       '2': {
         class_type: 'PrimitiveStringMultiline',
         inputs: {
-          value: 'Velorn will inject the video prompt here.',
+          value: 'Lumeweft will inject the video prompt here.',
         },
         _meta: {
           title: 'VELORN_PROMPT',
@@ -5919,7 +5920,7 @@ function GenerateWorkspace({
           crop: 'center',
         },
         _meta: {
-          title: 'Velorn Output Resize',
+          title: 'Lumeweft Output Resize',
         },
       },
       '10': {
@@ -5935,7 +5936,7 @@ function GenerateWorkspace({
     }
     const validation = validateCustomVideoWorkflow(starter, { requireInputImage: false })
     return {
-      name: 'Velorn custom video starter',
+      name: 'Lumeweft custom video starter',
       workflow: starter,
       jsonText: JSON.stringify(starter, null, 2),
       validation,
@@ -6339,7 +6340,7 @@ function GenerateWorkspace({
       const unavailable = normalizeComfyStudioBridgeStatus({
         state: 'unavailable',
         installed: false,
-        message: 'Velorn Bridge is only available in the desktop app.',
+        message: 'Lumeweft Bridge is only available in the desktop app.',
       })
       setYoloMusicCustomKeyframeBridgeStatus(unavailable)
       if (!silent) addComfyLog('warning', unavailable.message)
@@ -6359,7 +6360,7 @@ function GenerateWorkspace({
       const next = normalizeComfyStudioBridgeStatus({
         state: 'unavailable',
         installed: false,
-        error: error?.message || 'Could not check the Velorn Bridge.',
+        error: error?.message || 'Could not check the Lumeweft Bridge.',
       })
       setYoloMusicCustomKeyframeBridgeStatus(next)
       if (!silent) addComfyLog('error', next.message)
@@ -8225,7 +8226,7 @@ function GenerateWorkspace({
       const unavailable = normalizeComfyStudioBridgeStatus({
         state: 'unavailable',
         installed: false,
-        message: 'Velorn Bridge is only available in the desktop app.',
+        message: 'Lumeweft Bridge is only available in the desktop app.',
       })
       setYoloMusicCustomKeyframeBridgeStatus(unavailable)
       addComfyLog('warning', unavailable.message)
@@ -8239,7 +8240,7 @@ function GenerateWorkspace({
       setYoloMusicCustomKeyframeBridgeStatus(status)
 
       if (!result?.success) {
-        addComfyLog('error', status.message || status.error || 'Could not install the Velorn Bridge.')
+        addComfyLog('error', status.message || status.error || 'Could not install the Lumeweft Bridge.')
         return status
       }
 
@@ -8248,7 +8249,7 @@ function GenerateWorkspace({
 
       const restartNow = await requestConfirm({
         title: 'Restart ComfyUI now?',
-        message: 'The Velorn Bridge is installed. Restart ComfyUI now to load the Send to Velorn button.\n\nIf this ComfyUI session was started outside Velorn, restart it manually and then re-check the bridge.',
+        message: 'The Lumeweft Bridge is installed. Restart ComfyUI now to load the Send to Lumeweft button.\n\nIf this ComfyUI session was started outside Lumeweft, restart it manually and then re-check the bridge.',
         confirmLabel: 'Restart ComfyUI',
         cancelLabel: 'Later',
         tone: 'primary',
@@ -8291,7 +8292,7 @@ function GenerateWorkspace({
       const next = normalizeComfyStudioBridgeStatus({
         state: 'unavailable',
         installed: false,
-        error: error?.message || 'Could not install the Velorn Bridge.',
+        error: error?.message || 'Could not install the Lumeweft Bridge.',
       })
       setYoloMusicCustomKeyframeBridgeStatus(next)
       addComfyLog('error', next.message)
@@ -11630,7 +11631,7 @@ function GenerateWorkspace({
         if (!Number.isFinite(Number(queuedCount)) || Number(queuedCount) <= 0) {
           respond({
             success: false,
-            error: 'Velorn did not queue a keyframe job. Inspect the shot again for its current state.',
+            error: 'Lumeweft did not queue a keyframe job. Inspect the shot again for its current state.',
             report,
           })
           return
@@ -13908,7 +13909,7 @@ function GenerateWorkspace({
               })) || 0
             }
           }
-          if (queuedCount <= 0) throw new Error(`Velorn did not queue any Music Video ${stage} jobs.`)
+          if (queuedCount <= 0) throw new Error(`Lumeweft did not queue any Music Video ${stage} jobs.`)
           respond({
             success: true,
             previewOnly: false,
@@ -14126,7 +14127,7 @@ function GenerateWorkspace({
         if (!Number.isFinite(Number(queuedCount)) || Number(queuedCount) <= 0) {
           respond({
             success: false,
-            error: 'Velorn did not queue a Step 5 video job. Inspect the shot again for its current state.',
+            error: 'Lumeweft did not queue a Step 5 video job. Inspect the shot again for its current state.',
             report,
           })
           return
@@ -15287,7 +15288,7 @@ function GenerateWorkspace({
           const manifest = getMcpPromptWorkflowManifest(id)
           const label = getWorkflowDisplayLabel(id) || id
           if (!manifest) {
-            respond({ success: false, error: `Unknown Velorn workflow: ${id}`, status })
+            respond({ success: false, error: `Unknown Lumeweft workflow: ${id}`, status })
             return
           }
           if (manifest.runnable === false) {
@@ -15306,7 +15307,7 @@ function GenerateWorkspace({
               const jobAssetFields = normalizeMcpPromptAssetFieldIds(job)
               const inputAssetId = String(jobAssetFields.image || jobAssetFields.inputImage || '').trim()
               if (!inputAssetId) {
-                respond({ success: false, error: `Workflow ${label} needs an input image. Provide jobs[].assetFieldIds.image with a Velorn image asset id.`, status })
+                respond({ success: false, error: `Workflow ${label} needs an input image. Provide jobs[].assetFieldIds.image with a Lumeweft image asset id.`, status })
                 return
               }
               const inputAsset = assetById.get(inputAssetId)
@@ -16142,37 +16143,47 @@ function GenerateWorkspace({
       const shortFilmVideoName = shortFilmMeta?.kind === 'shot-video'
         ? `VID ${String((Number(shortFilmMeta.shotIndex) || 0) + 1).padStart(2, '0')} - ${shortFilmMeta.shotTitle || 'Shot'}`
         : ''
-      const generatedVideoFolderPath = generatedFolderPath('video')
-      const generatedVideoFolderId = getGeneratedFolderId('video', generatedVideoFolderPath)
       for (let videoIndex = 0; videoIndex < freshVideoItems.length; videoIndex += 1) {
         const item = freshVideoItems[videoIndex]
         const videoAssetName = `${shortFilmVideoName || resolvedName}${freshVideoItems.length > 1 ? ` (${videoIndex + 1})` : ''}`
+        const gifOutput = isGifFilename(item.filename)
+        const shouldNormalizeGif = gifOutput && canImportGifMedia()
         try {
           const videoFile = await downloadGenerationOutput(item, 'video')
-          const assetInfo = await importAsset(targetProjectHandle, videoFile, 'video')
-          const blobUrl = importsIntoActiveProject ? URL.createObjectURL(videoFile) : null
+          const assetInfo = shouldNormalizeGif
+            ? await importGifAsset(targetProjectHandle, videoFile)
+            : await importAsset(targetProjectHandle, videoFile, 'video')
+          const assetType = assetInfo?.type || 'video'
+          const normalizedGif = assetInfo?.settings?.gifSource?.animated === true
+          const assetFolderKind = assetType === 'image' ? 'image' : 'video'
+          const assetFolderPath = generatedFolderPath(assetFolderKind)
+          const assetFolderId = getGeneratedFolderId(assetFolderKind, assetFolderPath)
+          const assetUrl = importsIntoActiveProject
+            ? (assetInfo?.url || URL.createObjectURL(videoFile))
+            : null
           const newAsset = await saveImportedAssetRecord({
             ...assetInfo,
             name: videoAssetName,
-            type: 'video',
-            url: blobUrl,
+            type: assetType,
+            url: assetUrl,
             prompt: jobPrompt,
             isImported: true,
             yolo: directorMeta || undefined,
             shortFilm: shortFilmMeta || undefined,
-            folderId: generatedVideoFolderId,
+            folderId: assetFolderId,
             settings: {
-              duration: jobDuration,
-              fps: jobFps,
+              ...(assetInfo?.settings || {}),
+              duration: normalizedGif ? assetInfo.duration : jobDuration,
+              fps: normalizedGif ? assetInfo.fps : jobFps,
               resolution: jobResolution ? `${jobResolution.width}x${jobResolution.height}` : undefined,
               seed: jobSeed,
               inputAssetId: job?.inputAssetId || undefined,
               keyframeAssetId: job?.inputAssetId || shortFilmMeta?.keyframeAssetId || undefined,
             }
-          }, generatedVideoFolderPath)
+          }, assetFolderPath)
           if (newAsset) importedAssets.push(newAsset)
           didImportAny = true
-          if (isElectron() && importsIntoActiveProject && currentProjectHandle && newAsset?.absolutePath) {
+          if (assetType === 'video' && isElectron() && importsIntoActiveProject && currentProjectHandle && newAsset?.absolutePath && !normalizedGif) {
             enqueuePlaybackTranscode(currentProjectHandle, newAsset.id, newAsset.absolutePath).catch(() => {})
             if (isProxyPlaybackEnabled()) {
               enqueueProxyTranscode(currentProjectHandle, newAsset.id, newAsset.absolutePath).catch(() => {})
@@ -16180,6 +16191,7 @@ function GenerateWorkspace({
           }
         } catch (err) {
           console.error('Failed to save video:', err)
+          if (shouldNormalizeGif) throw err
           if (!importsIntoActiveProject) throw err
           // Fallback: use ComfyUI URL
           const url = getGenerationOutputUrl(item)
@@ -16190,7 +16202,7 @@ function GenerateWorkspace({
             prompt: jobPrompt,
             yolo: directorMeta || undefined,
             shortFilm: shortFilmMeta || undefined,
-            folderId: generatedVideoFolderId,
+            folderId: getGeneratedFolderId('video', generatedFolderPath('video')),
             settings: {
               duration: jobDuration,
               fps: jobFps,
@@ -16581,8 +16593,9 @@ function GenerateWorkspace({
         return null
       }
       const getUploadExtension = (asset, blob, fallbackName) => {
-        const candidates = [fallbackName, asset?.path, asset?.name].filter(Boolean)
-        for (const candidate of candidates) {
+        // Prefer the stored container over user-facing names. Imported GIF
+        // animations keep a .gif display name but own MP4/WebM media.
+        for (const candidate of [asset?.path, asset?.absolutePath].filter(Boolean)) {
           const match = String(candidate).match(/\.([a-zA-Z0-9]{1,8})(?:[?#].*)?$/)
           if (match) return `.${match[1].toLowerCase()}`
         }
@@ -16594,6 +16607,10 @@ function GenerateWorkspace({
         if (mimeType.includes('mp4')) return '.mp4'
         if (mimeType.includes('mpeg')) return '.mp3'
         if (mimeType.includes('wav')) return '.wav'
+        for (const candidate of [fallbackName, asset?.name].filter(Boolean)) {
+          const match = String(candidate).match(/\.([a-zA-Z0-9]{1,8})(?:[?#].*)?$/)
+          if (match) return `.${match[1].toLowerCase()}`
+        }
         return ''
       }
       const getSafeUploadName = (asset, blob, fallbackName) => {
@@ -18717,8 +18734,8 @@ function GenerateWorkspace({
                               <div className="text-[10px] leading-5 text-sf-text-secondary">
                                 <div className="font-semibold text-sf-text-primary">Lyrics source</div>
                                 {yoloMusicAlignProvidedLyrics
-                                  ? 'Paste plain lyrics below. Velorn listens to the selected audio for timing, then writes your lyrics as SRT.'
-                                  : 'Velorn listens to the selected audio and writes timed SRT output.'}
+                                  ? 'Paste plain lyrics below. Lumeweft listens to the selected audio for timing, then writes your lyrics as SRT.'
+                                  : 'Lumeweft listens to the selected audio and writes timed SRT output.'}
                               </div>
                               <div className="inline-flex rounded-lg border border-sf-dark-600 bg-sf-dark-950 p-1">
                                 <button
