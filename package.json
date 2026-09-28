@@ -56,7 +56,8 @@
     "test:alpha-media": "node --test ./tests/mediaAlpha.test.js ./tests/imageSequenceTranscode.test.js ./src/utils/alphaMedia.test.mjs",
     "test:mcp-h3": "node --test ./tests/mcpH3ReferenceVideo.test.js",
     "test:mcp-my-workflows": "node --test ./tests/myWorkflowCatalog.test.js",
-    "test:civitai": "node --test ./tests/civitai.test.js"
+    "test:civitai": "node --test ./tests/civitai.test.js",
+    "test:cloud-runtimes": "node --test ./tests/cloudRuntimes.test.js"
   },
   "keywords": [
     "animatic",
@@ -78,10 +79,11 @@
   },
   "license": "GPL-3.0-only",
   "dependencies": {
-    "@huggingface/transformers": "^3.7.6",
     "@derhuerst/ffprobe-static": "5.3.0",
+    "@huggingface/transformers": "^3.7.6",
     "@xyflow/react": "^12.10.2",
     "clsx": "^2.0.0",
+    "fflate": "^0.8.2",
     "ffmpeg-static": "5.3.0",
     "html2canvas": "^1.4.1",
     "js-yaml": "^4.1.1",

@@ -1,3 +1,5 @@
+import LayerPaintDialog from '../LayerPaintDialog'
+import { useI18n } from '../../i18n/I18nContext'
 import { Upload, FolderOpen, Image, Video, Music, Search, Grid, List, Trash2, Edit3, Play, FileVideo, FileAudio, FileImage, Loader2, FolderPlus, ChevronRight, ChevronDown, ChevronLeft, Home, Minus, Plus, MoreVertical, FolderInput, Wand2, Layers, Film, VolumeX, Volume2, ArrowUpDown, ArrowUp, ArrowDown, Copy, Type, RefreshCcw } from 'lucide-react'
 import { useState, useRef, useEffect, useCallback, useMemo } from 'react'
 import useAssetsStore from '../../stores/assetsStore'
@@ -144,6 +146,8 @@ function VideoAssetThumbnail({
 }
 
 function AssetsPanel({ isActive = true }) {
+  const { t } = useI18n()
+  const [paintRequest, setPaintRequest] = useState(null)
   const [viewMode, setViewMode] = useState('grid')
   const [thumbnailSize, setThumbnailSize] = useState('medium')
   const [assetDeleteMode, setAssetDeleteMode] = useState(() => {
@@ -2130,6 +2134,7 @@ function AssetsPanel({ isActive = true }) {
             </button>
           </div>
           
+          <button title={t('paint.new')} disabled={!currentProjectHandle} className="p-1.5 bg-sf-dark-700 hover:bg-sf-dark-600 rounded disabled:opacity-50" onClick={() => setPaintRequest({ projectHandle: currentProjectHandle, folderId: currentFolderId })}><Edit3 className="w-3.5 h-3.5" /></button>
           <button 
             onClick={openFilePicker}
             disabled={!currentProjectHandle || isImporting}
@@ -2952,6 +2957,7 @@ function AssetsPanel({ isActive = true }) {
           ) : (
             /* Asset menu */
             <>
+          {assets.find(a => a.id === contextMenu.assetId)?.type === 'image' && <button className="w-full px-3 py-2 text-left text-xs hover:bg-sf-dark-700" onClick={() => { const asset = assets.find(a => a.id === contextMenu.assetId); setPaintRequest({ projectHandle: currentProjectHandle, sourceAsset: asset, folderId: asset.folderId }); setContextMenu(null) }}>{t('paint.open')}</button>}
           {/* Video/Image specific options */}
           {(() => {
             const asset = assets.find(a => a.id === contextMenu.assetId)
@@ -3176,6 +3182,7 @@ function AssetsPanel({ isActive = true }) {
       )}
 
       {/* Overlay generator (currently letterbox and color matte only) */}
+      {paintRequest && <LayerPaintDialog {...paintRequest} onClose={() => setPaintRequest(null)} onSaved={asset => setPreview(asset)} />}
       <OverlayGeneratorModal
         isOpen={overlayModalOpen}
         onClose={closeOverlayModal}

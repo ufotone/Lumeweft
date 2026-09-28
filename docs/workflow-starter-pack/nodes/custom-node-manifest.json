@@ -1,7 +1,24 @@
 {
-  "generatedAt": "2026-08-30T04:29:06.603Z",
-  "totalNodes": 128,
+  "generatedAt": "2026-09-28T13:33:59.314Z",
+  "totalNodes": 146,
   "nodes": [
+    {
+      "classType": "ApplyVDNH3",
+      "workflows": [
+        "vdn-h3-t2va"
+      ],
+      "runtimes": [
+        "local"
+      ],
+      "installDocs": "https://github.com/Saganaki22/ComfyUI-VDN-H3",
+      "installKind": "auto",
+      "repoUrl": "https://github.com/Saganaki22/ComfyUI-VDN-H3",
+      "installDirName": "ComfyUI-VDN-H3",
+      "requirementsStrategy": "none",
+      "fallbackRepoUrl": null,
+      "notes": "VDN hybrid attention for the plain MiniMax H3 base. Includes its own 8-step adapter; do not stack community Turbo or Scheduled SOL attention. Standard grouped mode needs no new Python dependencies.",
+      "searchTerm": "ApplyVDNH3"
+    },
     {
       "classType": "ASRPunctuationTruecaseNode",
       "workflows": [
@@ -22,9 +39,22 @@
     {
       "classType": "BasicGuider",
       "workflows": [
+        "fast-minimax-h3-t2va",
         "flux2-text-to-image",
+        "minimax-h3-360-orbit",
+        "minimax-h3-aftermidnight-3ref",
+        "minimax-h3-aftermidnight-r2v",
+        "minimax-h3-character-actor",
         "minimax-h3-character-sheet",
-        "minimax-h3-gguf-i2v"
+        "minimax-h3-character-swap",
+        "minimax-h3-gguf-i2v",
+        "minimax-h3-gguf-r2v",
+        "minimax-h3-handheld",
+        "minimax-h3-naughty-times",
+        "minimax-h3-nsfw-motion-8step",
+        "minimax-h3-nsfw-pink-bunny",
+        "minimax-h3-pink-reference",
+        "vdn-h3-t2va"
       ],
       "runtimes": [
         "local"
@@ -41,8 +71,20 @@
     {
       "classType": "BasicScheduler",
       "workflows": [
+        "minimax-h3-360-orbit",
+        "minimax-h3-aftermidnight-3ref",
+        "minimax-h3-aftermidnight-r2v",
+        "minimax-h3-character-actor",
         "minimax-h3-character-sheet",
-        "minimax-h3-gguf-i2v"
+        "minimax-h3-character-swap",
+        "minimax-h3-gguf-i2v",
+        "minimax-h3-gguf-r2v",
+        "minimax-h3-handheld",
+        "minimax-h3-naughty-times",
+        "minimax-h3-nsfw-motion-8step",
+        "minimax-h3-nsfw-pink-bunny",
+        "minimax-h3-pink-reference",
+        "vdn-h3-t2va"
       ],
       "runtimes": [
         "local"
@@ -147,6 +189,7 @@
     {
       "classType": "CFGGuider",
       "workflows": [
+        "ainvfx-fluid",
         "ltx23-ia2v",
         "ltx23-t2v",
         "short-film-dialogue-ltx23-ia2v"
@@ -183,6 +226,7 @@
     {
       "classType": "CheckpointLoaderSimple",
       "workflows": [
+        "anima-lora-upscale",
         "ltx23-i2v",
         "ltx23-ia2v",
         "ltx23-latentsync",
@@ -204,10 +248,19 @@
     {
       "classType": "CLIPLoader",
       "workflows": [
+        "ainvfx-fluid",
+        "dark-beast-krea2-i2i",
         "ernie-image-turbo",
+        "fast-minimax-h3-t2va",
         "flux2-text-to-image",
+        "haruki-mix-krea2-t2i",
         "longcat-image-edit",
-        "longcat-text-to-image"
+        "longcat-text-to-image",
+        "minimax-h3-360-orbit",
+        "minimax-h3-gguf-i2v",
+        "minimax-h3-handheld",
+        "nsfw-wan-1-3b-e10-t2v",
+        "vdn-h3-t2va"
       ],
       "runtimes": [
         "local"
@@ -226,8 +279,20 @@
       "workflows": [
         "image-edit",
         "image-edit-model-product",
+        "minimax-h3-aftermidnight-3ref",
+        "minimax-h3-aftermidnight-r2v",
+        "minimax-h3-character-actor",
         "minimax-h3-character-sheet",
-        "minimax-h3-gguf-i2v",
+        "minimax-h3-character-swap",
+        "minimax-h3-gguf-r2v",
+        "minimax-h3-naughty-times",
+        "minimax-h3-nsfw-motion-8step",
+        "minimax-h3-nsfw-pink-bunny",
+        "minimax-h3-pink-reference",
+        "qwen-image-2-1-character-sheet",
+        "qwen-image-2-1-heretic",
+        "qwen-image-2-1-heretic-edit",
+        "qwen-image-2-1-nsfw-lora",
         "wan22-i2v",
         "wan22-t2v",
         "z-image-turbo"
@@ -247,9 +312,14 @@
     {
       "classType": "CLIPTextEncode",
       "workflows": [
+        "ainvfx-fluid",
+        "anima-lora-upscale",
+        "dark-beast-krea2-i2i",
         "ernie-image-turbo",
         "flux2-text-to-image",
-        "longcat-text-to-image"
+        "haruki-mix-krea2-t2i",
+        "longcat-text-to-image",
+        "nsfw-wan-1-3b-e10-t2v"
       ],
       "runtimes": [
         "local"
@@ -262,6 +332,23 @@
       "fallbackRepoUrl": null,
       "notes": "Core text encoding node. Missing this usually means the ComfyUI install is incomplete or very outdated.",
       "searchTerm": "CLIPTextEncode"
+    },
+    {
+      "classType": "ClownsharKSampler_Beta",
+      "workflows": [
+        "anima-lora-upscale"
+      ],
+      "runtimes": [
+        "local"
+      ],
+      "installDocs": "https://github.com/ClownsharkBatwing/RES4LYF/wiki",
+      "installKind": "auto",
+      "repoUrl": "https://github.com/ClownsharkBatwing/RES4LYF",
+      "installDirName": "RES4LYF",
+      "requirementsStrategy": "requirements-txt",
+      "fallbackRepoUrl": null,
+      "notes": "Approved CANVAS exception for advanced sampling. Provides the source workflow's Clownshar sampler and RES exponential/res_2s behavior.",
+      "searchTerm": "ClownsharKSampler_Beta"
     },
     {
       "classType": "ComfyMathExpression",
@@ -309,7 +396,9 @@
     {
       "classType": "ConditioningZeroOut",
       "workflows": [
-        "ernie-image-turbo"
+        "dark-beast-krea2-i2i",
+        "ernie-image-turbo",
+        "haruki-mix-krea2-t2i"
       ],
       "runtimes": [
         "local"
@@ -326,14 +415,29 @@
     {
       "classType": "CreateVideo",
       "workflows": [
+        "ainvfx-fluid",
+        "fast-minimax-h3-t2va",
         "frame-interpolation",
         "ltx23-i2v",
         "ltx23-ia2v",
         "ltx23-latentsync",
         "ltx23-t2v",
+        "minimax-h3-360-orbit",
+        "minimax-h3-aftermidnight-3ref",
+        "minimax-h3-aftermidnight-r2v",
+        "minimax-h3-character-actor",
+        "minimax-h3-character-swap",
         "minimax-h3-gguf-i2v",
+        "minimax-h3-gguf-r2v",
+        "minimax-h3-handheld",
+        "minimax-h3-naughty-times",
+        "minimax-h3-nsfw-motion-8step",
+        "minimax-h3-nsfw-pink-bunny",
+        "minimax-h3-pink-reference",
         "music-video-shot-ltx23",
+        "nsfw-wan-1-3b-e10-t2v",
         "short-film-dialogue-ltx23-ia2v",
+        "vdn-h3-t2va",
         "wan22-t2v"
       ],
       "runtimes": [
@@ -347,6 +451,23 @@
       "fallbackRepoUrl": null,
       "notes": "CreateVideo is part of newer ComfyUI builds.",
       "searchTerm": "CreateVideo"
+    },
+    {
+      "classType": "DiffusionModelLoaderKJ",
+      "workflows": [
+        "fast-minimax-h3-t2va"
+      ],
+      "runtimes": [
+        "local"
+      ],
+      "installDocs": "https://github.com/kijai/ComfyUI-KJNodes",
+      "installKind": "auto",
+      "repoUrl": "https://github.com/kijai/ComfyUI-KJNodes",
+      "installDirName": "ComfyUI-KJNodes",
+      "requirementsStrategy": "requirements-txt",
+      "fallbackRepoUrl": null,
+      "notes": "Provides image helpers and PathchSageAttentionKJ for H3 acceleration. SageAttention also needs a working sageattention Python package matching the ComfyUI GPU/PyTorch environment; KJNodes requirements do not install it.",
+      "searchTerm": "DiffusionModelLoaderKJ"
     },
     {
       "classType": "DualCLIPLoader",
@@ -400,6 +521,23 @@
       "searchTerm": "ElevenLabsVoiceSelector"
     },
     {
+      "classType": "EmptyAudio",
+      "workflows": [
+        "ainvfx-fluid"
+      ],
+      "runtimes": [
+        "local"
+      ],
+      "installDocs": "https://huggingface.co/AInVFX/ainvfx-fluid",
+      "installKind": "core",
+      "repoUrl": null,
+      "installDirName": null,
+      "requirementsStrategy": null,
+      "fallbackRepoUrl": null,
+      "notes": "Update ComfyUI for the AInVFX Fluid silent audio input.",
+      "searchTerm": "EmptyAudio"
+    },
+    {
       "classType": "EmptyFlux2LatentImage",
       "workflows": [
         "ernie-image-turbo",
@@ -420,6 +558,7 @@
     {
       "classType": "EmptyHunyuanLatentVideo",
       "workflows": [
+        "nsfw-wan-1-3b-e10-t2v",
         "wan22-t2v"
       ],
       "runtimes": [
@@ -435,8 +574,48 @@
       "searchTerm": "EmptyHunyuanLatentVideo"
     },
     {
+      "classType": "EmptyImage",
+      "workflows": [
+        "ainvfx-fluid"
+      ],
+      "runtimes": [
+        "local"
+      ],
+      "installDocs": "https://huggingface.co/AInVFX/ainvfx-fluid",
+      "installKind": "core",
+      "repoUrl": null,
+      "installDirName": null,
+      "requirementsStrategy": null,
+      "fallbackRepoUrl": null,
+      "notes": "ComfyUI core solid-color image batches.",
+      "searchTerm": "EmptyImage"
+    },
+    {
+      "classType": "EmptyLatentImage",
+      "workflows": [
+        "anima-lora-upscale",
+        "dark-beast-krea2-i2i",
+        "haruki-mix-krea2-t2i",
+        "qwen-image-2-1-character-sheet",
+        "qwen-image-2-1-heretic",
+        "qwen-image-2-1-nsfw-lora"
+      ],
+      "runtimes": [
+        "local"
+      ],
+      "installDocs": "https://registry.comfy.org",
+      "installKind": "manual",
+      "repoUrl": null,
+      "installDirName": null,
+      "requirementsStrategy": null,
+      "fallbackRepoUrl": null,
+      "notes": "No curated install recipe is available yet for this node class.",
+      "searchTerm": "EmptyLatentImage"
+    },
+    {
       "classType": "EmptyLTXVLatentVideo",
       "workflows": [
+        "ainvfx-fluid",
         "ltx23-i2v",
         "ltx23-ia2v",
         "ltx23-latentsync",
@@ -475,6 +654,7 @@
     {
       "classType": "Flux2Scheduler",
       "workflows": [
+        "anima-lora-upscale",
         "flux2-text-to-image"
       ],
       "runtimes": [
@@ -697,7 +877,7 @@
       "searchTerm": "H3_Promptor"
     },
     {
-      "classType": "H3_Vision_Analyzer",
+      "classType": "H3_Vision",
       "workflows": [
         "minimax-h3-media-promptor"
       ],
@@ -711,13 +891,21 @@
       "requirementsStrategy": "requirements-txt",
       "fallbackRepoUrl": null,
       "notes": "Analyzes image and video references and generates structured MiniMax H3 prompts for CANVAS.",
-      "searchTerm": "H3_Vision_Analyzer"
+      "searchTerm": "H3_Vision"
     },
     {
       "classType": "H3ClipLoaderAny",
       "workflows": [
+        "minimax-h3-aftermidnight-3ref",
+        "minimax-h3-aftermidnight-r2v",
+        "minimax-h3-character-actor",
         "minimax-h3-character-sheet",
-        "minimax-h3-gguf-i2v"
+        "minimax-h3-character-swap",
+        "minimax-h3-gguf-r2v",
+        "minimax-h3-naughty-times",
+        "minimax-h3-nsfw-motion-8step",
+        "minimax-h3-nsfw-pink-bunny",
+        "minimax-h3-pink-reference"
       ],
       "runtimes": [
         "local"
@@ -734,8 +922,16 @@
     {
       "classType": "H3ModelLoaderAny",
       "workflows": [
+        "minimax-h3-aftermidnight-3ref",
+        "minimax-h3-aftermidnight-r2v",
+        "minimax-h3-character-actor",
         "minimax-h3-character-sheet",
-        "minimax-h3-gguf-i2v"
+        "minimax-h3-character-swap",
+        "minimax-h3-gguf-r2v",
+        "minimax-h3-naughty-times",
+        "minimax-h3-nsfw-motion-8step",
+        "minimax-h3-nsfw-pink-bunny",
+        "minimax-h3-pink-reference"
       ],
       "runtimes": [
         "local"
@@ -748,6 +944,40 @@
       "fallbackRepoUrl": null,
       "notes": "Provides MiniMax H3 GGUF-aware model/encoder loaders and the in-memory architecture compatibility patch.",
       "searchTerm": "H3ModelLoaderAny"
+    },
+    {
+      "classType": "H3SLAAttention",
+      "workflows": [
+        "minimax-h3-gguf-i2v"
+      ],
+      "runtimes": [
+        "local"
+      ],
+      "installDocs": "https://github.com/ethanfel/ComfyUI-PlagueKind-Nodes-only-sparse",
+      "installKind": "auto",
+      "repoUrl": "https://github.com/ethanfel/ComfyUI-PlagueKind-Nodes-only-sparse",
+      "installDirName": "ComfyUI-PlagueKind-Nodes-only-sparse",
+      "requirementsStrategy": "none",
+      "fallbackRepoUrl": null,
+      "notes": "Provides the CUDA/Triton H3 SLA block-sparse attention node used by the default MiniMax H3 Fused workflow.",
+      "searchTerm": "H3SLAAttention"
+    },
+    {
+      "classType": "ImageBatch",
+      "workflows": [
+        "ainvfx-fluid"
+      ],
+      "runtimes": [
+        "local"
+      ],
+      "installDocs": "https://huggingface.co/AInVFX/ainvfx-fluid",
+      "installKind": "core",
+      "repoUrl": null,
+      "installDirName": null,
+      "requirementsStrategy": null,
+      "fallbackRepoUrl": null,
+      "notes": "ComfyUI core image batch concatenation.",
+      "searchTerm": "ImageBatch"
     },
     {
       "classType": "ImageCompositeMasked",
@@ -799,8 +1029,25 @@
       "installDirName": "ComfyUI-KJNodes",
       "requirementsStrategy": "requirements-txt",
       "fallbackRepoUrl": null,
-      "notes": "Provides ImageResizeKJv2 and GetImagesFromBatchIndexed for bundled helper workflows.",
+      "notes": "Provides image helpers and PathchSageAttentionKJ for H3 acceleration. SageAttention also needs a working sageattention Python package matching the ComfyUI GPU/PyTorch environment; KJNodes requirements do not install it.",
       "searchTerm": "ImageResizeKJv2"
+    },
+    {
+      "classType": "ImageScale",
+      "workflows": [
+        "ainvfx-fluid"
+      ],
+      "runtimes": [
+        "local"
+      ],
+      "installDocs": "https://huggingface.co/AInVFX/ainvfx-fluid",
+      "installKind": "core",
+      "repoUrl": null,
+      "installDirName": null,
+      "requirementsStrategy": null,
+      "fallbackRepoUrl": null,
+      "notes": "ComfyUI core image resizing.",
+      "searchTerm": "ImageScale"
     },
     {
       "classType": "ImageScaleToTotalPixels",
@@ -855,8 +1102,26 @@
       "searchTerm": "ImageToMask"
     },
     {
+      "classType": "ImageUpscaleWithModel",
+      "workflows": [
+        "anima-lora-upscale"
+      ],
+      "runtimes": [
+        "local"
+      ],
+      "installDocs": "https://registry.comfy.org",
+      "installKind": "manual",
+      "repoUrl": null,
+      "installDirName": null,
+      "requirementsStrategy": null,
+      "fallbackRepoUrl": null,
+      "notes": "No curated install recipe is available yet for this node class.",
+      "searchTerm": "ImageUpscaleWithModel"
+    },
+    {
       "classType": "jupo.IrodoriTTS.CFGConfig",
       "workflows": [
+        "irodori-v4-1-anime",
         "irodori-voice-clone"
       ],
       "runtimes": [
@@ -875,6 +1140,7 @@
       "classType": "jupo.IrodoriTTS.ModelLoader",
       "workflows": [
         "irodori-tts",
+        "irodori-v4-1-anime",
         "irodori-voice-clone"
       ],
       "runtimes": [
@@ -892,6 +1158,7 @@
     {
       "classType": "jupo.IrodoriTTS.ReferenceAudio",
       "workflows": [
+        "irodori-v4-1-anime",
         "irodori-voice-clone"
       ],
       "runtimes": [
@@ -910,6 +1177,7 @@
       "classType": "jupo.IrodoriTTS.Sampler",
       "workflows": [
         "irodori-tts",
+        "irodori-v4-1-anime",
         "irodori-voice-clone"
       ],
       "runtimes": [
@@ -961,11 +1229,18 @@
     {
       "classType": "KSampler",
       "workflows": [
+        "dark-beast-krea2-i2i",
         "ernie-image-turbo",
+        "haruki-mix-krea2-t2i",
         "image-edit",
         "image-edit-model-product",
         "longcat-image-edit",
         "longcat-text-to-image",
+        "nsfw-wan-1-3b-e10-t2v",
+        "qwen-image-2-1-character-sheet",
+        "qwen-image-2-1-heretic",
+        "qwen-image-2-1-heretic-edit",
+        "qwen-image-2-1-nsfw-lora",
         "z-image-turbo"
       ],
       "runtimes": [
@@ -1000,12 +1275,26 @@
     {
       "classType": "KSamplerSelect",
       "workflows": [
+        "ainvfx-fluid",
+        "fast-minimax-h3-t2va",
         "flux2-text-to-image",
         "ltx23-ia2v",
         "ltx23-t2v",
+        "minimax-h3-360-orbit",
+        "minimax-h3-aftermidnight-3ref",
+        "minimax-h3-aftermidnight-r2v",
+        "minimax-h3-character-actor",
         "minimax-h3-character-sheet",
+        "minimax-h3-character-swap",
         "minimax-h3-gguf-i2v",
-        "short-film-dialogue-ltx23-ia2v"
+        "minimax-h3-gguf-r2v",
+        "minimax-h3-handheld",
+        "minimax-h3-naughty-times",
+        "minimax-h3-nsfw-motion-8step",
+        "minimax-h3-nsfw-pink-bunny",
+        "minimax-h3-pink-reference",
+        "short-film-dialogue-ltx23-ia2v",
+        "vdn-h3-t2va"
       ],
       "runtimes": [
         "local"
@@ -1018,23 +1307,6 @@
       "fallbackRepoUrl": null,
       "notes": "Core sampler selection node used by advanced sampler graphs. Update ComfyUI if this is missing.",
       "searchTerm": "KSamplerSelect"
-    },
-    {
-      "classType": "LatentSyncNode",
-      "workflows": [
-        "ltx23-latentsync"
-      ],
-      "runtimes": [
-        "local"
-      ],
-      "installDocs": "https://registry.comfy.org",
-      "installKind": "manual",
-      "repoUrl": null,
-      "installDirName": null,
-      "requirementsStrategy": null,
-      "fallbackRepoUrl": null,
-      "notes": "No curated install recipe is available yet for this node class.",
-      "searchTerm": "LatentSyncNode"
     },
     {
       "classType": "LatentUpscaleModelLoader",
@@ -1078,6 +1350,7 @@
     {
       "classType": "LoadAudio",
       "workflows": [
+        "fast-minimax-h3-t2va",
         "ltx23-ia2v",
         "ltx23-latentsync",
         "music-video-shot-ltx23",
@@ -1099,9 +1372,23 @@
     {
       "classType": "LoadImage",
       "workflows": [
+        "ainvfx-fluid",
+        "dark-beast-krea2-i2i",
+        "fast-minimax-h3-t2va",
         "gpt-image-2-edit",
         "gpt-image-2-ugc-keyframe",
+        "minimax-h3-360-orbit",
+        "minimax-h3-aftermidnight-3ref",
+        "minimax-h3-aftermidnight-r2v",
+        "minimax-h3-character-actor",
         "minimax-h3-character-sheet",
+        "minimax-h3-character-swap",
+        "minimax-h3-gguf-r2v",
+        "minimax-h3-handheld",
+        "minimax-h3-naughty-times",
+        "minimax-h3-pink-reference",
+        "qwen-image-2-1-character-sheet",
+        "qwen-image-2-1-heretic-edit",
         "seedance2-flf2v",
         "seedance2-mini-r2v",
         "seedance2-r2v"
@@ -1143,6 +1430,7 @@
     {
       "classType": "LoraLoader",
       "workflows": [
+        "anima-lora-upscale",
         "ltx23-i2v",
         "ltx23-latentsync"
       ],
@@ -1166,7 +1454,18 @@
         "ltx23-ia2v",
         "ltx23-latentsync",
         "ltx23-t2v",
-        "minimax-h3-gguf-i2v",
+        "minimax-h3-360-orbit",
+        "minimax-h3-aftermidnight-3ref",
+        "minimax-h3-aftermidnight-r2v",
+        "minimax-h3-character-actor",
+        "minimax-h3-character-swap",
+        "minimax-h3-gguf-r2v",
+        "minimax-h3-handheld",
+        "minimax-h3-naughty-times",
+        "minimax-h3-nsfw-motion-8step",
+        "minimax-h3-nsfw-pink-bunny",
+        "minimax-h3-pink-reference",
+        "qwen-image-2-1-nsfw-lora",
         "short-film-dialogue-ltx23-ia2v",
         "wan22-i2v",
         "wan22-t2v"
@@ -1235,6 +1534,23 @@
       "searchTerm": "LTX2SamplingPreviewOverride"
     },
     {
+      "classType": "LTXAddVideoICLoRAGuide",
+      "workflows": [
+        "ainvfx-fluid"
+      ],
+      "runtimes": [
+        "local"
+      ],
+      "installDocs": "https://github.com/Lightricks/ComfyUI-LTXVideo",
+      "installKind": "auto",
+      "repoUrl": "https://github.com/Lightricks/ComfyUI-LTXVideo",
+      "installDirName": "ComfyUI-LTXVideo",
+      "requirementsStrategy": "requirements-txt",
+      "fallbackRepoUrl": null,
+      "notes": "Provides native LTX audio-reference conditioning used by the Exact Audio talking-video route.",
+      "searchTerm": "LTXAddVideoICLoRAGuide"
+    },
+    {
       "classType": "LTXAVTextEncoderLoader",
       "workflows": [
         "ltx23-i2v",
@@ -1256,8 +1572,26 @@
       "searchTerm": "LTXAVTextEncoderLoader"
     },
     {
+      "classType": "LTXICLoRALoaderModelOnly",
+      "workflows": [
+        "ainvfx-fluid"
+      ],
+      "runtimes": [
+        "local"
+      ],
+      "installDocs": "https://github.com/Lightricks/ComfyUI-LTXVideo",
+      "installKind": "auto",
+      "repoUrl": "https://github.com/Lightricks/ComfyUI-LTXVideo",
+      "installDirName": "ComfyUI-LTXVideo",
+      "requirementsStrategy": "requirements-txt",
+      "fallbackRepoUrl": null,
+      "notes": "Provides native LTX audio-reference conditioning used by the Exact Audio talking-video route.",
+      "searchTerm": "LTXICLoRALoaderModelOnly"
+    },
+    {
       "classType": "LTXVAudioVAEDecode",
       "workflows": [
+        "ainvfx-fluid",
         "ltx23-i2v",
         "ltx23-ia2v",
         "ltx23-latentsync",
@@ -1280,6 +1614,7 @@
       "classType": "LTXVAudioVAEEncode",
       "workflows": [
         "ltx23-ia2v",
+        "ltx23-latentsync",
         "music-video-shot-ltx23",
         "short-film-dialogue-ltx23-ia2v"
       ],
@@ -1336,6 +1671,7 @@
     {
       "classType": "LTXVConcatAVLatent",
       "workflows": [
+        "ainvfx-fluid",
         "ltx23-i2v",
         "ltx23-ia2v",
         "ltx23-latentsync",
@@ -1358,6 +1694,7 @@
     {
       "classType": "LTXVConditioning",
       "workflows": [
+        "ainvfx-fluid",
         "ltx23-i2v",
         "ltx23-ia2v",
         "ltx23-latentsync",
@@ -1380,6 +1717,7 @@
     {
       "classType": "LTXVCropGuides",
       "workflows": [
+        "ainvfx-fluid",
         "ltx23-i2v",
         "ltx23-ia2v",
         "ltx23-latentsync",
@@ -1486,6 +1824,7 @@
     {
       "classType": "LTXVSeparateAVLatent",
       "workflows": [
+        "ainvfx-fluid",
         "ltx23-i2v",
         "ltx23-ia2v",
         "ltx23-latentsync",
@@ -1506,8 +1845,28 @@
       "searchTerm": "LTXVSeparateAVLatent"
     },
     {
+      "classType": "LTXVSetAudioRefTokens",
+      "workflows": [
+        "ainvfx-fluid",
+        "ltx23-latentsync"
+      ],
+      "runtimes": [
+        "local"
+      ],
+      "installDocs": "https://github.com/Lightricks/ComfyUI-LTXVideo",
+      "installKind": "auto",
+      "repoUrl": "https://github.com/Lightricks/ComfyUI-LTXVideo",
+      "installDirName": "ComfyUI-LTXVideo",
+      "requirementsStrategy": "requirements-txt",
+      "fallbackRepoUrl": null,
+      "notes": "Provides native LTX audio-reference conditioning used by the Exact Audio talking-video route.",
+      "searchTerm": "LTXVSetAudioRefTokens"
+    },
+    {
       "classType": "ManualSigmas",
       "workflows": [
+        "ainvfx-fluid",
+        "fast-minimax-h3-t2va",
         "ltx23-ia2v",
         "ltx23-t2v",
         "short-film-dialogue-ltx23-ia2v"
@@ -1561,9 +1920,32 @@
       "searchTerm": "MelBandRoFormerSampler"
     },
     {
-      "classType": "MiniMaxH3ImageToVideo",
+      "classType": "MiniMaxChunkFeedForward",
       "workflows": [
         "minimax-h3-gguf-i2v"
+      ],
+      "runtimes": [
+        "local"
+      ],
+      "installDocs": "https://github.com/kijai/ComfyUI-KJNodes",
+      "installKind": "auto",
+      "repoUrl": "https://github.com/kijai/ComfyUI-KJNodes",
+      "installDirName": "ComfyUI-KJNodes",
+      "requirementsStrategy": "requirements-txt",
+      "fallbackRepoUrl": null,
+      "notes": "Provides image helpers and PathchSageAttentionKJ for H3 acceleration. SageAttention also needs a working sageattention Python package matching the ComfyUI GPU/PyTorch environment; KJNodes requirements do not install it.",
+      "searchTerm": "MiniMaxChunkFeedForward"
+    },
+    {
+      "classType": "MiniMaxH3ImageToVideo",
+      "workflows": [
+        "minimax-h3-360-orbit",
+        "minimax-h3-gguf-i2v",
+        "minimax-h3-handheld",
+        "minimax-h3-naughty-times",
+        "minimax-h3-nsfw-motion-8step",
+        "minimax-h3-nsfw-pink-bunny",
+        "vdn-h3-t2va"
       ],
       "runtimes": [
         "local"
@@ -1580,7 +1962,14 @@
     {
       "classType": "MiniMaxH3ReferenceToVideo",
       "workflows": [
-        "minimax-h3-character-sheet"
+        "fast-minimax-h3-t2va",
+        "minimax-h3-aftermidnight-3ref",
+        "minimax-h3-aftermidnight-r2v",
+        "minimax-h3-character-actor",
+        "minimax-h3-character-sheet",
+        "minimax-h3-character-swap",
+        "minimax-h3-gguf-r2v",
+        "minimax-h3-pink-reference"
       ],
       "runtimes": [
         "local"
@@ -1597,7 +1986,17 @@
     {
       "classType": "MiniMaxH3SigmaShift",
       "workflows": [
-        "minimax-h3-gguf-i2v"
+        "fast-minimax-h3-t2va",
+        "minimax-h3-aftermidnight-3ref",
+        "minimax-h3-aftermidnight-r2v",
+        "minimax-h3-character-actor",
+        "minimax-h3-character-swap",
+        "minimax-h3-gguf-i2v",
+        "minimax-h3-gguf-r2v",
+        "minimax-h3-naughty-times",
+        "minimax-h3-nsfw-motion-8step",
+        "minimax-h3-nsfw-pink-bunny",
+        "minimax-h3-pink-reference"
       ],
       "runtimes": [
         "local"
@@ -1631,6 +2030,7 @@
     {
       "classType": "ModelSamplingSD3",
       "workflows": [
+        "nsfw-wan-1-3b-e10-t2v",
         "wan22-t2v"
       ],
       "runtimes": [
@@ -1667,18 +2067,23 @@
     {
       "classType": "PathchSageAttentionKJ",
       "workflows": [
+        "minimax-h3-aftermidnight-3ref",
+        "minimax-h3-aftermidnight-r2v",
+        "minimax-h3-character-actor",
+        "minimax-h3-gguf-r2v",
+        "minimax-h3-pink-reference",
         "music-video-shot-ltx23"
       ],
       "runtimes": [
         "local"
       ],
-      "installDocs": "https://registry.comfy.org",
-      "installKind": "manual",
-      "repoUrl": null,
-      "installDirName": null,
-      "requirementsStrategy": null,
+      "installDocs": "https://github.com/kijai/ComfyUI-KJNodes",
+      "installKind": "auto",
+      "repoUrl": "https://github.com/kijai/ComfyUI-KJNodes",
+      "installDirName": "ComfyUI-KJNodes",
+      "requirementsStrategy": "requirements-txt",
       "fallbackRepoUrl": null,
-      "notes": "No curated install recipe is available yet for this node class.",
+      "notes": "Provides image helpers and PathchSageAttentionKJ for H3 acceleration. SageAttention also needs a working sageattention Python package matching the ComfyUI GPU/PyTorch environment; KJNodes requirements do not install it.",
       "searchTerm": "PathchSageAttentionKJ"
     },
     {
@@ -1738,12 +2143,26 @@
     {
       "classType": "RandomNoise",
       "workflows": [
+        "ainvfx-fluid",
+        "fast-minimax-h3-t2va",
         "flux2-text-to-image",
         "ltx23-ia2v",
         "ltx23-t2v",
+        "minimax-h3-360-orbit",
+        "minimax-h3-aftermidnight-3ref",
+        "minimax-h3-aftermidnight-r2v",
+        "minimax-h3-character-actor",
         "minimax-h3-character-sheet",
+        "minimax-h3-character-swap",
         "minimax-h3-gguf-i2v",
-        "short-film-dialogue-ltx23-ia2v"
+        "minimax-h3-gguf-r2v",
+        "minimax-h3-handheld",
+        "minimax-h3-naughty-times",
+        "minimax-h3-nsfw-motion-8step",
+        "minimax-h3-nsfw-pink-bunny",
+        "minimax-h3-pink-reference",
+        "short-film-dialogue-ltx23-ia2v",
+        "vdn-h3-t2va"
       ],
       "runtimes": [
         "local"
@@ -1821,12 +2240,26 @@
     {
       "classType": "SamplerCustomAdvanced",
       "workflows": [
+        "ainvfx-fluid",
+        "fast-minimax-h3-t2va",
         "flux2-text-to-image",
         "ltx23-ia2v",
         "ltx23-t2v",
+        "minimax-h3-360-orbit",
+        "minimax-h3-aftermidnight-3ref",
+        "minimax-h3-aftermidnight-r2v",
+        "minimax-h3-character-actor",
         "minimax-h3-character-sheet",
+        "minimax-h3-character-swap",
         "minimax-h3-gguf-i2v",
-        "short-film-dialogue-ltx23-ia2v"
+        "minimax-h3-gguf-r2v",
+        "minimax-h3-handheld",
+        "minimax-h3-naughty-times",
+        "minimax-h3-nsfw-motion-8step",
+        "minimax-h3-nsfw-pink-bunny",
+        "minimax-h3-pink-reference",
+        "short-film-dialogue-ltx23-ia2v",
+        "vdn-h3-t2va"
       ],
       "runtimes": [
         "local"
@@ -1843,6 +2276,7 @@
     {
       "classType": "SaveAudioAdvanced",
       "workflows": [
+        "irodori-v4-1-anime",
         "irodori-voice-clone"
       ],
       "runtimes": [
@@ -1882,12 +2316,15 @@
     {
       "classType": "SaveImage",
       "workflows": [
+        "anima-lora-upscale",
+        "dark-beast-krea2-i2i",
         "ernie-image-turbo",
         "flux2-text-to-image",
         "gpt-image-2-edit",
         "gpt-image-2-t2i",
         "gpt-image-2-ugc-keyframe",
         "grok-text-to-image",
+        "haruki-mix-krea2-t2i",
         "image-edit",
         "image-edit-model-product",
         "longcat-image-edit",
@@ -1896,6 +2333,10 @@
         "multi-angles",
         "multi-angles-scene",
         "nano-banana-2",
+        "qwen-image-2-1-character-sheet",
+        "qwen-image-2-1-heretic",
+        "qwen-image-2-1-heretic-edit",
+        "qwen-image-2-1-nsfw-lora",
         "seedream-5-lite-image-edit",
         "z-image-turbo"
       ],
@@ -1915,6 +2356,8 @@
     {
       "classType": "SaveVideo",
       "workflows": [
+        "ainvfx-fluid",
+        "fast-minimax-h3-t2va",
         "frame-interpolation",
         "grok-video-i2v",
         "kling-o3-i2v",
@@ -1922,8 +2365,20 @@
         "ltx23-ia2v",
         "ltx23-latentsync",
         "ltx23-t2v",
+        "minimax-h3-360-orbit",
+        "minimax-h3-aftermidnight-3ref",
+        "minimax-h3-aftermidnight-r2v",
+        "minimax-h3-character-actor",
+        "minimax-h3-character-swap",
         "minimax-h3-gguf-i2v",
+        "minimax-h3-gguf-r2v",
+        "minimax-h3-handheld",
+        "minimax-h3-naughty-times",
+        "minimax-h3-nsfw-motion-8step",
+        "minimax-h3-nsfw-pink-bunny",
+        "minimax-h3-pink-reference",
         "music-video-shot-ltx23",
+        "nsfw-wan-1-3b-e10-t2v",
         "seedance2-flf2v",
         "seedance2-mini-r2v",
         "seedance2-mini-t2v",
@@ -1931,6 +2386,7 @@
         "seedance2-t2v",
         "short-film-dialogue-ltx23-ia2v",
         "topaz-video-upscale",
+        "vdn-h3-t2va",
         "vidu-q2-i2v",
         "wan22-i2v",
         "wan22-t2v"
@@ -2071,6 +2527,26 @@
       "searchTerm": "TextEncodeAceStepAudio1.5"
     },
     {
+      "classType": "TextEncodeQwenImage21",
+      "workflows": [
+        "qwen-image-2-1-character-sheet",
+        "qwen-image-2-1-heretic",
+        "qwen-image-2-1-heretic-edit",
+        "qwen-image-2-1-nsfw-lora"
+      ],
+      "runtimes": [
+        "local"
+      ],
+      "installDocs": "https://blog.comfy.org/p/qwen-image-21-in-comfyui-open-weight",
+      "installKind": "core",
+      "repoUrl": null,
+      "installDirName": null,
+      "requirementsStrategy": null,
+      "fallbackRepoUrl": null,
+      "notes": "Qwen Image 2.1 support requires ComfyUI 0.36.0 or newer. Update ComfyUI if this node is missing.",
+      "searchTerm": "TextEncodeQwenImage21"
+    },
+    {
       "classType": "TextEncodeQwenImageEdit",
       "workflows": [
         "longcat-image-edit"
@@ -2161,6 +2637,23 @@
       "searchTerm": "TextToSRTBuilderNode"
     },
     {
+      "classType": "TK Batch LoRA Loader",
+      "workflows": [
+        "tk-toolkit"
+      ],
+      "runtimes": [
+        "local"
+      ],
+      "installDocs": "https://github.com/Ararararararaki/comfyui-anima-toolkit",
+      "installKind": "auto",
+      "repoUrl": "https://github.com/Ararararararaki/comfyui-anima-toolkit",
+      "installDirName": "ComfyUI-Anima-Batch-LoRA",
+      "requirementsStrategy": "requirements-txt",
+      "fallbackRepoUrl": null,
+      "notes": "Optional MIT-licensed ComfyUI toolbox for visual LoRA management, Civitai metadata and downloads, prompt cards, Danbooru search, output browsing, and batch utilities. Models, previews, and remote service content keep their own licenses and terms.",
+      "searchTerm": "TK Batch LoRA Loader"
+    },
+    {
       "classType": "TopazVideoEnhance",
       "workflows": [
         "topaz-video-upscale"
@@ -2199,11 +2692,23 @@
     {
       "classType": "UNETLoader",
       "workflows": [
+        "ainvfx-fluid",
+        "dark-beast-krea2-i2i",
         "ernie-image-turbo",
         "flux2-text-to-image",
+        "haruki-mix-krea2-t2i",
         "longcat-image-edit",
         "longcat-text-to-image",
-        "music-video-shot-ltx23"
+        "minimax-h3-360-orbit",
+        "minimax-h3-gguf-i2v",
+        "minimax-h3-handheld",
+        "music-video-shot-ltx23",
+        "nsfw-wan-1-3b-e10-t2v",
+        "qwen-image-2-1-character-sheet",
+        "qwen-image-2-1-heretic",
+        "qwen-image-2-1-heretic-edit",
+        "qwen-image-2-1-nsfw-lora",
+        "vdn-h3-t2va"
       ],
       "runtimes": [
         "local"
@@ -2222,8 +2727,16 @@
       "workflows": [
         "image-edit",
         "image-edit-model-product",
+        "minimax-h3-aftermidnight-3ref",
+        "minimax-h3-aftermidnight-r2v",
+        "minimax-h3-character-actor",
         "minimax-h3-character-sheet",
-        "minimax-h3-gguf-i2v",
+        "minimax-h3-character-swap",
+        "minimax-h3-gguf-r2v",
+        "minimax-h3-naughty-times",
+        "minimax-h3-nsfw-motion-8step",
+        "minimax-h3-nsfw-pink-bunny",
+        "minimax-h3-pink-reference",
         "multi-angles",
         "multi-angles-scene",
         "wan22-i2v",
@@ -2260,10 +2773,48 @@
       "searchTerm": "UnifiedASRTranscribeNode"
     },
     {
+      "classType": "UpscaleModelLoader",
+      "workflows": [
+        "anima-lora-upscale"
+      ],
+      "runtimes": [
+        "local"
+      ],
+      "installDocs": "https://registry.comfy.org",
+      "installKind": "manual",
+      "repoUrl": null,
+      "installDirName": null,
+      "requirementsStrategy": null,
+      "fallbackRepoUrl": null,
+      "notes": "No curated install recipe is available yet for this node class.",
+      "searchTerm": "UpscaleModelLoader"
+    },
+    {
       "classType": "VAEDecode",
       "workflows": [
+        "anima-lora-upscale",
+        "dark-beast-krea2-i2i",
+        "fast-minimax-h3-t2va",
+        "haruki-mix-krea2-t2i",
+        "minimax-h3-360-orbit",
+        "minimax-h3-aftermidnight-3ref",
+        "minimax-h3-aftermidnight-r2v",
+        "minimax-h3-character-actor",
         "minimax-h3-character-sheet",
-        "minimax-h3-gguf-i2v"
+        "minimax-h3-character-swap",
+        "minimax-h3-gguf-i2v",
+        "minimax-h3-gguf-r2v",
+        "minimax-h3-handheld",
+        "minimax-h3-naughty-times",
+        "minimax-h3-nsfw-motion-8step",
+        "minimax-h3-nsfw-pink-bunny",
+        "minimax-h3-pink-reference",
+        "nsfw-wan-1-3b-e10-t2v",
+        "qwen-image-2-1-character-sheet",
+        "qwen-image-2-1-heretic",
+        "qwen-image-2-1-heretic-edit",
+        "qwen-image-2-1-nsfw-lora",
+        "vdn-h3-t2va"
       ],
       "runtimes": [
         "local"
@@ -2280,8 +2831,20 @@
     {
       "classType": "VAEDecodeAudio",
       "workflows": [
+        "fast-minimax-h3-t2va",
+        "minimax-h3-aftermidnight-3ref",
+        "minimax-h3-aftermidnight-r2v",
+        "minimax-h3-character-actor",
+        "minimax-h3-character-swap",
         "minimax-h3-gguf-i2v",
-        "music-gen"
+        "minimax-h3-gguf-r2v",
+        "minimax-h3-handheld",
+        "minimax-h3-naughty-times",
+        "minimax-h3-nsfw-motion-8step",
+        "minimax-h3-nsfw-pink-bunny",
+        "minimax-h3-pink-reference",
+        "music-gen",
+        "vdn-h3-t2va"
       ],
       "runtimes": [
         "local"
@@ -2298,6 +2861,7 @@
     {
       "classType": "VAEDecodeTiled",
       "workflows": [
+        "ainvfx-fluid",
         "ltx23-i2v",
         "ltx23-ia2v",
         "ltx23-latentsync",
@@ -2317,15 +2881,70 @@
       "searchTerm": "VAEDecodeTiled"
     },
     {
+      "classType": "VAEEncode",
+      "workflows": [
+        "dark-beast-krea2-i2i"
+      ],
+      "runtimes": [
+        "local"
+      ],
+      "installDocs": "https://registry.comfy.org",
+      "installKind": "manual",
+      "repoUrl": null,
+      "installDirName": null,
+      "requirementsStrategy": null,
+      "fallbackRepoUrl": null,
+      "notes": "No curated install recipe is available yet for this node class.",
+      "searchTerm": "VAEEncode"
+    },
+    {
+      "classType": "VAEEncodeAudio",
+      "workflows": [
+        "ainvfx-fluid"
+      ],
+      "runtimes": [
+        "local"
+      ],
+      "installDocs": "https://huggingface.co/AInVFX/ainvfx-fluid",
+      "installKind": "core",
+      "repoUrl": null,
+      "installDirName": null,
+      "requirementsStrategy": null,
+      "fallbackRepoUrl": null,
+      "notes": "Requires current ComfyUI with LTX 2.5 audio VAE support.",
+      "searchTerm": "VAEEncodeAudio"
+    },
+    {
       "classType": "VAELoader",
       "workflows": [
+        "ainvfx-fluid",
+        "dark-beast-krea2-i2i",
         "ernie-image-turbo",
+        "fast-minimax-h3-t2va",
         "flux2-text-to-image",
+        "haruki-mix-krea2-t2i",
         "longcat-image-edit",
         "longcat-text-to-image",
+        "minimax-h3-360-orbit",
+        "minimax-h3-aftermidnight-3ref",
+        "minimax-h3-aftermidnight-r2v",
+        "minimax-h3-character-actor",
         "minimax-h3-character-sheet",
+        "minimax-h3-character-swap",
         "minimax-h3-gguf-i2v",
+        "minimax-h3-gguf-r2v",
+        "minimax-h3-handheld",
+        "minimax-h3-naughty-times",
+        "minimax-h3-nsfw-motion-8step",
+        "minimax-h3-nsfw-pink-bunny",
+        "minimax-h3-pink-reference",
         "music-video-shot-ltx23",
+        "nsfw-wan-1-3b-e10-t2v",
+        "qwen-image-2-1-character-sheet",
+        "qwen-image-2-1-heretic",
+        "qwen-image-2-1-heretic-edit",
+        "qwen-image-2-1-nsfw-lora",
+        "vdn-h3-t2va",
         "wan22-i2v",
         "wan22-t2v",
         "z-image-turbo"
@@ -2379,7 +2998,12 @@
     {
       "classType": "VHS_LoadVideo",
       "workflows": [
-        "caption-qwen-asr"
+        "caption-qwen-asr",
+        "minimax-h3-aftermidnight-3ref",
+        "minimax-h3-aftermidnight-r2v",
+        "minimax-h3-character-swap",
+        "minimax-h3-gguf-r2v",
+        "minimax-h3-pink-reference"
       ],
       "runtimes": [
         "local"

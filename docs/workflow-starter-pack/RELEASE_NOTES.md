@@ -1,11 +1,11 @@
-# Workflow Starter Pack v0.3.28-alpha.2
+# Workflow Starter Pack v0.3.28-alpha.3
 
-Generated for Velorn v0.3.28-alpha.2.
+Generated for Velorn v0.3.28-alpha.3.
 
 ## What Is Included
 
-- 46 workflow setup guides
-- 28 local workflow JSONs for ComfyUI import
+- 70 workflow setup guides
+- 52 local workflow JSONs for ComfyUI import
 - 18 cloud/partner workflow JSONs for ComfyUI import
 - aggregated custom-node and model manifests
 - where-files-go, API key, and troubleshooting docs

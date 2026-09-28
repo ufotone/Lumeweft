@@ -1,6 +1,7 @@
 export const GENERATION_ARTIFACT_VERSION = 1
 
 const ARTIFACT_CONFIG = Object.freeze({
+  canvas: { extension: 'json', filterName: 'CANVAS Flow' },
   recipe: {
     format: 'lumeweft-generation-recipe',
     extension: 'lwrecipe',
@@ -41,8 +42,8 @@ export function buildGenerationArtifact(kind, data, exportedAt = new Date().toIS
 export async function exportGenerationArtifact({ kind, title, data }) {
   const config = ARTIFACT_CONFIG[kind]
   if (!config) throw new Error(`Unsupported generation artifact kind: ${kind}`)
-  const filename = `${safeArtifactFilename(title)}.${config.extension}`
-  const json = `${JSON.stringify(buildGenerationArtifact(kind, data), null, 2)}\n`
+  const filename = kind === 'canvas' ? data.filename : `${safeArtifactFilename(title)}.${config.extension}`
+  const json = `${JSON.stringify(kind === 'canvas' ? data : buildGenerationArtifact(kind, data), null, 2)}\n`
   const api = typeof window !== 'undefined' ? window.electronAPI : null
 
   if (api?.saveFileDialog && api?.writeFile) {
@@ -72,4 +73,3 @@ export async function exportGenerationArtifact({ kind, title, data }) {
   }
   return { success: true, filePath: filename }
 }
-

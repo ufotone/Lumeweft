@@ -1,6 +1,7 @@
 import { create } from 'zustand'
+import { ensureNsfwPrefix } from '../services/nsfwWorkflowVisibility.mjs'
 
-export const GENERATION_HISTORY_SCHEMA_VERSION = 1
+export const GENERATION_HISTORY_SCHEMA_VERSION = 2
 
 const cloneSerializable = (value, fallback = null) => {
   if (value === undefined) return fallback
@@ -25,6 +26,10 @@ const normalizeVersion = (version, index = 0) => ({
   inputAssetIds: Array.isArray(version?.inputAssetIds) ? [...version.inputAssetIds] : [],
   outputAssetIds: Array.isArray(version?.outputAssetIds) ? [...version.outputAssetIds] : [],
   status: String(version?.status || 'completed'),
+  nsfw: version?.nsfw === true,
+  workflowLabel: version?.nsfw === true
+    ? ensureNsfwPrefix(version?.workflowLabel, 'NSFW workflow')
+    : (version?.workflowLabel || null),
 })
 
 const normalizeRecord = (record) => {
@@ -38,7 +43,10 @@ const normalizeRecord = (record) => {
     id: String(record?.id || createId('generation')),
     createdAt: record?.createdAt || new Date().toISOString(),
     updatedAt: record?.updatedAt || record?.createdAt || new Date().toISOString(),
-    title: String(record?.title || 'Generation'),
+    nsfw: record?.nsfw === true,
+    title: record?.nsfw === true
+      ? ensureNsfwPrefix(record?.title, 'Generation')
+      : String(record?.title || 'Generation'),
     versions,
     activeVersionId,
   }
@@ -72,6 +80,7 @@ export const useGenerationHistoryStore = create((set, get) => ({
       updatedAt: now,
       timelineId: input.timelineId || null,
       clipId: input.clipId || null,
+      nsfw: input.nsfw === true,
       versions: [],
       activeVersionId: null,
     })
@@ -100,13 +109,18 @@ export const useGenerationHistoryStore = create((set, get) => ({
       outputAssetIds: input.outputAssetIds || [],
       apiWorkflow: cloneSerializable(input.apiWorkflow),
       uiWorkflow: cloneSerializable(input.uiWorkflow),
+      canvasWorkflow: cloneSerializable(input.canvasWorkflow),
+      artifactPath: input.artifactPath || null,
       parentVersionId: input.parentVersionId || record.activeVersionId || null,
       error: input.error || null,
+      nsfw: input.nsfw === true,
     }, record.versions.length)
     set((state) => ({
       records: state.records.map((entry) => (entry.id === recordId
         ? {
             ...entry,
+            nsfw: entry.nsfw || version.nsfw,
+            title: version.nsfw ? ensureNsfwPrefix(entry.title) : entry.title,
             versions: [...entry.versions, version],
             activeVersionId: input.activate === false ? entry.activeVersionId : version.id,
             updatedAt: new Date().toISOString(),

@@ -450,7 +450,8 @@
     "stock": "ストック",
     "discover": "見つける",
     "export": "書き出し",
-    "backstage": "バックステージ"
+    "backstage": "バックステージ",
+    "paint": "Paint"
   },
   "bottomBar": {
     "saveProject": "プロジェクトを保存",
@@ -593,8 +594,12 @@
         "description": "ストックメディア検索の認証情報を管理します。"
       },
       "connection": {
-        "title": "接続と実行環境",
-        "description": "ローカルComfyUI、クラウドサービス、APIキー、実行先、残高表示をまとめて設定します。"
+        "title": "ローカルComfyUI",
+        "description": "ローカルComfyUIへの接続と出力の自動読み込みを設定します。"
+      },
+      "cloud-runtimes": {
+        "title": "クラウド実行環境",
+        "description": "クラウドサービス、APIキー、実行先、接続テスト、クレジット表示をまとめて管理します。"
       },
       "agents": {
         "title": "エージェント（MCP）",
@@ -873,7 +878,14 @@
       "libraryHelp": "内蔵ワークフローをグリッドで確認するか、リスト表示へ切り替えます。行またはカードを展開すると、依存関係の詳細を確認できます。",
       "libraryFilteredHelp": "絞り込まれた{{count}}件のワークフローをグリッドで確認するか、リスト表示へ切り替えます。行またはカードを展開すると、依存関係の詳細を確認できます。",
       "gallery": "ギャラリー",
-      "list": "リスト"
+      "list": "リスト",
+      "tkToolkit": {
+        "about": "このツールボックスについて",
+        "description": "ComfyUI用の任意ツールボックス。LoRA、プロンプト、Danbooru参照、出力、バッチ処理をまとめて扱えます。",
+        "longDescription": "TK Toolkitはユーザー自身のComfyUIへインストールされます。LoRAの視覚的な管理、Civitaiのメタデータ取得とダウンロード、プロンプトカード、Danbooru参照検索、出力閲覧、バッチ補助を追加します。ソフトウェアはMITライセンスですが、ダウンロードするモデルや外部コンテンツにはそれぞれのライセンスと利用条件が適用されます。",
+        "installNote": "公式のMITライセンス版リポジトリと必要なPythonパッケージをインストールまたは更新します。完了後にComfyUIを再起動してください。",
+        "open": "Toolkitを開く"
+      }
     },
     "appearance": {
       "theme": "テーマ",
@@ -891,7 +903,11 @@
       "discoverTab": "Discoverタブを表示",
       "discoverTabHelp": "コミュニティ作品とチュートリアルへのショートカットを上部のタブバーに表示します。",
       "hideDiscoverTab": "Discoverタブを非表示",
-      "showDiscoverTab": "Discoverタブを表示"
+      "showDiscoverTab": "Discoverタブを表示",
+      "nsfwWorkflows": "NSFWワークフローを表示",
+      "nsfwWorkflowsHelp": "CANVAS、ディレクター、バックステージ、生成レシピ、生成履歴のNSFW項目を表示します。オフにしてもデータは削除されません。",
+      "hideNsfwWorkflows": "NSFWワークフローを非表示",
+      "showNsfwWorkflows": "NSFWワークフローを表示"
     },
     "notifications": {
       "completionSound": "生成完了音",
@@ -1017,6 +1033,9 @@
       "providers": {
         "floyo": {
           "description": "FloyoのクラウドGPUでComfyUI APIワークフローを実行します。"
+        },
+        "google-gemini": {
+          "description": "公式の有料Gemini APIで画像・動画を生成します。Google Flowのクレジットは使用できません。"
         }
       }
     }
@@ -1383,7 +1402,14 @@
             "subtitle": "クリエイター風広告",
             "description": "フック、会話、商品デモ、開封、試着、リアクションを含む、クリエイター風のSNS広告を作成します。",
             "badge": "ベータ",
-            "runtimeLabel": "作成ガイド"
+            "runtimeLabel": "キーフレーム＋映像"
+          },
+          "ugc-ad-creator-gemini": {
+            "title": "UGC広告作成 — Gemini",
+            "subtitle": "Google APIでクリエイター風広告",
+            "description": "Nano Banana 2 Liteでキーフレームを作り、Veo 3.1 Liteのネイティブ音声付き映像へ仕上げます。",
+            "badge": "Gemini",
+            "runtimeLabel": "Nano Banana 2 Lite + Veo 3.1 Lite"
           },
           "irodori-voice-clone-creator": {
             "title": "Irodori ボイススタジオ",
@@ -1397,21 +1423,28 @@
             "subtitle": "オファーから広告へ",
             "description": "地域ビジネス、オンラインショップ、サービス、イベント、小規模チーム向けの訴求重視の広告を作成します。",
             "badge": "ベータ",
-            "runtimeLabel": "スモールビジネス"
+            "runtimeLabel": "キーフレーム＋映像"
+          },
+          "business-ad-creator-gemini": {
+            "title": "ビジネス広告作成 — Gemini",
+            "subtitle": "Google APIでオファーから広告へ",
+            "description": "商品・人物・ブランドの参照をNano Banana 2 Liteへ渡し、Veo 3.1 Liteで広告映像を生成します。",
+            "badge": "Gemini",
+            "runtimeLabel": "Nano Banana 2 Lite + Veo 3.1 Lite"
           },
           "music-video-template": {
             "title": "ミュージックビデオ作成",
             "subtitle": "歌詞からショットへ",
             "description": "ミュージックビデオの企画と生成を手順に沿って進めます。",
             "badge": "かんたん",
-            "runtimeLabel": "歌詞＋LTX"
+            "runtimeLabel": "歌詞からショット"
           },
           "short-film-easy-mode": {
             "title": "短編映画作成",
             "subtitle": "脚本からシーン構成へ",
             "description": "登場人物、場所、音声、ショット構成、キーフレーム、映像を手順に沿って作成します。",
             "badge": "かんたん",
-            "runtimeLabel": "脚本＋音声＋LTX"
+            "runtimeLabel": "脚本＋音声＋ショット"
           },
           "anima-lora-factory-director": {
             "title": "ANIMA（SDXL）LoRA Factory",
@@ -1512,7 +1545,13 @@
     "backstage": {
       "title": "バックステージ",
       "description": "制作に入る前に、声・学習データ・学習済み素材を準備します。",
-      "backToWorkflows": "バックステージのワークフローへ戻る"
+      "backToWorkflows": "バックステージのワークフローへ戻る",
+      "tkToolkit": {
+        "title": "TK Toolkit",
+        "description": "LoRA管理、プロンプト整理、Danbooru参照検索、ComfyUI出力閲覧、バッチ処理を1つの任意ツールボックスにまとめます。",
+        "subtitle": "LoRA・プロンプト用ツールボックス",
+        "runtime": "ComfyUIカスタムノード＋管理パネル"
+      }
     },
     "prompter": {
       "saveTitle": "生成レシピを保存",
@@ -1529,6 +1568,7 @@
       "image": "静止画",
       "video": "動画",
       "audio": "音声・音楽",
+      "nsfw": "NSFW",
       "audioThumbnailAlt": "音声・音楽レシピ",
       "pasteClipboard": "クリップボードから貼付",
       "save": "保存",
@@ -1735,7 +1775,7 @@
         "freeSpace": "空き容量 {{size}}",
         "cancel": "ダウンロードをキャンセル",
         "checking": "インストール済みファイルを確認中…",
-        "review": "ダウンロード内容を確認",
+        "review": "ダウンロード",
         "insufficientSpace": "1 GBの安全余裕を含めると空き容量が不足しています。",
         "installedOne": "{{count}}ファイルをインストールしました。",
         "installedMany": "{{count}}ファイルをインストールしました。",
@@ -2140,17 +2180,22 @@
           "emojiHelp": "カーソル位置へ挿入されます。複数の絵文字と⏸️の間を組み合わせられます。"
         },
         "voiceDesign": {
-          "title": "声質プロンプトビルダー",
-          "help": "プリセット、話者、声の高さ、話し方、速度、感情、音質をクリックして声質プロンプトを組み立てます。",
+          "title": "声質",
+          "help": "標準音声、アニメ声、または細かく組み立てるVoiceDesignを選べます。",
           "presets": "声質プリセット",
           "standardMode": "参照なし・標準TTS",
           "designMode": "声質デザイン",
+          "animeMode": "アニメ声",
           "cloneMode": "参照音声クローン",
+          "animeCloneMode": "アニメ声・参照音声クローン",
           "enableStandard": "標準音声",
           "standardHelp": "既存のIrodori v3で、台詞をそのまま読み上げます。",
+          "enableAnime": "アニメ声",
+          "animeHelp": "Irodori v4.1-Animeで、アニメ調の日本語音声を生成します。",
+          "animeNotice": "v4.1-Animeは独自調整モデルのため、captionや絵文字による演技指定の効き方が標準版と異なることがあります。",
           "enableDesign": "声質をデザイン",
           "designHelp": "プリセットと声質パーツをVoiceDesignへ反映します。",
-          "disabledByReference": "参照音声が選択されているため、声質は参照音声を優先します。参照なしに戻すとVoiceDesignが有効になります。",
+          "disabledByReference": "参照音声の話者性を使います。標準音声／アニメ声は選べますが、VoiceDesignは参照を外すと有効になります。",
           "disabledByStandard": "現在は標準音声です。「声質をデザイン」を選ぶとVoiceDesignへ切り替わります。",
           "prompt": "完成した声質プロンプト",
           "promptHelp": "この文章がVoiceDesignのcaptionへそのまま渡されます。台詞内の絵文字による演技指定も併用できます。",
@@ -2921,10 +2966,58 @@
     "floyoStorage": "FloyoキーはOSで保護された領域に暗号化して保存します。平文はLumeweftのメインプロセスからHTTPSでFloyoへ接続するときだけ使用されます。"
   },
   "canvas": {
+    "vdnH3": {
+      "help": "テキストから音声付きの連続ショットを生成します。8ステップ固定・省メモリ設定です。まず5秒で試し、必要に応じて15秒まで延ばせます。",
+      "settings": "初期設定：608×352・24fps。VDN専用モデルを使用します。長めのショットで効果を期待できますが、このPCでの速度は未測定です。"
+    },
+    "fastH3": {
+      "image1": "参照画像1（任意）",
+      "image2": "参照画像2（任意）",
+      "audio1": "参照音声1（任意）",
+      "audio2": "参照音声2（任意）",
+      "chooseAudio": "音声ファイルを選択…",
+      "audioLoaded": "参照音声を読み込みました。",
+      "steps": "生成ステップ数",
+      "help": "テキストだけで音声付き動画を生成できます。画像2枚・音声2本まで任意で追加できます。プロンプトで <Picture 1>・<Picture 2>・<Audio 1>・<Audio 2> を指定できます。",
+      "acceleration": "SageAttention高速化は常時ONです。実行環境にSageAttentionとTritonが必要です。初期設定は4ステップ・864×480・24fpsです。"
+    },
+    "h3Reference": {
+      "speedBoost": "高速化（SageAttention）",
+      "speedBoostHelp": "元の「2X Speed Boost」と同じSageAttention設定を初期状態で有効にしています。実際の速度はGPUと参照素材に依存します。ComfyUI側に動作するSageAttentionが必要です。オフにすると標準の処理に戻ります。",
+      "help": "参照動画から動きやカメラのタイミングを引き継ぎます。指定区間（2〜15秒、初期値は先頭5秒）を24fpsで読み込みます。出力は5〜15秒・24fpsで、H3の対応フレーム数に調整します。プロンプトには <Video 1> の役割を記述してください。任意でStyle Reference画像を最大8枚接続し、接続順に <Picture 1>、<Picture 2>…の役割を記述できます。音声参照は音声付き動画でのみ有効にしてください。オフの場合も新しい音声を生成します。",
+      "videoInput": "リファレンス動画",
+      "imageInput": "参照画像（任意）",
+      "generator": "MiniMax H3 Ref2VA GGUF",
+      "chooseVideo": "参照動画を選択…",
+      "videoOnly": "このノードでは動画ファイルのみ選択できます。",
+      "contentPrompt": "生成内容",
+      "contentPromptPlaceholder": "生成したい人物、外見、場面、行動、音だけを入力してください。",
+      "videoLoaded": "参照動画を読み込みました。プロンプトを編集してフローを実行してください。",
+      "start": "参照開始位置（秒）",
+      "length": "参照区間の長さ（秒）",
+      "useAudio": "参照動画の音声もガイドに使う"
+    },
+    "h3ThreeReference": {
+      "scene": "参照画像1：シーン",
+      "character": "参照画像2：キャラクターシート",
+      "props": "参照画像3：小道具・追加舞台（任意）",
+      "generator": "MiniMax H3 NSFW 3参照動画生成",
+      "promptPlaceholder": "生成したい成人向けの内容、行動、カメラ、音だけを入力してください。"
+    },
     "subtitle": "ローカルComfyUIとクラウド連携ワークフローを扱う、厳選されたキャンバスです。",
     "subtitleRecipe": "プリセットレシピを選び、必要な入力を指定すると、内部ワークフローはLumeweftが処理します。",
     "documents": "ドキュメント",
     "advancedFlows": "高度なフロー",
+    "nsfwFlows": "NSFW",
+    "templateCategories": {
+      "i2v": "画像から映像（I2V）",
+      "t2v": "テキストから映像（T2V）",
+      "t2i": "テキストから画像（T2I）",
+      "i2i": "画像から画像（I2I）",
+      "videoTools": "映像ツール",
+      "audio": "音声",
+      "utility": "ユーティリティ"
+    },
     "presetRecipe": "プリセットレシピ",
     "node": "ノード",
     "nodeCount": "{{count}}ノード",
@@ -2949,6 +3042,10 @@
       "runSelection": "選択範囲を実行",
       "runNode": "ノードを実行",
       "runSelectedNode": "選択ノードを実行",
+      "muteNode": "ノードをミュート",
+      "unmuteNode": "ノードのミュートを解除",
+      "muteNodeHelp": "接続を変えずにこのノードを無視し、互換性のある入力をそのまま後段へ渡します。",
+      "unmuteNodeHelp": "このノードを再び有効にします。",
       "copyText": "テキストをコピー",
       "random": "ランダム",
       "reload": "再読み込み",
@@ -2961,7 +3058,8 @@
       "disconnectEdge": "接続を解除",
       "dismissNotice": "完了通知を閉じる",
       "closeInformation": "情報を閉じる",
-      "closeOriginalImage": "元画像を閉じる"
+      "closeOriginalImage": "元画像を閉じる",
+      "openOriginalImage": "画像を元のサイズで表示"
     },
     "preview": {
       "building": "動画プレビューを作成中",
@@ -3042,6 +3140,10 @@
         "label": "画像入力",
         "description": "現在のプロジェクトから画像または動画素材を選びます。"
       },
+      "video-input": {
+        "label": "動画入力",
+        "description": "現在のプロジェクトから動画素材を選びます。画像は選択できません。"
+      },
       "style-reference": {
         "label": "スタイル参照",
         "description": "編集対応の画像ノードへ1枚以上の参照画像を渡します。"
@@ -3076,11 +3178,77 @@
       }
     },
     "templates": {
+      "anima-lora-upscale": {
+        "label": "ANIMA 画像生成"
+      },
+      "nsfw-minimax-h3-naughty-times": {
+        "label": "[NSFW] H3 NaughtyTimes I2V"
+      },
+      "qwen-image-2-1-heretic": {
+        "label": "Qwen 2.1 画像生成"
+      },
+      "nsfw-qwen-image-2-1-lora": {
+        "label": "[NSFW] Qwen 2.1 LoRA 画像生成"
+      },
+      "qwen-image-2-1-heretic-edit": {
+        "label": "Qwen 2.1 画像編集"
+      },
+      "qwen-image-2-1-character-sheet": {
+        "label": "Qwen 2.1 キャラシート"
+      },
+      "vdn-h3-t2va": {
+        "label": "MiniMax H3 VDN T2V"
+      },
+      "fast-minimax-h3-t2va": {
+        "label": "MiniMax H3 Fast T2V"
+      },
+      "reference-video-to-video": {
+        "label": "MiniMax H3 参照R2V"
+      },
+      "minimax-h3-character-swap": {
+        "label": "MiniMax H3 キャラクタースワップ"
+      },
+      "nsfw-anime-talking-video": {
+        "label": "[NSFW] Irodori + LTX 会話I2V"
+      },
+      "nsfw-ortenzya-scenario": {
+        "label": "[NSFW] Ortenzya プロンプト作成"
+      },
+      "nsfw-minimax-h3-pink-bunny": {
+        "label": "[NSFW] H3 PinkFluffy I2V"
+      },
+      "nsfw-minimax-h3-pink-reference": {
+        "label": "[NSFW] H3 PinkFluffy R2V"
+      },
+      "nsfw-minimax-h3-aftermidnight-r2v": {
+        "label": "[NSFW] H3 AfterMidnight R2V"
+      },
+      "nsfw-minimax-h3-scene-character-props": {
+        "label": "[NSFW] H3 3参照I2V"
+      },
+      "nsfw-anime-endpoints-flf2v": {
+        "label": "[NSFW] Qwen + H3 始終点R2V"
+      },
+      "nsfw-anime-endpoints-r2v": {
+        "label": "[NSFW] Qwen + H3 動作R2V"
+      },
+      "nsfw-minimax-h3-motion-8step": {
+        "label": "[NSFW] H3 Motion I2V"
+      },
+      "nsfw-dark-beast-krea2-i2i": {
+        "label": "[NSFW] KREA 2 Dark Beast 画像生成 / 画像編集"
+      },
+      "nsfw-haruki-mix-krea2-t2i": {
+        "label": "[NSFW] HARUKI_MIX Krea 2 画像生成"
+      },
+      "nsfw-wan-1-3b-e10-t2v": {
+        "label": "[NSFW] Wan 1.3B e10 動画生成"
+      },
       "blank": {
-        "label": "空のキャンバス"
+        "label": "空のCANVAS"
       },
       "character-sheet": {
-        "label": "H3キャラクターシート"
+        "label": "MiniMax H3 キャラシート"
       },
       "anima-lora-dataset": {
         "label": "Anima LoRA Factory"
@@ -3089,27 +3257,47 @@
         "label": "SDXL LoRA Factory"
       },
       "text-to-video": {
-        "label": "ストーリーフロー"
+        "label": "Z-Image + LTX T2V"
       },
       "music-cue": {
-        "label": "音楽キュー"
+        "label": "MusicGen 音楽生成"
       },
-      "style-edit": {
-        "label": "参照画像付き編集"
+      "character-reference-edit": {
+        "label": "Qwen キャラクタ編集"
       },
       "image-to-video": {
-        "label": "画像 → 動画"
+        "label": "MiniMax H3 I2V"
       },
       "start-last-frame-video": {
-        "label": "開始＋終了画像 → 動画"
+        "label": "MiniMax H3 始終点I2V"
       },
       "media-to-prompt": {
-        "label": "画像／動画 → プロンプト"
+        "label": "MiniMax H3 メディア解析"
+      },
+      "ainvfx-fluid": {
+        "label": "LTX 2.5 Fluid I2V"
+      },
+      "jp-tag-search": {
+        "label": "JPタグ検索"
       }
+    },
+    "characterReferenceEdit": {
+      "primary": "参照1：元のキャラクタ（必須）",
+      "reference2": "参照2：服装・小物（任意）",
+      "reference3": "参照3：服装・小物（任意）",
+      "reference4": "参照4：服装・小物（任意）",
+      "reference5": "参照5：服装・小物（任意）",
+      "reference6": "参照6：服装・小物（任意）",
+      "prompt": "変更内容",
+      "promptPlaceholder": "例：参照2のジャケット、参照4のバッグ、参照6の帽子を参照1のキャラクタに適用。",
+      "generator": "キャラクター編集",
+      "output": "キャラクターバリエーション"
     },
     "nodeMessages": {
       "noPrompt": "プロンプトはまだありません。",
+      "basePromptActive": "プリセットの基本指示を適用します。演技や内容はインスペクターで追加できます。",
       "noMusicTags": "音楽タグはまだありません。",
+      "connectedDialogue": "台詞プロンプトを接続するか、インスペクターで台詞を入力してください。",
       "runForPrompt": "実行すると整形済みプロンプトを生成します。",
       "connectText": "確認するテキストを接続してください。",
       "connectedAssets": "接続済み素材: {{count}}件",
@@ -3160,6 +3348,16 @@
       "selectExistingHelp": "既存の学習画像が入っているフォルダーを選択してください。",
       "resultsPlaceholder": "生成した視点画像がここに表示されます",
       "resultsSavedHelp": "プロジェクトの素材パネルにも自動保存されます。",
+      "characterReference": "キャラクターリファレンス画像",
+      "characterReferenceHelp": "生成した各視点を、見切れのない4 × 2の1枚のリファレンスシートにまとめます。プロジェクト素材として保存し、Factoryの学習画像フォルダーとは分離します。",
+      "createCharacterReference": "リファレンス画像を作成",
+      "rebuildCharacterReference": "リファレンス画像を再作成",
+      "characterReferenceSaved": "1枚のプロジェクト素材として保存済みです。クリックすると確認できます。",
+      "characterReferenceReady": "キャラクターリファレンス画像を素材に保存しました。",
+      "characterReferenceNeedsViews": "リファレンス画像を作成するには、2枚以上の視点画像を生成してください。",
+      "characterReferenceLoadFailed": "生成した視点画像の一部を読み込めませんでした。",
+      "characterReferenceCanvasFailed": "キャラクターリファレンス画像を合成できませんでした。",
+      "characterReferenceSaveFailed": "キャラクターリファレンス画像を保存できませんでした。",
       "useMaskedInpaint": "視点生成前にマスク付きInpaintを使用",
       "useMaskedInpaintHelp": "オフの場合、この段階をスキップしInpaint処理は不要です。白いマスク範囲をプロンプトと任意の参照画像で置き換えます。",
       "needsAttention": "確認が必要",
@@ -3218,6 +3416,8 @@
     "fields": {
       "label": "ラベル",
       "promptText": "プロンプト文",
+      "creativePrompt": "演技・内容・追加指示",
+      "basePromptHelp": "画質、モデル固有の構文、参照素材の扱いなどの基本指示はプリセットから自動適用されます。ここには今回変えたい内容だけを入力してください。",
       "resolvedText": "解決済みテキスト",
       "projectAsset": "プロジェクト素材",
       "videoFrameTime": "動画の参照時刻（秒）",
@@ -3242,6 +3442,9 @@
       "targetResolution": "目標解像度",
       "upscaleCreativity": "アップスケールの創造性",
       "musicTags": "音楽タグ",
+      "dialogueText": "台詞（接続がない場合）",
+      "lipsExpression": "口元の表情強度",
+      "lipSyncSteps": "リップシンクステップ数",
       "inlineLyrics": "インライン歌詞／テキスト",
       "keyScale": "キー／スケール",
       "bpm": "BPM",
@@ -3320,6 +3523,7 @@
     },
     "status": {
       "default": "CANVASは生成画面と同じプロジェクト素材パイプラインへ書き込みます。",
+      "mutedHelp": "ミュート中 — このノードを無視し、互換性のある入力を後段へ渡します。",
       "missingApiKey": "APIキーがありません",
       "dependenciesMissing": "不足: ノード{{nodes}}件／モデル{{models}}件",
       "allSet": "準備完了",
@@ -3338,6 +3542,92 @@
       "desktopDatasetExport": "LoRAデータセットの書き出しはデスクトップ版で使用できます。",
       "interruptRequested": "中断を要求しました。ComfyUIの停止を待っています…",
       "saved": "CANVASの変更を現在のプロジェクトへ保存しました。"
+    },
+    "fluid": {
+      "first": "最初のフレームを描く",
+      "last": "最後のフレームを描く",
+      "prompt": "煙・蒸気・炎",
+      "output": "VFXテイク",
+      "paint": "VFXキーフレームを描画",
+      "paintHelp": "黒地に単色の形を描きます。煙は灰色、蒸気は白、炎はオレンジ・黄色。生成前に保存してください。読み込んだ画像にも描けます。形は出力サイズに合わせて拡縮されます。",
+      "color": "ブラシの色",
+      "brush": "ブラシサイズ",
+      "undo": "描画を戻す",
+      "clear": "黒で塗りつぶす",
+      "copyFirst": "最初のフレームから描く",
+      "save": "キーフレームを保存",
+      "saving": "保存中…",
+      "unsaved": "描画が未保存です。生成前に保存してください。ノードを切り替えると未保存の描画は破棄されます。",
+      "saveError": "キーフレームを保存できませんでした。",
+      "imageError": "描画用の画像を読み込めませんでした。「黒で塗りつぶす」で新しく描けます。",
+      "strength": "エフェクト強度",
+      "help": "描画した画像を2枚接続します。121フレーム・8ステップ・CFG 1。幅・高さは64の倍数（最初は512×512推奨）。25 fpsでは4.84秒です。ainvfxfluidは自動補完されます。出力にアルファはありません。黒背景のテイクをEditで合成できます。",
+      "setupHelp": "LTX 2.5（2.3とは別）・AInVFX Fluid・公式LTXVideoノードが必要です。モデル一式は約39.4 GB。ベースモデルはHugging Faceのアクセス承認が必要です。自動取得を拒否された場合はWorkflow Setupの配布元リンクから取得し、表示されたモデルフォルダに配置してください。",
+      "generator": "AInVFX Fluid"
     }
+  },
+  "paint": {
+    "title": "ペイント",
+    "name": "素材名",
+    "saveHint": "PNGと編集可能なレイヤーを保存します",
+    "save": "素材として保存",
+    "working": "処理中…",
+    "close": "閉じる",
+    "flattened": "PNGを新規画像として開く",
+    "discard": "変更を保存せず閉じますか？",
+    "discardYes": "保存せず閉じる",
+    "continue": "編集を続ける",
+    "new": "新しいペイント画像",
+    "width": "幅",
+    "height": "高さ",
+    "background": "背景",
+    "transparent": "透明",
+    "black": "黒",
+    "white": "白",
+    "create": "作成",
+    "layer": "レイヤー",
+    "brush": "ブラシ",
+    "eraser": "消しゴム",
+    "move": "移動",
+    "color": "色",
+    "size": "太さ",
+    "brushOpacity": "ブラシ不透明度",
+    "undo": "取り消し",
+    "redo": "やり直し",
+    "zoom": "ズーム",
+    "fit": "全体表示",
+    "canvas": "描画領域",
+    "layers": "レイヤー",
+    "add": "追加",
+    "addImage": "素材画像をレイヤーに追加",
+    "copyFirst": "最初のフレームを追加",
+    "visible": "表示",
+    "pixels": "画像",
+    "mask": "マスク",
+    "layerName": "レイヤー名",
+    "layerOpacity": "レイヤー不透明度",
+    "blend": "合成モード",
+    "source-over": "通常",
+    "multiply": "乗算",
+    "screen": "スクリーン",
+    "lighter": "加算",
+    "up": "上へ",
+    "down": "下へ",
+    "remove": "削除",
+    "addMask": "マスク追加",
+    "enableMask": "マスクを有効にする",
+    "invert": "反転",
+    "removeMask": "マスク削除",
+    "maskHint": "隠す／戻すで元画像を残したまま調整できます。白は表示、黒は非表示です。",
+    "hide": "隠す",
+    "reveal": "戻す",
+    "maskView": "マスクを表示",
+    "target": "編集対象",
+    "limits": "最大16レイヤー・4096px（総画素数による制限あり）",
+    "open": "ペイントで作成・編集",
+    "projectChanged": "プロジェクトが切り替わりました。保存先のプロジェクトを開き直してください。",
+    "duplicate": "レイヤー複製",
+    "workspaceHint": "生成やVFXに使う画像を作成、または保存済みの画像を選んで編集できます。",
+    "empty": "画像素材はまだありません。"
   }
 }

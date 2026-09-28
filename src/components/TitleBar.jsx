@@ -15,6 +15,7 @@ const TOP_TABS = [
   { id: 'generate', label: 'Generate' },
   { id: 'agent', label: 'Agent' },
   { id: 'flow-ai', label: 'CANVAS' },
+  { id: 'paint', label: 'Paint' },
   { id: 'mog', label: 'MoGraph' },
   { id: 'stock', label: 'Stock' },
   { id: 'comfyui', label: 'ComfyUI' },

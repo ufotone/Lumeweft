@@ -32,9 +32,13 @@ export const UGC_EXACT_LIPSYNC_WORKFLOW_ID = 'ltx23-latentsync'
 export const WORKFLOWS = {
   video: [
     { id: CUSTOM_GENERATE_VIDEO_WORKFLOW_ID, label: 'Custom Video Workflow', needsImage: false, description: 'Run your own ComfyUI video graph from Generate' },
-    { id: 'minimax-h3-gguf-i2v', label: 'Image to Video (MiniMax H3 GGUF)', needsImage: true, description: 'Local GGUF image-to-video with native stereo audio and Turbo sampling' },
+    { id: 'minimax-h3-gguf-r2v', label: 'Reference Video to Video (MiniMax H3 GGUF)', needsImage: false, description: 'Reference video plus optional images with local Ref2VA GGUF and native audio' },
+    { id: 'minimax-h3-character-actor', label: 'H3 Fixed Characte (.char) movie', needsImage: false, description: 'Generate movies from reusable OmniChar-compatible .char actors on the lightweight Q4 Ref2VA path' },
+    { id: 'minimax-h3-gguf-i2v', label: 'Image to Video (MiniMax H3 Fused SLA)', needsImage: true, description: 'Fused Turbo/Mystic INT8 ConvRot with SLA attention, low-VRAM FFN chunking and four-step native-audio generation' },
+    { id: 'minimax-h3-nsfw-pink-bunny', label: 'NSFW MiniMax H3 (PinkFluffyBunny)', needsImage: true, description: 'Quality-first GGUF image-to-video with the local PinkFluffyBunny rank-128 LoRA and no Turbo adapter' },
+    { id: 'minimax-h3-nsfw-motion-8step', label: 'NSFW MiniMax H3 Motion 8-step', needsImage: true, description: 'GGUF image-to-video using the dedicated NSFW motion-enhancer LoRA in place of vanilla LightX2V Turbo' },
     { id: 'ltx23-i2v', label: 'Image to Video (LTX 2.3)', needsImage: true, description: 'Animate an image with local LTX 2.3' },
-    { id: UGC_EXACT_LIPSYNC_WORKFLOW_ID, label: 'Exact Audio Lip-Sync (LTX 2.3 + LatentSync)', needsImage: true, description: 'Animate an image with LTX 2.3, then lip-sync the exact supplied audio with LatentSync 1.6' },
+    { id: UGC_EXACT_LIPSYNC_WORKFLOW_ID, label: 'Exact Audio Lip-Sync (LTX 2.3 Native)', needsImage: true, description: 'Animate an image from the supplied speech audio and preserve that waveform in the output' },
     { id: 'ltx23-ia2v', label: 'Image + Audio to Video (LTX 2.3)', needsImage: true, description: 'Animate an image with local LTX 2.3 audio conditioning' },
     { id: 'ltx23-t2v', label: 'Text to Video (LTX 2.3)', needsImage: false, description: 'Generate video from text with local LTX 2.3' },
     { id: 'wan22-i2v', label: 'Image to Video (WAN 2.2 GGUF)', needsImage: true, description: 'Animate an image locally with WAN 2.2 Q4_K_M GGUF + Lightning' },
@@ -64,10 +68,12 @@ export const WORKFLOWS = {
     { id: 'multi-angles', label: 'Multiple Angles (Characters)', needsImage: true, description: 'Generate 8 controlled views with Qwen Image Edit 2511 GGUF' },
     { id: 'multi-angles-scene', label: 'Multiple Angles (Scenes)', needsImage: true, description: 'Generate 8 controlled scene views with Qwen Image Edit 2511 GGUF' },
     { id: 'image-edit', label: 'Image Edit', needsImage: true, description: 'Edit image with text prompt (e.g. remove person on left, change color of car)' },
+    { id: 'dark-beast-krea2-i2i', label: 'NSFW T2I / I2I — Dark Beast KREA 2', needsImage: false, description: 'Text-to-image generation with optional latent image-to-image editing (Krea 2 FP8)' },
     { id: 'longcat-image-edit', label: 'LongCat Image Edit', needsImage: true, description: 'Edit image with local LongCat' },
   ],
   audio: [
     { id: 'music-gen', label: 'Music Generation', needsImage: false, description: 'Generate music from tags and lyrics' },
+    { id: IRODORI_TTS_WORKFLOW_ID, label: 'Irodori-TTS v3', needsImage: false, description: 'Generate local Japanese dialogue with Irodori-TTS v3' },
     { id: 'sonilo-v2m', label: 'Video to Music (Sonilo)', needsImage: true, description: 'Cloud video-to-music generation with Sonilo' },
   ],
 }
@@ -177,6 +183,7 @@ export const SEEDANCE_VIDEO_DURATION_PRESETS = Object.freeze([5, 8, 10, 12, 15])
 
 export function getVideoDurationPresets(workflowId = '') {
   const normalized = String(workflowId || '').trim()
+  if (normalized === 'google-veo-3-1-lite') return Object.freeze([4, 6, 8])
   if (['ltx23-i2v', 'ltx23-ia2v', 'ltx23-id-lora', UGC_EXACT_LIPSYNC_WORKFLOW_ID, 'ltx23-t2v'].includes(normalized)) {
     return LTX23_VIDEO_DURATION_PRESETS
   }
@@ -197,6 +204,11 @@ export const YOLO_AD_REFERENCE_CONSISTENCY_OPTIONS = Object.freeze({
 })
 
 export const YOLO_AD_LOCAL_VIDEO_WORKFLOW_OPTIONS = Object.freeze([
+  {
+    id: 'google-veo-3-1-lite',
+    label: 'Google Veo 3.1 Lite',
+    description: 'Official Gemini API image-to-video with native generated dialogue and sound.',
+  },
   {
     id: 'ltx23-i2v',
     label: 'LTX 2.3',
@@ -337,13 +349,17 @@ export const YOLO_VIDEO_WORKFLOW_TARGET_OPTIONS = Object.freeze([
 ])
 
 const WORKFLOW_DISPLAY_LABELS = Object.freeze({
+  'ainvfx-fluid': 'AInVFX Fluid (LTX 2.5)',
   'z-image-turbo': 'Z-Image Turbo GGUF',
   'image-edit': 'Qwen Image Edit 2509 GGUF',
+  'dark-beast-krea2-i2i': 'NSFW T2I / I2I — Dark Beast KREA 2',
   'nano-banana-2': 'Nano Banana 2 Image Edit (Cloud)',
+  'google-nano-banana-lite': 'Google Nano Banana 2 Lite (Gemini API)',
   'wan22-i2v': 'WAN 2.2 GGUF',
   'wan22-t2v': 'WAN 2.2 GGUF Text to Video',
+  'nsfw-wan-1-3b-e10-t2v': 'NSFW Wan 1.3B e10 Text to Video',
   'ltx23-i2v': 'LTX 2.3',
-  [UGC_EXACT_LIPSYNC_WORKFLOW_ID]: 'LTX 2.3 + LatentSync (Exact Audio)',
+  [UGC_EXACT_LIPSYNC_WORKFLOW_ID]: 'LTX 2.3 Native (Exact Audio)',
   'ltx23-ia2v': 'LTX 2.3 IA2V',
   'ltx23-id-lora': 'LTX 2.3 Lip-Sync',
   'ltx23-t2v': 'LTX 2.3 Text to Video',
@@ -351,6 +367,7 @@ const WORKFLOW_DISPLAY_LABELS = Object.freeze({
   'frame-interpolation': 'Frame Interpolation',
   'kling-o3-i2v': 'Kling O3 Omni',
   'grok-video-i2v': 'Grok Imagine Video',
+  'google-veo-3-1-lite': 'Google Veo 3.1 Lite (Gemini API)',
   'vidu-q2-i2v': 'Vidu Q2',
   'seedance2-t2v': 'Seedance 2.0 Text to Video',
   'seedance2-mini-r2v': 'Seedance 2.0 Mini Reference + Audio Guide',
@@ -377,9 +394,22 @@ const WORKFLOW_DISPLAY_LABELS = Object.freeze({
   'flux2-text-to-image': 'Flux 2 Text to Image',
   'longcat-image-edit': 'LongCat Image Edit',
   'google-gemini-flash-lite': 'Prompt Helper (Gemini 3.1 Flash Lite)',
+  'jp-tag-assistant': 'JP Tag Assistant',
   'minimax-h3-media-promptor': 'Media to Prompt (MiniMax H3 Promptor)',
   'minimax-h3-character-sheet': 'H3 Character Sheet',
-  'minimax-h3-gguf-i2v': 'MiniMax H3 GGUF Image to Video',
+  'vdn-h3-t2va': 'VDN-H3 8step',
+  'fast-minimax-h3-t2va': 'Fast MiniMax H3 T2VA (Anime)',
+  'minimax-h3-360-orbit': 'H3バレットタイム',
+  'minimax-h3-handheld': 'H3ハンドヘルドカメラ',
+  'minimax-h3-gguf-r2v': 'MiniMax H3 GGUF Reference Video to Video',
+  'minimax-h3-character-actor': 'H3 Fixed Characte (.char) movie',
+  'minimax-h3-character-swap': 'MiniMax H3 Character Swap',
+  'minimax-h3-pink-reference': 'MiniMax H3 PinkFluffyBunny Reference Video',
+  'minimax-h3-aftermidnight-r2v': 'AfterMidnightR2V',
+  'minimax-h3-aftermidnight-3ref': 'MiniMax H3 NSFW — Scene + Character + Props',
+  'minimax-h3-gguf-i2v': 'MiniMax H3 Fused SLA Image to Video',
+  'minimax-h3-nsfw-pink-bunny': 'NSFW MiniMax H3 PinkFluffyBunny',
+  'minimax-h3-nsfw-motion-8step': 'NSFW MiniMax H3 Motion 8-step',
   'sonilo-v2m': 'Sonilo Video to Music',
   'seedream-5-lite-image-edit': 'Seedream 5.0 Lite',
   'image-edit-model-product': 'Qwen Image Edit 2509 GGUF (Model + Product)',
@@ -417,18 +447,41 @@ export const HARDWARE_TIERS = Object.freeze({
 })
 
 const WORKFLOW_HARDWARE = Object.freeze({
+  'ainvfx-fluid': { tierId: 'pro', runtime: 'local', minimumVramGb: null, recommendedVramGb: null },
   'minimax-h3-character-sheet': {
     tierId: 'pro',
     runtime: 'local',
     minimumVramGb: 16,
     recommendedVramGb: 24,
   },
+  'vdn-h3-t2va': { tierId: 'pro', runtime: 'local', minimumVramGb: 16, recommendedVramGb: 32 },
+  'fast-minimax-h3-t2va': { tierId: 'pro', runtime: 'local', minimumVramGb: 16, recommendedVramGb: 24 },
+  'minimax-h3-360-orbit': { tierId: 'pro', runtime: 'local', minimumVramGb: 16, recommendedVramGb: 24 },
+  'minimax-h3-handheld': { tierId: 'pro', runtime: 'local', minimumVramGb: 16, recommendedVramGb: 24 },
+  'minimax-h3-gguf-r2v': {
+    tierId: 'pro',
+    runtime: 'local',
+    minimumVramGb: 16,
+    recommendedVramGb: 24,
+  },
+  'minimax-h3-character-actor': {
+    tierId: 'pro',
+    runtime: 'local',
+    minimumVramGb: 16,
+    recommendedVramGb: 24,
+  },
+  'minimax-h3-character-swap': { tierId: 'pro', runtime: 'local', minimumVramGb: 16, recommendedVramGb: 24 },
+  'minimax-h3-pink-reference': { tierId: 'pro', runtime: 'local', minimumVramGb: 16, recommendedVramGb: 32 },
+  'minimax-h3-aftermidnight-r2v': { tierId: 'pro', runtime: 'local', minimumVramGb: 16, recommendedVramGb: 24 },
+  'minimax-h3-aftermidnight-3ref': { tierId: 'pro', runtime: 'local', minimumVramGb: 16, recommendedVramGb: 24 },
   'minimax-h3-gguf-i2v': {
     tierId: 'standard',
     runtime: 'local',
     minimumVramGb: 8,
     recommendedVramGb: 16,
   },
+  'minimax-h3-nsfw-pink-bunny': { tierId: 'standard', runtime: 'local', minimumVramGb: 8, recommendedVramGb: 16 },
+  'minimax-h3-nsfw-motion-8step': { tierId: 'standard', runtime: 'local', minimumVramGb: 8, recommendedVramGb: 16 },
   'z-image-turbo': {
     tierId: 'lite',
     runtime: 'local',
@@ -471,6 +524,12 @@ const WORKFLOW_HARDWARE = Object.freeze({
     minimumVramGb: 12,
     recommendedVramGb: 16,
   },
+  'dark-beast-krea2-i2i': {
+    tierId: 'pro',
+    runtime: 'local',
+    minimumVramGb: 12,
+    recommendedVramGb: 16,
+  },
   'longcat-image-edit': {
     tierId: 'standard',
     runtime: 'local',
@@ -507,6 +566,12 @@ const WORKFLOW_HARDWARE = Object.freeze({
     minimumVramGb: 8,
     recommendedVramGb: 16,
   },
+  'nsfw-wan-1-3b-e10-t2v': {
+    tierId: 'standard',
+    runtime: 'local',
+    minimumVramGb: 8,
+    recommendedVramGb: 12,
+  },
   'ltx23-i2v': {
     tierId: 'pro',
     runtime: 'local',
@@ -535,6 +600,10 @@ const WORKFLOW_HARDWARE = Object.freeze({
     tierId: 'cloud',
     runtime: 'cloud',
   },
+  'google-nano-banana-lite': {
+    tierId: 'cloud',
+    runtime: 'cloud',
+  },
   'gpt-image-2-t2i': {
     tierId: 'cloud',
     runtime: 'cloud',
@@ -556,6 +625,10 @@ const WORKFLOW_HARDWARE = Object.freeze({
     runtime: 'cloud',
   },
   'grok-video-i2v': {
+    tierId: 'cloud',
+    runtime: 'cloud',
+  },
+  'google-veo-3-1-lite': {
     tierId: 'cloud',
     runtime: 'cloud',
   },
@@ -644,6 +717,10 @@ const WORKFLOW_HARDWARE = Object.freeze({
   'google-gemini-flash-lite': {
     tierId: 'cloud',
     runtime: 'cloud',
+  },
+  'jp-tag-assistant': {
+    tierId: 'lite',
+    runtime: 'local',
   },
   'minimax-h3-media-promptor': {
     tierId: 'lite',

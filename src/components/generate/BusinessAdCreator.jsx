@@ -35,11 +35,21 @@ const TONE_OPTIONS = [
 ]
 
 const VIDEO_MODEL_OPTIONS = [
+  { id: 'google-veo-3-1-lite', label: 'Google Veo 3.1 Lite', helper: 'Official Gemini API video generation with native sound.' },
   { id: 'ltx23-i2v', label: 'LTX 2.3', helper: 'Default. Good for people-heavy shots and longer takes.' },
   { id: 'wan22-i2v', label: 'WAN 2.2', helper: 'Good alternate for product motion and physical demo shots.' },
 ]
 
 const KEYFRAME_MODEL_OPTIONS = [
+  {
+    id: 'google-nano-banana-lite',
+    workflowId: 'google-nano-banana-lite',
+    label: 'Google Nano Banana 2 Lite',
+    runtimeLabel: 'Gemini API',
+    source: 'cloud',
+    tier: 'google',
+    helper: 'Official Gemini API image generation using product, talent, or environment references.',
+  },
   {
     id: 'nano-banana-2',
     workflowId: 'nano-banana-2',
@@ -548,6 +558,7 @@ function flattenPlanShots(plan) {
 }
 
 export default function BusinessAdCreator({
+  runtimePreset = '',
   assets,
   generationQueue,
   yoloActivePlan,
@@ -601,7 +612,12 @@ export default function BusinessAdCreator({
   handleAssembleAdTimeline,
 }) {
   const { t } = useI18n()
-  const initialDraft = useMemo(() => loadAdEasyModeDraft(), [])
+  const initialDraft = useMemo(() => {
+    const draft = loadAdEasyModeDraft()
+    return runtimePreset === 'google-gemini'
+      ? { ...draft, keyframeWorkflowId: 'google-nano-banana-lite', videoWorkflowId: 'google-veo-3-1-lite' }
+      : draft
+  }, [runtimePreset])
   const [step, setStep] = useState('setup')
   const [businessName, setBusinessName] = useState(initialDraft.businessName)
   const [productService, setProductService] = useState(initialDraft.productService)

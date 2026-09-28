@@ -1,4 +1,5 @@
 import { X } from 'lucide-react'
+import { createPortal } from 'react-dom'
 import { useI18n } from '../i18n/I18nContext'
 
 export default function ConfirmDialog({
@@ -22,7 +23,7 @@ export default function ConfirmDialog({
     ? 'bg-sf-error hover:bg-red-500 text-white'
     : 'bg-sf-accent hover:bg-sf-accent-hover text-white'
 
-  return (
+  const dialog = (
     <div className="fixed inset-0 z-[90] flex items-center justify-center bg-black/70" onClick={onCancel}>
       <div
         className="w-full max-w-md mx-4 rounded-xl border border-sf-dark-600 bg-sf-dark-900 shadow-xl overflow-hidden"
@@ -61,4 +62,8 @@ export default function ConfirmDialog({
       </div>
     </div>
   )
+
+  return typeof document === 'undefined'
+    ? dialog
+    : createPortal(dialog, document.body)
 }

@@ -11,6 +11,8 @@ import useAssetsStore from '../stores/assetsStore'
 import { THEMES, getStoredThemeId, applyTheme } from '../config/themes'
 import { getPexelsApiKey, setPexelsApiKey } from '../services/pexelsSettings'
 import WorkflowSetupSection from './WorkflowSetupSection'
+import ComfyStorageManagerSection from './ComfyStorageManagerSection'
+import GenerationMemorySettingsSection from './GenerationMemorySettingsSection'
 import ComfyLauncherSettingsSection from './ComfyLauncherSettingsSection'
 import ComfyLauncherLogViewer from './ComfyLauncherLogViewer'
 import ApiKeyDialog from './ApiKeyDialog'
@@ -70,6 +72,10 @@ import {
   hydrateShowDiscoverTab,
   setShowDiscoverTab,
 } from '../services/discoverTabVisibilitySettings.mjs'
+import {
+  getShowNsfwWorkflows,
+  setShowNsfwWorkflows,
+} from '../services/nsfwWorkflowVisibility.mjs'
 
 const AUTO_IMPORT_KEY = 'comfystudio-auto-import-comfy-outputs'
 const OUTPUT_DIRECTORY_SETTING_KEY = 'outputDirectory'
@@ -104,9 +110,15 @@ const SETTINGS_SECTIONS = [
   },
   {
     id: 'connection',
-    title: 'Connections & Runtimes',
+    title: 'Local ComfyUI',
     icon: Server,
-    description: 'Configure local ComfyUI, cloud providers, credentials, routing, and credit display.',
+    description: 'Configure the local ComfyUI connection and output import behavior.',
+  },
+  {
+    id: 'cloud-runtimes',
+    title: 'Cloud Execution Runtimes',
+    icon: Cloud,
+    description: 'Manage cloud providers, API keys, routing, connection tests, and credit display.',
   },
   {
     id: 'agents',
@@ -131,6 +143,12 @@ const SETTINGS_SECTIONS = [
     title: 'Workflow Setup',
     icon: Wrench,
     description: 'Scan workflows, review missing dependencies, and install curated models or node packs.',
+  },
+  {
+    id: 'comfy-storage',
+    title: 'ComfyUI Storage',
+    icon: HardDrive,
+    description: 'Review, retire, or remove installed ComfyUI models and custom nodes.',
   },
   {
     id: 'language',
@@ -227,6 +245,7 @@ function GeneralTab({ initialSection = null, initialFocusTarget = '', workflowSe
   ))
   const [showCloudCreditBalance, setShowCloudCreditBalanceState] = useState(() => getShowCloudCreditBalance())
   const [showDiscoverTab, setShowDiscoverTabState] = useState(getShowDiscoverTab)
+  const [showNsfwWorkflows, setShowNsfwWorkflowsState] = useState(getShowNsfwWorkflows)
   const [pexelsApiKey, setPexelsApiKeyLocal] = useState('')
   const [comfyOrgApiKey, setComfyOrgApiKey] = useState('')
   const [apiKeyDialogOpen, setApiKeyDialogOpen] = useState(false)
@@ -552,6 +571,11 @@ function GeneralTab({ initialSection = null, initialFocusTarget = '', workflowSe
     const next = !showDiscoverTab
     setShowDiscoverTabState(next)
     setShowDiscoverTab(next).catch(() => {})
+  }
+
+  const handleToggleNsfwWorkflows = () => {
+    const next = setShowNsfwWorkflows(!showNsfwWorkflows)
+    setShowNsfwWorkflowsState(next)
   }
 
   const handleCopyMcpText = async (id, text) => {
@@ -1098,6 +1122,7 @@ function GeneralTab({ initialSection = null, initialFocusTarget = '', workflowSe
               <div className={`w-4 h-4 bg-white rounded-full transition-transform ${showHeroBackground ? 'translate-x-5' : 'translate-x-0.5'}`} />
             </button>
           </div>
+
         </div>
       )
       break
@@ -1127,7 +1152,8 @@ function GeneralTab({ initialSection = null, initialFocusTarget = '', workflowSe
       break
     case 'connection':
       activeSectionContent = (
-        <section className="overflow-hidden rounded-xl border border-sf-dark-700 bg-sf-dark-900/35">
+        <div className="space-y-5">
+          <section className="overflow-hidden rounded-xl border border-sf-dark-700 bg-sf-dark-900/35">
           <div className="flex items-start gap-2.5 px-4 py-3.5">
             <div className="rounded-md bg-sf-dark-800 p-2"><Server className="h-4 w-4 text-sf-accent" /></div>
             <div>
@@ -1176,16 +1202,43 @@ function GeneralTab({ initialSection = null, initialFocusTarget = '', workflowSe
               </div>
             </div>
           </div>
-        </section>
+          </section>
+
+          <section className="overflow-hidden rounded-xl border border-sf-dark-700 bg-sf-dark-900/35">
+            <div className="flex items-start gap-2.5 px-4 py-3.5">
+              <div className="rounded-md bg-sf-dark-800 p-2"><FolderOpen className="h-4 w-4 text-sf-accent" /></div>
+              <div>
+                <div className="text-sm font-medium text-sf-text-primary">{t('settings.connection.importGroupTitle')}</div>
+                <p className="mt-1 text-[11px] text-sf-text-muted">{t('settings.connection.importGroupHelp')}</p>
+              </div>
+            </div>
+            <div className="border-t border-sf-dark-700 px-4 py-4">
+              <div className="flex items-center justify-between rounded-lg border border-sf-dark-700 bg-sf-dark-900/60 px-3 py-3">
+                <div className="pr-4">
+                  <label className="text-sm text-sf-text-primary">{t('settings.connection.autoImport')}</label>
+                  <p className="text-[10px] text-sf-text-muted">
+                    {t('settings.connection.autoImportHelpBefore')} <span className="text-sf-text-secondary">Imported from ComfyUI/</span> {t('settings.connection.autoImportHelpAfter')}
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  role="switch"
+                  aria-checked={autoImportComfyOutputs}
+                  onClick={handleToggleAutoImportComfyOutputs}
+                  className={`relative h-5 w-10 flex-shrink-0 rounded-full transition-colors ${autoImportComfyOutputs ? 'bg-sf-accent' : 'bg-sf-dark-600'}`}
+                  title={autoImportComfyOutputs ? t('settings.connection.disableAutoImport') : t('settings.connection.enableAutoImport')}
+                >
+                  <span className={`absolute top-0.5 h-4 w-4 rounded-full bg-white shadow transition-all ${autoImportComfyOutputs ? 'left-[calc(100%-1.25rem)]' : 'left-0.5'}`} aria-hidden />
+                </button>
+              </div>
+            </div>
+          </section>
+        </div>
       )
-      // Compose provider credentials/routing into the same connection page.
-      // The legacy case label keeps old deep links harmless during migration.
+      break
     case 'cloud-runtimes': {
-      const connectionContent = activeSectionContent
       activeSectionContent = (
         <div className="space-y-5">
-          {connectionContent}
-
           <section className="overflow-hidden rounded-xl border border-sf-dark-700 bg-sf-dark-900/35">
             <div className="flex items-start gap-2.5 px-4 py-3.5">
               <div className="rounded-md bg-sf-dark-800 p-2"><Cloud className="h-4 w-4 text-sf-accent" /></div>
@@ -1204,7 +1257,7 @@ function GeneralTab({ initialSection = null, initialFocusTarget = '', workflowSe
                   className="w-full rounded border border-sf-dark-600 bg-sf-dark-800 px-3 py-2 text-sm text-sf-text-primary focus:border-sf-accent focus:outline-none"
                 >
                   <option value={LOCAL_COMFY_RUNTIME_ID}>{t('settings.cloudRuntimes.localComfy')}</option>
-                  {cloudRuntimeSettings.providers.map((provider) => (
+                  {cloudRuntimeSettings.providers.filter((provider) => provider.capabilities?.includes('workflow-runs')).map((provider) => (
                     <option key={provider.id} value={provider.id} disabled={!provider.hasCredential}>{provider.name}</option>
                   ))}
                 </select>
@@ -1318,35 +1371,6 @@ function GeneralTab({ initialSection = null, initialFocusTarget = '', workflowSe
             </div>
           </section>
 
-          <section className="overflow-hidden rounded-xl border border-sf-dark-700 bg-sf-dark-900/35">
-            <div className="flex items-start gap-2.5 px-4 py-3.5">
-              <div className="rounded-md bg-sf-dark-800 p-2"><FolderOpen className="h-4 w-4 text-sf-accent" /></div>
-              <div>
-                <div className="text-sm font-medium text-sf-text-primary">{t('settings.connection.importGroupTitle')}</div>
-                <p className="mt-1 text-[11px] text-sf-text-muted">{t('settings.connection.importGroupHelp')}</p>
-              </div>
-            </div>
-            <div className="border-t border-sf-dark-700 px-4 py-4">
-              <div className="flex items-center justify-between rounded-lg border border-sf-dark-700 bg-sf-dark-900/60 px-3 py-3">
-                <div className="pr-4">
-                  <label className="text-sm text-sf-text-primary">{t('settings.connection.autoImport')}</label>
-                  <p className="text-[10px] text-sf-text-muted">
-                    {t('settings.connection.autoImportHelpBefore')} <span className="text-sf-text-secondary">Imported from ComfyUI/</span> {t('settings.connection.autoImportHelpAfter')}
-                  </p>
-                </div>
-                <button
-                  type="button"
-                  role="switch"
-                  aria-checked={autoImportComfyOutputs}
-                  onClick={handleToggleAutoImportComfyOutputs}
-                  className={`relative h-5 w-10 flex-shrink-0 rounded-full transition-colors ${autoImportComfyOutputs ? 'bg-sf-accent' : 'bg-sf-dark-600'}`}
-                  title={autoImportComfyOutputs ? t('settings.connection.disableAutoImport') : t('settings.connection.enableAutoImport')}
-                >
-                  <span className={`absolute top-0.5 h-4 w-4 rounded-full bg-white shadow transition-all ${autoImportComfyOutputs ? 'left-[calc(100%-1.25rem)]' : 'left-0.5'}`} aria-hidden />
-                </button>
-              </div>
-            </div>
-          </section>
         </div>
       )
       break
@@ -1667,8 +1691,11 @@ function GeneralTab({ initialSection = null, initialFocusTarget = '', workflowSe
     case 'workflow-setup':
       activeSectionContent = <WorkflowSetupSection focusWorkflowIds={workflowSetupFocusIds} />
       break
+    case 'comfy-storage':
+      activeSectionContent = <ComfyStorageManagerSection />
+      break
     case 'launcher':
-      activeSectionContent = <ComfyLauncherSettingsSection onOpenLogViewer={() => setLogViewerOpen(true)} />
+      activeSectionContent = <div className="space-y-5"><ComfyLauncherSettingsSection onOpenLogViewer={() => setLogViewerOpen(true)} /><GenerationMemorySettingsSection /></div>
       break
     case 'language':
       activeSectionContent = (
@@ -1768,6 +1795,27 @@ function GeneralTab({ initialSection = null, initialFocusTarget = '', workflowSe
             >
               <span
                 className={`absolute top-0.5 h-4 w-4 rounded-full bg-white shadow transition-all ${showDiscoverTab ? 'left-[calc(100%-1.25rem)]' : 'left-0.5'}`}
+                aria-hidden
+              />
+            </button>
+          </div>
+
+          <div className="flex items-center justify-between rounded-lg border border-sf-dark-700 bg-sf-dark-900/60 px-3 py-3">
+            <div className="pr-4">
+              <label className="text-sm text-sf-text-primary">{t('settings.appearance.nsfwWorkflows')}</label>
+              <p className="text-[10px] text-sf-text-muted">{t('settings.appearance.nsfwWorkflowsHelp')}</p>
+            </div>
+            <button
+              type="button"
+              role="switch"
+              aria-checked={showNsfwWorkflows}
+              aria-label={t('settings.appearance.nsfwWorkflows')}
+              onClick={handleToggleNsfwWorkflows}
+              className={`relative h-5 w-10 flex-shrink-0 rounded-full transition-colors ${showNsfwWorkflows ? 'bg-sf-accent' : 'bg-sf-dark-600'}`}
+              title={t(showNsfwWorkflows ? 'settings.appearance.hideNsfwWorkflows' : 'settings.appearance.showNsfwWorkflows')}
+            >
+              <span
+                className={`absolute top-0.5 h-4 w-4 rounded-full bg-white shadow transition-all ${showNsfwWorkflows ? 'left-[calc(100%-1.25rem)]' : 'left-0.5'}`}
                 aria-hidden
               />
             </button>

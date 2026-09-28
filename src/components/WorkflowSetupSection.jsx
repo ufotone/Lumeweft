@@ -28,6 +28,7 @@ import {
 import ApiKeyDialog from './ApiKeyDialog'
 import { useI18n } from '../i18n/I18nContext'
 import { COMFY_PARTNER_KEY_CHANGED_EVENT } from '../services/comfyPartnerAuth'
+import { generationMemory } from '../services/generationMemory'
 import { WORKFLOW_SETUP_STARTER_KITS, getWorkflowSetupGalleryMeta } from '../config/workflowSetupGallery'
 import { checkLocalComfyConnection, getLocalComfyConnectionSync } from '../services/localComfyConnection'
 import {
@@ -38,6 +39,7 @@ import {
   openBundledWorkflowInComfyUi,
   scanWorkflowSetupDependencies,
 } from '../services/workflowSetupManager'
+import { TK_TOOLKIT_WORKFLOW_ID, openTkToolkitPanel } from '../services/tkToolkitIntegration.mjs'
 import {
   getComfyLauncherSnapshot,
   isComfyLauncherAvailable,
@@ -227,8 +229,12 @@ function WorkflowSetupExpandedBody({
   onInstallWorkflow,
   onConfigureApiKey,
 }) {
+  const { t } = useI18n()
+  const isTkToolkit = result.workflowId === TK_TOOLKIT_WORKFLOW_ID
   const canInstallWorkflow = result.hasActionableInstalls && rootValidation.isValid && !installing
-  const longDescription = galleryMeta?.longDescription || galleryMeta?.description || ''
+  const longDescription = isTkToolkit
+    ? t('settings.workflowSetup.tkToolkit.longDescription')
+    : galleryMeta?.longDescription || galleryMeta?.description || ''
   const badgeList = Array.isArray(galleryMeta?.badges) ? galleryMeta.badges : []
   const dependencyPanelClass = highlightDependencies
     ? 'border-red-500/85 bg-red-500/5 ring-1 ring-red-500/25'
@@ -240,7 +246,7 @@ function WorkflowSetupExpandedBody({
         <div className="rounded border border-sf-dark-700 bg-sf-dark-950/70 p-3 space-y-2">
           <div className="flex items-center gap-2 text-xs font-medium text-sf-text-primary">
             <Boxes className="h-3.5 w-3.5 text-sf-text-secondary" />
-            About this workflow
+            {isTkToolkit ? t('settings.workflowSetup.tkToolkit.about') : 'About this workflow'}
           </div>
           <p className="text-[11px] leading-relaxed text-sf-text-secondary">{longDescription}</p>
           {badgeList.length > 0 && (
@@ -273,7 +279,7 @@ function WorkflowSetupExpandedBody({
           {result.autoNodePacks.map((pack) => (
             <div key={pack.id} className="text-[11px] text-sf-text-secondary">
               <div className="font-medium text-sf-text-primary">{pack.displayName}</div>
-              <div>{pack.notes}</div>
+              <div>{isTkToolkit ? t('settings.workflowSetup.tkToolkit.installNote') : pack.notes}</div>
             </div>
           ))}
           {result.autoModels.map((model) => (
@@ -338,8 +344,19 @@ function WorkflowSetupExpandedBody({
           {result.manualModels.map((model) => (
             <div key={`${model.targetSubdir}:${model.filename}`} className="text-[11px] text-sf-text-secondary">
               <div className="font-medium text-sf-text-primary">{model.filename}</div>
-              <div>{formatModelFolder(model.targetSubdir)}</div>
+              <div>{formatModelFolder(model.targetSubdir)}{model.install.sizeBytes ? ` • ${formatBytes(model.install.sizeBytes)}` : ''}</div>
               <div>{model.install.notes}</div>
+              {model.install.sourceUrl && (
+                <a
+                  href={model.install.sourceUrl}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="inline-flex items-center gap-1 mt-1 text-sf-accent hover:text-sf-accent-hover"
+                >
+                  Open authorized download
+                  <ExternalLink className="w-3 h-3" />
+                </a>
+              )}
             </div>
           ))}
         </div>
@@ -389,7 +406,7 @@ function WorkflowSetupExpandedBody({
           onClick={() => { void onOpenComfy(result.workflowId) }}
           className="rounded border border-sf-dark-600 px-3 py-1.5 text-xs text-sf-text-secondary hover:text-sf-text-primary hover:border-sf-dark-500 transition-colors"
         >
-          Load in ComfyUI
+          {isTkToolkit ? t('settings.workflowSetup.tkToolkit.open') : 'Load in ComfyUI'}
         </button>
         {result.pack?.docsUrl && (
           <a
@@ -827,6 +844,11 @@ const WorkflowSetupSection = memo(function WorkflowSetupSection({ focusWorkflowI
   }, [])
 
   const handleOpenWorkflowInComfy = useCallback(async (workflowId) => {
+    if (workflowId === TK_TOOLKIT_WORKFLOW_ID) {
+      const result = openTkToolkitPanel()
+      setStatusMessage(result.success ? 'Opened TK Toolkit in the embedded ComfyUI tab.' : result.error)
+      return
+    }
     const result = await openBundledWorkflowInComfyUi(workflowId)
     setStatusMessage(result.success ? result.hint : result.error)
   }, [])
@@ -867,6 +889,9 @@ const WorkflowSetupSection = memo(function WorkflowSetupSection({ focusWorkflowI
     })
     setStatusMessage(startMessage || 'Installing selected workflow dependencies...')
 
+    // Dependency installs may run for many minutes. Keep automatic cleanup and
+    // deep-idle shutdown from interrupting the download or its final scan.
+    const endMemoryActivity = generationMemory.beginActivity()
     try {
       const result = await window.electronAPI.installWorkflowSetup({
         comfyRootPath: rootValidation.normalizedPath || comfyRootPath,
@@ -930,8 +955,15 @@ const WorkflowSetupSection = memo(function WorkflowSetupSection({ focusWorkflowI
       const newPackLabels = Array.isArray(plan.nodePacks)
         ? plan.nodePacks.map((entry) => entry?.displayName || entry?.label || entry?.id || 'Node pack').filter(Boolean)
         : []
+      const newModelLabels = Array.isArray(plan.models)
+        ? plan.models.map((entry) => entry?.displayName || entry?.filename || 'Model').filter(Boolean)
+        : []
       setPendingRestart((prev) => ({
-        installs: [...(prev?.installs || []), ...newPackLabels.map((label) => ({ label }))],
+        installs: [
+          ...(prev?.installs || []),
+          ...newPackLabels.map((label) => ({ label })),
+          ...newModelLabels.map((label) => ({ label })),
+        ],
         since: prev?.since || Date.now(),
       }))
 
@@ -939,7 +971,7 @@ const WorkflowSetupSection = memo(function WorkflowSetupSection({ focusWorkflowI
         ...prev,
         stage: 'install',
         status: 'needs-restart',
-        message: customSuccessMessage || 'Install complete. Restart ComfyUI to load the new nodes.',
+        message: customSuccessMessage || 'Install complete. Restart ComfyUI to load the new nodes and models.',
         currentLabel: successLabel || 'Workflow setup ready',
         taskPercent: 100,
         overallPercent: 100,
@@ -953,6 +985,8 @@ const WorkflowSetupSection = memo(function WorkflowSetupSection({ focusWorkflowI
       setShowInstallOverlay(false)
       setInstalling(false)
       setStatusMessage(error instanceof Error ? error.message : 'Workflow setup install failed.')
+    } finally {
+      endMemoryActivity()
     }
   }, [comfyRootPath, handleScanAll, rootValidation])
 
@@ -998,8 +1032,8 @@ const WorkflowSetupSection = memo(function WorkflowSetupSection({ focusWorkflowI
       stage: 'restart',
       status: 'restarting',
       message: ownsRunning
-        ? 'Restarting ComfyUI so the new nodes load.'
-        : 'Starting ComfyUI so the new nodes load.',
+        ? 'Restarting ComfyUI so the new nodes and models load.'
+        : 'Starting ComfyUI so the new nodes and models load.',
       currentLabel: ownsRunning ? 'Restarting ComfyUI' : 'Starting ComfyUI',
       taskPercent: null,
     }))
@@ -1362,14 +1396,14 @@ const WorkflowSetupSection = memo(function WorkflowSetupSection({ focusWorkflowI
           <div className="flex-1 min-w-0 text-[12px] text-amber-100">
             <div className="font-semibold">
               {pendingRestartCount > 1
-                ? `${pendingRestartCount} node packs installed — restart ComfyUI to load them.`
-                : 'Node pack installed — restart ComfyUI to load it.'}
+                ? `${pendingRestartCount} dependencies installed — restart ComfyUI to load them.`
+                : 'Dependency installed — restart ComfyUI to load it.'}
             </div>
             <div className="mt-0.5 text-amber-100/80">
               {launcherIsExternal
-                ? 'ComfyUI is running outside Velorn — restart it in that window, or stop it and let Velorn manage the next launch.'
+                ? 'ComfyUI is running outside Lumeweft — restart it in that window, or stop it and let Lumeweft manage the next launch.'
                 : canRestartViaLauncher
-                  ? 'Install more node packs if you\u2019d like, then restart once to apply them all.'
+                  ? 'Install more dependencies if you\u2019d like, then restart once to apply them all.'
                   : 'No launcher configured. Open Settings → ComfyUI Launcher to set one, or restart manually.'}
               {pendingRestartLabelPreview && (
                 <span className="block mt-1 text-amber-100/60 truncate" title={pendingRestartLabelPreview}>
@@ -1493,13 +1527,13 @@ const WorkflowSetupSection = memo(function WorkflowSetupSection({ focusWorkflowI
             )}
             {installPlan.restartRecommended && (
               launcherOwnsLive ? (
-                <div className="text-emerald-300">Once the install finishes, Velorn will ask if you want to restart ComfyUI now or batch more installs first.</div>
+                <div className="text-emerald-300">Once the install finishes, Lumeweft will ask if you want to restart ComfyUI now or batch more installs first.</div>
               ) : launcherCanStart ? (
-                <div className="text-emerald-300">After install, Velorn will offer to start ComfyUI so the new nodes load.</div>
+                <div className="text-emerald-300">After install, Lumeweft will offer to start ComfyUI so the new nodes and models load.</div>
               ) : launcherIsExternal ? (
-                <div className="text-yellow-300">Restart ComfyUI manually after install so the new nodes load. (Start it from the header chip next time for one-click restarts.)</div>
+                <div className="text-yellow-300">Restart ComfyUI manually after install so the new nodes and models load. (Start it from the header chip next time for one-click restarts.)</div>
               ) : (
-                <div className="text-yellow-300">If any node packs change, restart ComfyUI after install before you trust the next dependency check.</div>
+                <div className="text-yellow-300">Restart ComfyUI after installing new node packs or models before you trust the next dependency check.</div>
               )
             )}
           </div>
@@ -1627,7 +1661,10 @@ const WorkflowSetupSection = memo(function WorkflowSetupSection({ focusWorkflowI
               const isFocusedWorkflow = focusedWorkflowIdSet.has(result.workflowId)
               const statusMeta = getStatusMeta(result)
               const canInstallWorkflow = result.hasActionableInstalls && rootValidation.isValid && !installing
-              const galleryMeta = getWorkflowSetupGalleryMeta(result.workflowId)
+              const baseGalleryMeta = getWorkflowSetupGalleryMeta(result.workflowId)
+              const galleryMeta = result.workflowId === TK_TOOLKIT_WORKFLOW_ID
+                ? { ...baseGalleryMeta, description: t('settings.workflowSetup.tkToolkit.description') }
+                : baseGalleryMeta
 
               const handleCardActivate = () => toggleWorkflowExpanded(result.workflowId)
               const handleCardKeyDown = (event) => {
@@ -1785,7 +1822,10 @@ const WorkflowSetupSection = memo(function WorkflowSetupSection({ focusWorkflowI
               const isFocusedWorkflow = focusedWorkflowIdSet.has(result.workflowId)
               const statusMeta = getStatusMeta(result)
               const canInstallWorkflow = result.hasActionableInstalls && rootValidation.isValid && !installing
-              const galleryMeta = getWorkflowSetupGalleryMeta(result.workflowId)
+              const baseGalleryMeta = getWorkflowSetupGalleryMeta(result.workflowId)
+              const galleryMeta = result.workflowId === TK_TOOLKIT_WORKFLOW_ID
+                ? { ...baseGalleryMeta, description: t('settings.workflowSetup.tkToolkit.description') }
+                : baseGalleryMeta
 
               return (
                 <div

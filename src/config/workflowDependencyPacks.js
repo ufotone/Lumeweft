@@ -1,3 +1,5 @@
+import { AINVFX_FLUID_MODELS, AINVFX_FLUID_NODES } from './ainvfxFluidConfig.js'
+import { VDN_H3_STAGE_FILES } from './vdnH3Config.js'
 /**
  * Workflow dependency manifests used for preflight checks before queueing jobs.
  * Phase 1 intentionally focuses on required dependencies only.
@@ -7,6 +9,8 @@ import { TOPAZ_VIDEO_UPSCALE_WORKFLOW_ID } from './topazVideoUpscaleConfig.js'
 import { MUSIC_VIDEO_SHOT_WORKFLOW_ID, VOCAL_EXTRACT_WORKFLOW_ID } from './musicVideoShotConfig.js'
 import {
   ELEVENLABS_TTS_WORKFLOW_ID,
+  IRODORI_ANIME_DEPENDENCY_ID,
+  IRODORI_ANIME_MODEL_FILENAME,
   IRODORI_TTS_MODEL_FILENAME,
   IRODORI_TTS_WORKFLOW_ID,
   IRODORI_VOICE_CLONE_WORKFLOW_ID,
@@ -59,6 +63,27 @@ const QWEN_IMAGE_EDIT_SHARED_MODELS = Object.freeze([
   },
 ])
 
+const QWEN_IMAGE_21_HERETIC_REQUIRED_NODES = Object.freeze([
+  'UNETLoader', 'CLIPLoaderGGUF', 'VAELoader', 'TextEncodeQwenImage21',
+  'KSampler', 'VAEDecode', 'SaveImage',
+].map(classType => ({ classType })))
+
+const QWEN_IMAGE_21_HERETIC_NODE_PACKS = Object.freeze([
+  { id: 'comfyui-gguf-qwen3vl-te', installDirName: 'ComfyUI-GGUF-Qwen3VL-TE' },
+])
+
+const QWEN_IMAGE_21_HERETIC_MODELS = Object.freeze([
+  { classType: 'UNETLoader', inputKey: 'unet_name', filename: 'qwen_image_2.1_int8_convrot.safetensors', targetSubdir: 'diffusion_models' },
+  { classType: 'CLIPLoaderGGUF', inputKey: 'clip_name', filename: 'qwen3vl_8b_heretic-Q4_K_M.gguf', targetSubdir: 'text_encoders' },
+  { classType: 'CLIPLoaderGGUF', inputKey: 'clip_name', filename: 'mmproj-qwen3vl_8b_heretic-f16.gguf', targetSubdir: 'text_encoders', exactPath: true },
+  { classType: 'VAELoader', inputKey: 'vae_name', filename: 'qwen_image_2.1_vae_bf16.safetensors', targetSubdir: 'vae' },
+])
+
+const QWEN_IMAGE_21_NSFW_LORA_MODELS = Object.freeze([
+  ...QWEN_IMAGE_21_HERETIC_MODELS,
+  { classType: 'LoraLoaderModelOnly', inputKey: 'lora_name', filename: 'NSFW Qwen Lora.safetensors', targetSubdir: 'loras' },
+])
+
 const QWEN_MULTI_ANGLE_2511_MODELS = Object.freeze([
   {
     classType: 'VAELoader',
@@ -104,6 +129,199 @@ const QWEN_IMAGE_EDIT_REQUIRED_NODES = Object.freeze([
 ])
 
 export const WORKFLOW_DEPENDENCY_PACKS = Object.freeze({
+  'ainvfx-fluid': Object.freeze({
+    id: 'ainvfx-fluid', displayName: 'AInVFX Fluid (LTX 2.5)',
+    requiredNodes: Object.freeze(AINVFX_FLUID_NODES.map(classType => ({ classType }))),
+    requiredModels: AINVFX_FLUID_MODELS,
+    docsUrl: 'https://huggingface.co/AInVFX/ainvfx-fluid',
+  }),
+  'tk-toolkit': Object.freeze({
+    id: 'tk-toolkit',
+    displayName: 'TK Toolkit',
+    requiredNodes: Object.freeze([
+      { classType: 'TK Batch LoRA Loader' },
+    ]),
+    requiredModels: Object.freeze([]),
+    docsUrl: 'https://github.com/Ararararararaki/comfyui-anima-toolkit',
+  }),
+  'anima-lora-upscale': Object.freeze({
+    id: 'anima-lora-upscale',
+    displayName: 'ANIMA Multi-LoRA + Upscale',
+    requiredNodes: Object.freeze([
+      { classType: 'CheckpointLoaderSimple' },
+      { classType: 'LoraLoader' },
+      { classType: 'CLIPTextEncode' },
+      { classType: 'EmptyLatentImage' },
+      { classType: 'Flux2Scheduler' },
+      { classType: 'ClownsharKSampler_Beta' },
+      { classType: 'VAEDecode' },
+      { classType: 'UpscaleModelLoader' },
+      { classType: 'ImageUpscaleWithModel' },
+      { classType: 'SaveImage' },
+    ]),
+    requiredModels: Object.freeze([]),
+    docsUrl: 'https://civitai.com/models/2637356/anima-lora-upscaler-resizer',
+  }),
+  'vdn-h3-t2va': Object.freeze({
+    id: 'vdn-h3-t2va', displayName: 'VDN-H3 8step',
+    requiredNodes: Object.freeze([
+      { classType: 'UNETLoader' },
+      { classType: 'CLIPLoader' },
+      { classType: 'VAELoader' },
+      { classType: 'MiniMaxH3ImageToVideo' },
+      { classType: 'RandomNoise' },
+      { classType: 'BasicGuider' },
+      { classType: 'KSamplerSelect' },
+      { classType: 'BasicScheduler' },
+      { classType: 'SamplerCustomAdvanced' },
+      { classType: 'VAEDecode' },
+      { classType: 'VAEDecodeAudio' },
+      { classType: 'CreateVideo' },
+      { classType: 'SaveVideo' },
+      { classType: 'ApplyVDNH3' },
+    ]),
+    requiredModels: Object.freeze([
+      { classType: 'UNETLoader', inputKey: 'unet_name', filename: 'minimax_h3_fl2va_int8_convrot.safetensors', targetSubdir: 'diffusion_models' },
+      { classType: 'CLIPLoader', inputKey: 'clip_name', filename: 'qwen3vl_32b_minimax_h3_nvfp4_awq.safetensors', targetSubdir: 'text_encoders' },
+      { classType: 'VAELoader', inputKey: 'vae_name', filename: 'minimax_h3_video_vae_int8_convrot.safetensors', targetSubdir: 'vae' },
+      { classType: 'VAELoader', inputKey: 'vae_name', filename: 'minimax_h3_audio_vae_fp32.safetensors', targetSubdir: 'vae' },
+      ...VDN_H3_STAGE_FILES.map(file => ({ classType: 'ApplyVDNH3', inputKey: 'vdn_checkpoint', filename: file.filename, targetSubdir: file.targetSubdir, exactPath: true })),
+    ]),
+    docsUrl: 'https://github.com/Saganaki22/ComfyUI-VDN-H3',
+  }),
+  'fast-minimax-h3-t2va': Object.freeze({
+    id: 'fast-minimax-h3-t2va',
+    displayName: 'Fast MiniMax H3 T2VA (Anime)',
+    requiredNodes: Object.freeze([
+      { classType: 'DiffusionModelLoaderKJ' },
+      { classType: 'CLIPLoader' },
+      { classType: 'VAELoader' },
+      { classType: 'MiniMaxH3ReferenceToVideo' },
+      { classType: 'RandomNoise' },
+      { classType: 'BasicGuider' },
+      { classType: 'KSamplerSelect' },
+      { classType: 'ManualSigmas' },
+      { classType: 'SamplerCustomAdvanced' },
+      { classType: 'VAEDecode' },
+      { classType: 'VAEDecodeAudio' },
+      { classType: 'CreateVideo' },
+      { classType: 'SaveVideo' },
+      { classType: 'MiniMaxH3SigmaShift' },
+      { classType: 'LoadImage' },
+      { classType: 'LoadAudio' },
+    ]),
+    requiredModels: Object.freeze([
+      { classType: 'DiffusionModelLoaderKJ', inputKey: 'model_name', filename: 'minimax_h3_fused_refdelta_r1024_turbo8_mystic07_int8_convrot.safetensors', targetSubdir: 'diffusion_models' },
+      { classType: 'CLIPLoader', inputKey: 'clip_name', filename: 'qwen3vl_32b_minimax_h3_nvfp4_awq.safetensors', targetSubdir: 'text_encoders' },
+      { classType: 'VAELoader', inputKey: 'vae_name', filename: 'minimax_h3_video_vae_int8_convrot.safetensors', targetSubdir: 'vae' },
+      { classType: 'VAELoader', inputKey: 'vae_name', filename: 'minimax_h3_audio_vae_fp32.safetensors', targetSubdir: 'vae' },
+    ]),
+    docsUrl: 'https://civitai.red/models/2906467?modelVersionId=3291309',
+  }),
+  'minimax-h3-360-orbit': Object.freeze({
+    id: 'minimax-h3-360-orbit',
+    displayName: 'H3バレットタイム',
+    requiredNodes: Object.freeze([
+      'LoadImage', 'UNETLoader', 'CLIPLoader', 'VAELoader', 'LoraLoaderModelOnly',
+      'MiniMaxH3ImageToVideo', 'RandomNoise', 'BasicGuider', 'KSamplerSelect',
+      'BasicScheduler', 'SamplerCustomAdvanced', 'VAEDecode', 'CreateVideo', 'SaveVideo',
+    ].map(classType => ({ classType }))),
+    requiredModels: Object.freeze([
+      { classType: 'UNETLoader', inputKey: 'unet_name', filename: 'minimax_h3_fl2va_pruned_int8_convrot.safetensors', targetSubdir: 'diffusion_models' },
+      { classType: 'CLIPLoader', inputKey: 'clip_name', filename: 'qwen3vl_32b_minimax_h3_nvfp4_awq.safetensors', targetSubdir: 'text_encoders' },
+      { classType: 'VAELoader', inputKey: 'vae_name', filename: 'minimax_h3_video_vae_int8_convrot.safetensors', targetSubdir: 'vae' },
+      { classType: 'LoraLoaderModelOnly', inputKey: 'lora_name', filename: 'minimax_h3_flf2v_lora_v1.safetensors', targetSubdir: 'loras' },
+    ]),
+    docsUrl: 'https://huggingface.co/pablodawson/MiniMax-H3-360-Orbit-LoRA',
+  }),
+  'minimax-h3-handheld': Object.freeze({
+    id: 'minimax-h3-handheld',
+    displayName: 'H3ハンドヘルドカメラ',
+    requiredNodes: Object.freeze([
+      'LoadImage', 'UNETLoader', 'CLIPLoader', 'VAELoader', 'LoraLoaderModelOnly',
+      'MiniMaxH3ImageToVideo', 'RandomNoise', 'BasicGuider', 'KSamplerSelect',
+      'BasicScheduler', 'SamplerCustomAdvanced', 'VAEDecode', 'VAEDecodeAudio',
+      'CreateVideo', 'SaveVideo',
+    ].map(classType => ({ classType }))),
+    requiredModels: Object.freeze([
+      { classType: 'UNETLoader', inputKey: 'unet_name', filename: 'minimax_h3_fl2va_pruned_int8_convrot.safetensors', targetSubdir: 'diffusion_models' },
+      { classType: 'CLIPLoader', inputKey: 'clip_name', filename: 'qwen3vl_32b_minimax_h3_nvfp4_awq.safetensors', targetSubdir: 'text_encoders' },
+      { classType: 'VAELoader', inputKey: 'vae_name', filename: 'minimax_h3_video_vae_int8_convrot.safetensors', targetSubdir: 'vae' },
+      { classType: 'VAELoader', inputKey: 'vae_name', filename: 'minimax_h3_audio_vae_fp32.safetensors', targetSubdir: 'vae' },
+      { classType: 'LoraLoaderModelOnly', inputKey: 'lora_name', filename: 'handheld_h3_100.safetensors', targetSubdir: 'loras' },
+    ]),
+    docsUrl: 'https://huggingface.co/neph1/minimax_h3_handheld_shaky_camera',
+  }),
+  'minimax-h3-pink-reference': Object.freeze({
+    id: 'minimax-h3-pink-reference',
+    displayName: 'MiniMax H3 PinkFluffyBunny Reference Video',
+    requiredNodes: Object.freeze([
+      { classType: 'VHS_LoadVideo' },
+      { classType: 'H3ModelLoaderAny' },
+      { classType: 'H3ClipLoaderAny' },
+      { classType: 'UnetLoaderGGUF' },
+      { classType: 'CLIPLoaderGGUF' },
+      { classType: 'VAELoader' },
+      { classType: 'LoraLoaderModelOnly' },
+      { classType: 'PathchSageAttentionKJ' },
+      { classType: 'MiniMaxH3SigmaShift' },
+      { classType: 'MiniMaxH3ReferenceToVideo' },
+      { classType: 'RandomNoise' },
+      { classType: 'BasicGuider' },
+      { classType: 'KSamplerSelect' },
+      { classType: 'BasicScheduler' },
+      { classType: 'SamplerCustomAdvanced' },
+      { classType: 'VAEDecode' },
+      { classType: 'VAEDecodeAudio' },
+      { classType: 'CreateVideo' },
+      { classType: 'SaveVideo' },
+      { classType: 'LoadImage' },
+    ]),
+    requiredModels: Object.freeze([
+      { classType: 'H3ModelLoaderAny', inputKey: 'model_name', filename: 'minimax-h3-ref2va-Q4_0.gguf', targetSubdir: 'diffusion_models' },
+      { classType: 'H3ClipLoaderAny', inputKey: 'clip_name', filename: 'MiniMax-H3-encoder-Q4_K_M.gguf', targetSubdir: 'text_encoders' },
+      { classType: 'H3ClipLoaderAny', inputKey: 'mmproj_name', filename: 'MiniMax-H3-encoder-mmproj-F16.gguf', targetSubdir: 'text_encoders' },
+      { classType: 'VAELoader', inputKey: 'vae_name', filename: 'minimax_h3_video_vae_fp16.safetensors', targetSubdir: 'vae' },
+      { classType: 'VAELoader', inputKey: 'vae_name', filename: 'minimax_h3_audio_vae_fp32.safetensors', targetSubdir: 'vae' },
+      { classType: 'LoraLoaderModelOnly', inputKey: 'lora_name', filename: 'PinkFluffyBunny-unpruned-v2-rank128.safetensors', targetSubdir: 'loras' },
+    ]),
+    docsUrl: 'https://huggingface.co/SexGod1979/PinkFluffyBunny-MiniMax-H3',
+  }),
+  'minimax-h3-gguf-r2v': Object.freeze({
+    id: 'minimax-h3-gguf-r2v',
+    displayName: 'MiniMax H3 GGUF Reference Video to Video',
+    requiredNodes: Object.freeze([
+      { classType: 'PathchSageAttentionKJ' },
+      { classType: 'VHS_LoadVideo' },
+      { classType: 'H3ModelLoaderAny' },
+      { classType: 'H3ClipLoaderAny' },
+      { classType: 'VAELoader' },
+      { classType: 'MiniMaxH3ReferenceToVideo' },
+      { classType: 'RandomNoise' },
+      { classType: 'BasicGuider' },
+      { classType: 'KSamplerSelect' },
+      { classType: 'BasicScheduler' },
+      { classType: 'SamplerCustomAdvanced' },
+      { classType: 'LoraLoaderModelOnly' },
+      { classType: 'MiniMaxH3SigmaShift' },
+      { classType: 'VAEDecode' },
+      { classType: 'VAEDecodeAudio' },
+      { classType: 'CreateVideo' },
+      { classType: 'SaveVideo' },
+      { classType: 'LoadImage' },
+      { classType: 'UnetLoaderGGUF' },
+      { classType: 'CLIPLoaderGGUF' },
+    ]),
+    requiredModels: Object.freeze([
+      { classType: 'H3ModelLoaderAny', inputKey: 'model_name', filename: 'minimax-h3-ref2va-Q4_0.gguf', targetSubdir: 'diffusion_models' },
+      { classType: 'H3ClipLoaderAny', inputKey: 'clip_name', filename: 'MiniMax-H3-encoder-Q4_K_M.gguf', targetSubdir: 'text_encoders' },
+      { classType: 'H3ClipLoaderAny', inputKey: 'mmproj_name', filename: 'MiniMax-H3-encoder-mmproj-F16.gguf', targetSubdir: 'text_encoders' },
+      { classType: 'VAELoader', inputKey: 'vae_name', filename: 'minimax_h3_video_vae_fp16.safetensors', targetSubdir: 'vae' },
+      { classType: 'VAELoader', inputKey: 'vae_name', filename: 'minimax_h3_audio_vae_fp32.safetensors', targetSubdir: 'vae' },
+      { classType: 'LoraLoaderModelOnly', inputKey: 'lora_name', filename: 'MiniMax-H3-Ref2VA-Acc-8Step_pruned_comfy.safetensors', targetSubdir: 'loras' },
+    ]),
+    docsUrl: 'https://huggingface.co/Kijai/MiniMax-H3-experimental/tree/main/loras',
+  }),
   'minimax-h3-character-sheet': Object.freeze({
     id: 'minimax-h3-character-sheet',
     displayName: 'MiniMax H3 Character Sheet (4 Panel)',
@@ -136,18 +354,17 @@ export const WORKFLOW_DEPENDENCY_PACKS = Object.freeze({
   }),
   'minimax-h3-gguf-i2v': Object.freeze({
     id: 'minimax-h3-gguf-i2v',
-    displayName: 'MiniMax H3 GGUF Image-to-Video',
+    displayName: 'MiniMax H3 Fused Turbo + SLA Image-to-Video',
     requiredNodes: Object.freeze([
-      { classType: 'H3ModelLoaderAny' },
-      { classType: 'H3ClipLoaderAny' },
-      { classType: 'UnetLoaderGGUF' },
-      { classType: 'CLIPLoaderGGUF' },
+      { classType: 'UNETLoader' },
+      { classType: 'CLIPLoader' },
+      { classType: 'MiniMaxChunkFeedForward' },
+      { classType: 'H3SLAAttention' },
       { classType: 'MiniMaxH3ImageToVideo' },
       { classType: 'MiniMaxH3SigmaShift' },
       { classType: 'VAEDecodeAudio' },
       { classType: 'VAEDecode' },
       { classType: 'VAELoader' },
-      { classType: 'LoraLoaderModelOnly' },
       { classType: 'BasicScheduler' },
       { classType: 'BasicGuider' },
       { classType: 'KSamplerSelect' },
@@ -158,27 +375,21 @@ export const WORKFLOW_DEPENDENCY_PACKS = Object.freeze({
     ]),
     requiredModels: Object.freeze([
       {
-        classType: 'H3ModelLoaderAny',
-        inputKey: 'model_name',
-        filename: 'minimax_h3_fl2va_pruned_fp8_Q4_0.gguf',
+        classType: 'UNETLoader',
+        inputKey: 'unet_name',
+        filename: 'minimax_h3_fused_refdelta_r1024_turbo8_mystic07_int8_convrot.safetensors',
         targetSubdir: 'diffusion_models',
       },
       {
-        classType: 'H3ClipLoaderAny',
+        classType: 'CLIPLoader',
         inputKey: 'clip_name',
-        filename: 'MiniMax-H3-encoder-Q4_K_M.gguf',
-        targetSubdir: 'text_encoders',
-      },
-      {
-        classType: 'H3ClipLoaderAny',
-        inputKey: 'mmproj_name',
-        filename: 'MiniMax-H3-encoder-mmproj-F16.gguf',
+        filename: 'qwen3vl_32b_minimax_h3_nvfp4_awq.safetensors',
         targetSubdir: 'text_encoders',
       },
       {
         classType: 'VAELoader',
         inputKey: 'vae_name',
-        filename: 'minimax_h3_video_vae_fp16.safetensors',
+        filename: 'minimax_h3_video_vae_int8_convrot.safetensors',
         targetSubdir: 'vae',
       },
       {
@@ -187,20 +398,14 @@ export const WORKFLOW_DEPENDENCY_PACKS = Object.freeze({
         filename: 'minimax_h3_audio_vae_fp32.safetensors',
         targetSubdir: 'vae',
       },
-      {
-        classType: 'LoraLoaderModelOnly',
-        inputKey: 'lora_name',
-        filename: 'minimax_h3_fl2v_turbo_8step_v1.0_comfyui_bf16.safetensors',
-        targetSubdir: 'loras',
-      },
     ]),
-    docsUrl: 'https://github.com/Comfy-Org/workflow_templates/blob/main/templates/video_minimax_h3_i2v.json',
+    docsUrl: 'https://huggingface.co/MATLOWAI/minimax-h3-fused-turbo-int8-convrot',
   }),
   'minimax-h3-media-promptor': Object.freeze({
     id: 'minimax-h3-media-promptor',
     displayName: 'Media to Prompt (MiniMax H3 Promptor)',
     requiredNodes: Object.freeze([
-      { classType: 'H3_Vision_Analyzer' },
+      { classType: 'H3_Vision' },
       { classType: 'H3_Promptor' },
       { classType: 'PreviewAny' },
     ]),
@@ -315,6 +520,37 @@ export const WORKFLOW_DEPENDENCY_PACKS = Object.freeze({
     docsUrl: COMFY_REGISTRY_URL,
   }),
 
+  'nsfw-wan-1-3b-e10-t2v': Object.freeze({
+    id: 'nsfw-wan-1-3b-e10-t2v',
+    displayName: 'NSFW Wan 1.3B e10 Text-to-Video',
+    requiredNodes: Object.freeze([
+      'UNETLoader', 'CLIPLoader', 'VAELoader', 'CLIPTextEncode',
+      'EmptyHunyuanLatentVideo', 'ModelSamplingSD3', 'KSampler',
+      'VAEDecode', 'CreateVideo', 'SaveVideo',
+    ].map(classType => ({ classType }))),
+    requiredModels: Object.freeze([
+      {
+        classType: 'UNETLoader',
+        inputKey: 'unet_name',
+        filename: 'wan_1.3B_e10.safetensors',
+        targetSubdir: 'diffusion_models',
+      },
+      {
+        classType: 'CLIPLoader',
+        inputKey: 'clip_name',
+        filename: 'umt5_xxl_fp8_e4m3fn_scaled.safetensors',
+        targetSubdir: 'text_encoders',
+      },
+      {
+        classType: 'VAELoader',
+        inputKey: 'vae_name',
+        filename: 'wan_2.1_vae.safetensors',
+        targetSubdir: 'vae',
+      },
+    ]),
+    docsUrl: 'https://huggingface.co/NSFW-API/NSFW_Wan_1.3b/blob/main/wan_1.3B_e10.safetensors',
+  }),
+
   'ltx23-i2v': Object.freeze({
     id: 'ltx23-i2v',
     displayName: 'LTX 2.3 Image-to-Video',
@@ -393,11 +629,13 @@ export const WORKFLOW_DEPENDENCY_PACKS = Object.freeze({
 
   'ltx23-latentsync': Object.freeze({
     id: 'ltx23-latentsync',
-    displayName: 'Exact Audio Lip-Sync (LTX 2.3 + LatentSync 1.6)',
+    displayName: 'Exact Audio Lip-Sync (LTX 2.3 Native)',
     requiredNodes: Object.freeze([
       { classType: 'CheckpointLoaderSimple' },
       { classType: 'LTXAVTextEncoderLoader' },
       { classType: 'LTXVAudioVAELoader' },
+      { classType: 'LTXVAudioVAEEncode' },
+      { classType: 'LTXVSetAudioRefTokens' },
       { classType: 'LoraLoaderModelOnly' },
       { classType: 'LoraLoader' },
       { classType: 'ComfyMathExpression' },
@@ -418,7 +656,6 @@ export const WORKFLOW_DEPENDENCY_PACKS = Object.freeze({
       { classType: 'LTXVAudioVAEDecode' },
       { classType: 'VAEDecodeTiled' },
       { classType: 'LoadAudio' },
-      { classType: 'LatentSyncNode' },
       { classType: 'CreateVideo' },
       { classType: 'SaveVideo' },
     ]),
@@ -431,7 +668,7 @@ export const WORKFLOW_DEPENDENCY_PACKS = Object.freeze({
       { classType: 'LoraLoader', inputKey: 'lora_name', filename: 'gemma-3-12b-it-abliterated_lora_rank64_bf16.safetensors', targetSubdir: 'loras' },
       { classType: 'LatentUpscaleModelLoader', inputKey: 'model_name', filename: 'ltx-2.3-spatial-upscaler-x2-1.1.safetensors', targetSubdir: 'latent_upscale_models' },
     ]),
-    docsUrl: 'https://github.com/bytedance/LatentSync',
+    docsUrl: 'https://docs.comfy.org/tutorials/video/ltx/ltx-2-3',
   }),
 
   'ltx23-ia2v': Object.freeze({
@@ -1012,6 +1249,25 @@ export const WORKFLOW_DEPENDENCY_PACKS = Object.freeze({
     docsUrl: 'https://huggingface.co/Aratako/Irodori-TTS-500M-v2-VoiceDesign',
   }),
 
+  [IRODORI_ANIME_DEPENDENCY_ID]: Object.freeze({
+    id: IRODORI_ANIME_DEPENDENCY_ID,
+    displayName: 'Irodori v4.1 Anime Voice',
+    requiredNodes: Object.freeze([
+      { classType: 'jupo.IrodoriTTS.ModelLoader' },
+      { classType: 'jupo.IrodoriTTS.ReferenceAudio' },
+      { classType: 'jupo.IrodoriTTS.CFGConfig' },
+      { classType: 'jupo.IrodoriTTS.Sampler' },
+      { classType: 'SaveAudioAdvanced' },
+    ]),
+    requiredModels: Object.freeze([{
+      classType: 'jupo.IrodoriTTS.ModelLoader',
+      inputKey: 'model',
+      filename: IRODORI_ANIME_MODEL_FILENAME,
+      targetSubdir: 'checkpoints',
+    }]),
+    docsUrl: 'https://huggingface.co/phasefield-audio/Irodori-TTS-v4.1-Anime',
+  }),
+
   'z-image-turbo': Object.freeze({
     id: 'z-image-turbo',
     displayName: 'Z Image Turbo',
@@ -1052,6 +1308,109 @@ export const WORKFLOW_DEPENDENCY_PACKS = Object.freeze({
     requiredNodes: QWEN_IMAGE_EDIT_REQUIRED_NODES,
     requiredModels: QWEN_IMAGE_EDIT_SHARED_MODELS,
     docsUrl: COMFY_REGISTRY_URL,
+  }),
+
+  'qwen-image-2-1-heretic': Object.freeze({
+    id: 'qwen-image-2-1-heretic',
+    displayName: 'Qwen Image 2.1 Heretic GGUF',
+    requiredNodes: Object.freeze([...QWEN_IMAGE_21_HERETIC_REQUIRED_NODES, { classType: 'EmptyLatentImage' }]),
+    requiredNodePacks: QWEN_IMAGE_21_HERETIC_NODE_PACKS,
+    requiredModels: QWEN_IMAGE_21_HERETIC_MODELS,
+    docsUrl: 'https://huggingface.co/pottokao/Qwen-Image-2.1-Text-Encoder-Heretic-GGUF',
+  }),
+
+  'qwen-image-2-1-nsfw-lora': Object.freeze({
+    id: 'qwen-image-2-1-nsfw-lora',
+    displayName: 'Qwen Image 2.1 NSFW LoRA',
+    requiredNodes: Object.freeze([...QWEN_IMAGE_21_HERETIC_REQUIRED_NODES, { classType: 'EmptyLatentImage' }, { classType: 'LoraLoaderModelOnly' }]),
+    requiredNodePacks: QWEN_IMAGE_21_HERETIC_NODE_PACKS,
+    requiredModels: QWEN_IMAGE_21_NSFW_LORA_MODELS,
+    docsUrl: 'https://civitai.red/models/2958918/nsfw-lora-or-qwen-image-21?modelVersionId=3351951',
+  }),
+
+  'qwen-image-2-1-heretic-edit': Object.freeze({
+    id: 'qwen-image-2-1-heretic-edit',
+    displayName: 'Qwen Image 2.1 Heretic Edit',
+    requiredNodes: Object.freeze([...QWEN_IMAGE_21_HERETIC_REQUIRED_NODES, { classType: 'LoadImage' }]),
+    requiredNodePacks: QWEN_IMAGE_21_HERETIC_NODE_PACKS,
+    requiredModels: QWEN_IMAGE_21_HERETIC_MODELS,
+    docsUrl: 'https://huggingface.co/pottokao/Qwen-Image-2.1-Text-Encoder-Heretic-GGUF',
+  }),
+
+  'qwen-image-2-1-character-sheet': Object.freeze({
+    id: 'qwen-image-2-1-character-sheet',
+    displayName: 'QWENキャラクターシート',
+    requiredNodes: Object.freeze([
+      ...QWEN_IMAGE_21_HERETIC_REQUIRED_NODES,
+      { classType: 'LoadImage' },
+      { classType: 'EmptyLatentImage' },
+    ]),
+    requiredNodePacks: QWEN_IMAGE_21_HERETIC_NODE_PACKS,
+    requiredModels: QWEN_IMAGE_21_HERETIC_MODELS,
+    docsUrl: 'https://civitai.com/models/2960750/qwen-image-21-character-design-sheet-maker-workflow',
+  }),
+
+  'dark-beast-krea2-i2i': Object.freeze({
+    id: 'dark-beast-krea2-i2i',
+    displayName: 'NSFW T2I / I2I — Dark Beast KREA 2',
+    requiredNodes: Object.freeze([
+      'UNETLoader', 'CLIPLoader', 'VAELoader', 'LoadImage', 'VAEEncode', 'EmptyLatentImage',
+      'CLIPTextEncode', 'ConditioningZeroOut', 'KSampler', 'VAEDecode', 'SaveImage',
+    ].map(classType => ({ classType }))),
+    requiredModels: Object.freeze([
+      {
+        classType: 'UNETLoader',
+        inputKey: 'unet_name',
+        filename: 'darkBeastH3Director_darkBeastKREA2FP8_2958418.safetensors',
+        alternateFilenames: Object.freeze([
+          'darkBeastH3Director_darkBeastKREA2FP8_fp8.safetensors',
+        ]),
+        targetSubdir: 'diffusion_models',
+      },
+      {
+        classType: 'CLIPLoader',
+        inputKey: 'clip_name',
+        filename: 'qwen3vl_4b_fp8_scaled.safetensors',
+        targetSubdir: 'text_encoders',
+      },
+      {
+        classType: 'VAELoader',
+        inputKey: 'vae_name',
+        filename: 'qwen_image_vae.safetensors',
+        targetSubdir: 'vae',
+      },
+    ]),
+    docsUrl: 'https://civitai.red/models/2242173/dark-beast-or-h3-director-edition?modelVersionId=3078453',
+  }),
+
+  'haruki-mix-krea2-t2i': Object.freeze({
+    id: 'haruki-mix-krea2-t2i',
+    displayName: 'HARUKI_MIX KR2 V2.0 — NSFW T2I',
+    requiredNodes: Object.freeze([
+      'UNETLoader', 'CLIPLoader', 'VAELoader', 'CLIPTextEncode',
+      'ConditioningZeroOut', 'EmptyLatentImage', 'KSampler', 'VAEDecode', 'SaveImage',
+    ].map(classType => ({ classType }))),
+    requiredModels: Object.freeze([
+      {
+        classType: 'UNETLoader',
+        inputKey: 'unet_name',
+        filename: 'harukiMIX_kr2V20Int8Convrot.safetensors',
+        targetSubdir: 'diffusion_models',
+      },
+      {
+        classType: 'CLIPLoader',
+        inputKey: 'clip_name',
+        filename: 'qwen3vl_4b_fp8_scaled.safetensors',
+        targetSubdir: 'text_encoders',
+      },
+      {
+        classType: 'VAELoader',
+        inputKey: 'vae_name',
+        filename: 'qwen_image_vae.safetensors',
+        targetSubdir: 'vae',
+      },
+    ]),
+    docsUrl: 'https://civitai.red/models/856375/harukimix?modelVersionId=3188234',
   }),
 
   'image-edit-model-product': Object.freeze({
@@ -1358,6 +1717,80 @@ export const WORKFLOW_DEPENDENCY_PACKS = Object.freeze({
 
 export function getWorkflowDependencyPack(workflowId) {
   const normalized = String(workflowId || '').trim()
+  if (normalized === 'minimax-h3-character-actor') {
+    const base = WORKFLOW_DEPENDENCY_PACKS['minimax-h3-gguf-r2v']
+    return Object.freeze({
+      ...base,
+      id: normalized,
+      displayName: 'H3 Fixed Characte (.char) movie — Lightweight',
+      requiredNodes: Object.freeze(base.requiredNodes.filter(node => node.classType !== 'VHS_LoadVideo')),
+      docsUrl: 'https://www.omnichar.org/getting-started',
+    })
+  }
+  if (normalized === 'minimax-h3-character-swap') {
+    const base = WORKFLOW_DEPENDENCY_PACKS['minimax-h3-pink-reference']
+    return Object.freeze({
+      ...base,
+      id: normalized,
+      displayName: 'MiniMax H3 Character Swap',
+      docsUrl: 'https://huggingface.co/akatz-ai/MiniMax-H3-Character-Swap-LoRA',
+      requiredNodes: Object.freeze(base.requiredNodes.filter(node => node.classType !== 'PathchSageAttentionKJ')),
+      requiredModels: Object.freeze(base.requiredModels.map(model => model.targetSubdir === 'loras'
+        ? { ...model, filename: 'h3_character_swap_pro4500_1000.safetensors' }
+        : model)),
+    })
+  }
+  if (normalized === 'minimax-h3-aftermidnight-r2v' || normalized === 'minimax-h3-aftermidnight-3ref') {
+    const base = WORKFLOW_DEPENDENCY_PACKS['minimax-h3-pink-reference']
+    return Object.freeze({
+      ...base,
+      id: normalized,
+      displayName: normalized === 'minimax-h3-aftermidnight-3ref'
+        ? 'MiniMax H3 NSFW — Scene + Character + Props'
+        : 'AfterMidnightR2V',
+      docsUrl: 'https://huggingface.co/SexGod1979/AfterMidnight-MiniMax-H3-NSFW',
+      requiredModels: Object.freeze(base.requiredModels.map(model => model.targetSubdir === 'loras'
+        ? { ...model, filename: 'AfterMidnight_ref2va_h3_sexytime_rank64-v1.2.safetensors' }
+        : model)),
+    })
+  }
+  if (normalized === 'minimax-h3-naughty-times') {
+    const base = getWorkflowDependencyPack('minimax-h3-nsfw-pink-bunny')
+    return Object.freeze({
+      ...base, id: 'minimax-h3-naughty-times', displayName: 'MiniMax H3 NaughtyTimes v3', docsUrl: 'https://huggingface.co/SexGod1979/NaughtyTimes-MiniMax-H3',
+      requiredNodes: Object.freeze([...base.requiredNodes, { classType: 'LoadImage' }]),
+      requiredModels: Object.freeze(base.requiredModels.map(model => model.targetSubdir === 'loras'
+        ? { ...model, filename: 'SexGod_NaughtyTimes_v3_rank64_pruned_NOADALN.safetensors' } : model)),
+    })
+  }
+  if (normalized === 'minimax-h3-nsfw-pink-bunny' || normalized === 'minimax-h3-nsfw-motion-8step') {
+    const loraFilename = normalized === 'minimax-h3-nsfw-pink-bunny'
+      ? 'PinkFluffyBunny-unpruned-v2-rank128.safetensors'
+      : 'minimax-h3_fl2v_8Step_motion_enhancer.safetensors'
+    return Object.freeze({
+      id: normalized,
+      displayName: normalized === 'minimax-h3-nsfw-pink-bunny'
+        ? 'NSFW MiniMax H3 PinkFluffyBunny'
+        : 'NSFW MiniMax H3 Motion Enhancer 8-step',
+      requiredNodes: Object.freeze([
+        'H3ModelLoaderAny', 'H3ClipLoaderAny', 'UnetLoaderGGUF', 'CLIPLoaderGGUF',
+        'MiniMaxH3ImageToVideo', 'MiniMaxH3SigmaShift', 'VAEDecodeAudio', 'VAEDecode',
+        'VAELoader', 'LoraLoaderModelOnly', 'BasicScheduler', 'BasicGuider',
+        'KSamplerSelect', 'RandomNoise', 'SamplerCustomAdvanced', 'CreateVideo', 'SaveVideo',
+      ].map(classType => ({ classType }))),
+      requiredModels: Object.freeze([
+        { classType: 'H3ModelLoaderAny', inputKey: 'model_name', filename: 'minimax_h3_fl2va_pruned_fp8_Q4_0.gguf', targetSubdir: 'diffusion_models' },
+        { classType: 'H3ClipLoaderAny', inputKey: 'clip_name', filename: 'MiniMax-H3-encoder-Q4_K_M.gguf', targetSubdir: 'text_encoders' },
+        { classType: 'H3ClipLoaderAny', inputKey: 'mmproj_name', filename: 'MiniMax-H3-encoder-mmproj-F16.gguf', targetSubdir: 'text_encoders' },
+        { classType: 'VAELoader', inputKey: 'vae_name', filename: 'minimax_h3_video_vae_fp16.safetensors', targetSubdir: 'vae' },
+        { classType: 'VAELoader', inputKey: 'vae_name', filename: 'minimax_h3_audio_vae_fp32.safetensors', targetSubdir: 'vae' },
+        { classType: 'LoraLoaderModelOnly', inputKey: 'lora_name', filename: loraFilename, targetSubdir: 'loras' },
+      ]),
+      docsUrl: normalized === 'minimax-h3-nsfw-pink-bunny'
+        ? 'https://huggingface.co/SexGod1979/PinkFluffyBunny-MiniMax-H3'
+        : 'https://huggingface.co/rzgar/minimax-h3_fl2v_8Step_motion_enhancer',
+    })
+  }
   const canonicalId = (
     normalized === 'nano-banana-pro'
       ? 'nano-banana-2'

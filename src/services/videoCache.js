@@ -352,10 +352,21 @@ class VideoCache {
   /**
    * Clear the entire cache
    */
+  trimInactive() {
+    for (const [key, entry] of this.cache) {
+      if (this.activeElements.has(entry.baseClipId)) continue
+      entry.videoElement.pause()
+      entry.videoElement.removeAttribute('src')
+      entry.videoElement.load()
+      this.cache.delete(key)
+    }
+  }
+
   clear() {
     for (const [, entry] of this.cache) {
       entry.videoElement.pause()
-      entry.videoElement.src = ''
+      entry.videoElement.removeAttribute('src')
+      entry.videoElement.load()
     }
     this.cache.clear()
     this.activeElements.clear()

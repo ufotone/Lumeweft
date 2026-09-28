@@ -1,3 +1,5 @@
+import { AINVFX_FLUID_MODELS } from './ainvfxFluidConfig.js'
+import { VDN_H3_STAGE_FILES } from './vdnH3Config.js'
 import { getImportedModelRecipe } from './importedWorkflowRegistry.js'
 
 const COMFY_REGISTRY_URL = 'https://registry.comfy.org'
@@ -24,6 +26,7 @@ function createModelRecipe({
   licenseUrl = '',
   sizeBytes = null,
   sha256 = '',
+  requiresAccessApproval = false,
   notes = '',
 }) {
   return Object.freeze({
@@ -35,6 +38,7 @@ function createModelRecipe({
     licenseUrl,
     sizeBytes: Number.isFinite(sizeBytes) ? Number(sizeBytes) : null,
     sha256: String(sha256 || '').trim().toLowerCase(),
+    requiresAccessApproval: requiresAccessApproval === true,
     notes: String(notes || '').trim(),
   })
 }
@@ -104,6 +108,32 @@ function createManualNodeHint({
 
 export const CURATED_NODE_PACKS = Object.freeze([
   createAutoNodePack({
+    id: 'tk-toolkit',
+    displayName: 'TK Toolkit',
+    repoUrl: 'https://github.com/Ararararararaki/comfyui-anima-toolkit',
+    installDirName: 'ComfyUI-Anima-Batch-LoRA',
+    docsUrl: 'https://github.com/Ararararararaki/comfyui-anima-toolkit',
+    requirementsStrategy: 'requirements-txt',
+    notes: 'Optional MIT-licensed ComfyUI toolbox for visual LoRA management, Civitai metadata and downloads, prompt cards, Danbooru search, output browsing, and batch utilities. Models, previews, and remote service content keep their own licenses and terms.',
+    classTypes: ['TK Batch LoRA Loader'],
+  }),
+  createAutoNodePack({
+    id: 'res4lyf',
+    displayName: 'RES4LYF',
+    repoUrl: 'https://github.com/ClownsharkBatwing/RES4LYF',
+    installDirName: 'RES4LYF',
+    docsUrl: 'https://github.com/ClownsharkBatwing/RES4LYF/wiki',
+    requirementsStrategy: 'requirements-txt',
+    notes: 'Approved CANVAS exception for advanced sampling. Provides the source workflow\'s Clownshar sampler and RES exponential/res_2s behavior.',
+    classTypes: ['ClownsharKSampler_Beta'],
+  }),
+  createAutoNodePack({
+    id: 'comfyui-vdn-h3', displayName: 'ComfyUI-VDN-H3',
+    repoUrl: 'https://github.com/Saganaki22/ComfyUI-VDN-H3', installDirName: 'ComfyUI-VDN-H3',
+    requirementsStrategy: 'none', classTypes: ['ApplyVDNH3', 'ApplyVDNH3Advanced'],
+    notes: 'VDN hybrid attention for the plain MiniMax H3 base. Includes its own 8-step adapter; do not stack community Turbo or Scheduled SOL attention. Standard grouped mode needs no new Python dependencies.',
+  }),
+  createAutoNodePack({
     id: 'comfyui-gguf',
     displayName: 'ComfyUI-GGUF',
     repoUrl: 'https://github.com/city96/ComfyUI-GGUF',
@@ -112,6 +142,16 @@ export const CURATED_NODE_PACKS = Object.freeze([
     requirementsStrategy: 'requirements-txt',
     notes: 'Loads supported diffusion models and text encoders in GGUF format.',
     classTypes: ['UnetLoaderGGUF', 'CLIPLoaderGGUF'],
+  }),
+  createAutoNodePack({
+    id: 'comfyui-gguf-qwen3vl-te',
+    displayName: 'ComfyUI-GGUF Qwen3-VL Text Encoder Patch',
+    repoUrl: 'https://github.com/pottokao-dotcom/ComfyUI-GGUF-Qwen3VL-TE',
+    installDirName: 'ComfyUI-GGUF-Qwen3VL-TE',
+    docsUrl: 'https://github.com/pottokao-dotcom/ComfyUI-GGUF-Qwen3VL-TE',
+    requirementsStrategy: 'none',
+    notes: 'Temporary Apache-2.0 add-on required for Qwen Image 2.1 Qwen3-VL GGUF text encoders. It adds no node class; Lumeweft verifies its custom_nodes directory explicitly.',
+    classTypes: [],
   }),
   createAutoNodePack({
     id: 'comfyui-h3-multishot',
@@ -131,7 +171,7 @@ export const CURATED_NODE_PACKS = Object.freeze([
     docsUrl: 'https://github.com/1038lab/ComfyUI-MiniMax-H3-Promptor',
     requirementsStrategy: 'requirements-txt',
     notes: 'Analyzes image and video references and generates structured MiniMax H3 prompts for CANVAS.',
-    classTypes: ['H3_Vision_Analyzer', 'H3_Promptor'],
+    classTypes: ['H3_Vision', 'H3_Promptor'],
   }),
   createAutoNodePack({
     id: 'comfy-irodori-tts',
@@ -150,14 +190,34 @@ export const CURATED_NODE_PACKS = Object.freeze([
     ],
   }),
   createAutoNodePack({
+    id: 'comfyui-ltxvideo',
+    displayName: 'ComfyUI-LTXVideo',
+    repoUrl: 'https://github.com/Lightricks/ComfyUI-LTXVideo',
+    installDirName: 'ComfyUI-LTXVideo',
+    docsUrl: 'https://github.com/Lightricks/ComfyUI-LTXVideo',
+    requirementsStrategy: 'requirements-txt',
+    notes: 'Provides native LTX audio-reference conditioning used by the Exact Audio talking-video route.',
+    classTypes: ['LTXVSetAudioRefTokens', 'LTXICLoRALoaderModelOnly', 'LTXAddVideoICLoRAGuide'],
+  }),
+  createAutoNodePack({
     id: 'kjnodes',
     displayName: 'ComfyUI-KJNodes',
     repoUrl: 'https://github.com/kijai/ComfyUI-KJNodes',
     installDirName: 'ComfyUI-KJNodes',
     docsUrl: 'https://github.com/kijai/ComfyUI-KJNodes',
     requirementsStrategy: 'requirements-txt',
-    notes: 'Provides ImageResizeKJv2 and GetImagesFromBatchIndexed for bundled helper workflows.',
-    classTypes: ['ImageResizeKJv2', 'GetImagesFromBatchIndexed'],
+    notes: 'Provides image helpers and PathchSageAttentionKJ for H3 acceleration. SageAttention also needs a working sageattention Python package matching the ComfyUI GPU/PyTorch environment; KJNodes requirements do not install it.',
+    classTypes: ['ImageResizeKJv2', 'GetImagesFromBatchIndexed', 'PathchSageAttentionKJ', 'DiffusionModelLoaderKJ', 'MiniMaxChunkFeedForward'],
+  }),
+  createAutoNodePack({
+    id: 'h3-sla-attention',
+    displayName: 'ComfyUI H3 SLA Attention',
+    repoUrl: 'https://github.com/ethanfel/ComfyUI-PlagueKind-Nodes-only-sparse',
+    installDirName: 'ComfyUI-PlagueKind-Nodes-only-sparse',
+    docsUrl: 'https://github.com/ethanfel/ComfyUI-PlagueKind-Nodes-only-sparse',
+    requirementsStrategy: 'none',
+    notes: 'Provides the CUDA/Triton H3 SLA block-sparse attention node used by the default MiniMax H3 Fused workflow.',
+    classTypes: ['H3SLAAttention'],
   }),
   createAutoNodePack({
     id: 'videohelpersuite',
@@ -217,6 +277,11 @@ const AUTO_NODE_PACK_BY_CLASS_TYPE = Object.freeze(
 )
 
 export const CORE_NODE_HINTS = Object.freeze({
+  ImageScale: createCoreNodeHint({ classType: 'ImageScale', notes: 'ComfyUI core image resizing.' }),
+  EmptyImage: createCoreNodeHint({ classType: 'EmptyImage', notes: 'ComfyUI core solid-color image batches.' }),
+  ImageBatch: createCoreNodeHint({ classType: 'ImageBatch', notes: 'ComfyUI core image batch concatenation.' }),
+  EmptyAudio: createCoreNodeHint({ classType: 'EmptyAudio', notes: 'Update ComfyUI for the AInVFX Fluid silent audio input.' }),
+  VAEEncodeAudio: createCoreNodeHint({ classType: 'VAEEncodeAudio', notes: 'Requires current ComfyUI with LTX 2.5 audio VAE support.' }),
   MiniMaxH3ReferenceToVideo: createCoreNodeHint({
     classType: 'MiniMaxH3ReferenceToVideo',
     docsUrl: 'https://huggingface.co/PoopMan333/H3_Character_Sheet_Generator',
@@ -523,6 +588,11 @@ export const CORE_NODE_HINTS = Object.freeze({
     docsUrl: 'https://docs.comfy.org/built-in-nodes/TextEncodeQwenImageEditPlus',
     notes: 'Native Qwen image edit support ships with newer ComfyUI builds.',
   }),
+  TextEncodeQwenImage21: createCoreNodeHint({
+    classType: 'TextEncodeQwenImage21',
+    docsUrl: 'https://blog.comfy.org/p/qwen-image-21-in-comfyui-open-weight',
+    notes: 'Qwen Image 2.1 support requires ComfyUI 0.36.0 or newer. Update ComfyUI if this node is missing.',
+  }),
   UNETLoader: createCoreNodeHint({
     classType: 'UNETLoader',
     docsUrl: `${COMFY_REGISTRY_URL}`,
@@ -716,6 +786,69 @@ export const MANUAL_NODE_HINTS = Object.freeze({
 })
 
 export const MODEL_INSTALL_RECIPES = Object.freeze({
+  [modelKey('diffusion_models', 'qwen_image_2.1_int8_convrot.safetensors')]: createModelRecipe({
+    filename: 'qwen_image_2.1_int8_convrot.safetensors', targetSubdir: 'diffusion_models', displayName: 'Qwen Image 2.1 INT8 ConvRot',
+    downloadUrl: hfResolve('Comfy-Org/Qwen-Image-2.1', 'diffusion_models/qwen_image_2.1_int8_convrot.safetensors'),
+    sourceUrl: hfBlob('Comfy-Org/Qwen-Image-2.1', 'diffusion_models/qwen_image_2.1_int8_convrot.safetensors'),
+    licenseUrl: 'https://huggingface.co/Qwen/Qwen-Image-2.1/blob/main/LICENSE',
+    sizeBytes: 7256783064, sha256: 'cb74113cb03faecd79611b01fd7fd642f0aa60d6f0b95086abee214d75eaa57d',
+    notes: 'Official ComfyUI-packaged Qwen Image 2.1 diffusion model. Qwen Research License applies.',
+  }),
+  [modelKey('text_encoders', 'qwen3vl_8b_heretic-Q4_K_M.gguf')]: createModelRecipe({
+    filename: 'qwen3vl_8b_heretic-Q4_K_M.gguf', targetSubdir: 'text_encoders', displayName: 'Qwen Image 2.1 Heretic text encoder Q4_K_M',
+    downloadUrl: hfResolve('pottokao/Qwen-Image-2.1-Text-Encoder-Heretic-GGUF', 'qwen3vl_8b_heretic-Q4_K_M.gguf'),
+    sourceUrl: hfBlob('pottokao/Qwen-Image-2.1-Text-Encoder-Heretic-GGUF', 'qwen3vl_8b_heretic-Q4_K_M.gguf'),
+    licenseUrl: 'https://huggingface.co/pottokao/Qwen-Image-2.1-Text-Encoder-Heretic-GGUF/blob/main/LICENSE',
+    sizeBytes: 5027785376, sha256: '1338274ac7a6344f262a16c7a52d1bd7fe789307d252733b23ea421126e5d343',
+    notes: 'Requested refusal-ablated community text encoder. Keep its original filename and the matching mmproj beside it.',
+  }),
+  [modelKey('text_encoders', 'mmproj-qwen3vl_8b_heretic-f16.gguf')]: createModelRecipe({
+    filename: 'mmproj-qwen3vl_8b_heretic-f16.gguf', targetSubdir: 'text_encoders', displayName: 'Qwen Image 2.1 Heretic vision tower F16',
+    downloadUrl: hfResolve('pottokao/Qwen-Image-2.1-Text-Encoder-Heretic-GGUF', 'mmproj-qwen3vl_8b_heretic-f16.gguf'),
+    sourceUrl: hfBlob('pottokao/Qwen-Image-2.1-Text-Encoder-Heretic-GGUF', 'mmproj-qwen3vl_8b_heretic-f16.gguf'),
+    licenseUrl: 'https://huggingface.co/pottokao/Qwen-Image-2.1-Text-Encoder-Heretic-GGUF/blob/main/LICENSE',
+    sizeBytes: 1159030464, sha256: '4649839491c8df1ebc9bed2de158ad2a45b53ed1d3b311d92a69056b6764f101',
+    notes: 'Required Qwen3-VL vision tower. Do not rename it; the patch matches it to the Heretic GGUF encoder by filename.',
+  }),
+  [modelKey('vae', 'qwen_image_2.1_vae_bf16.safetensors')]: createModelRecipe({
+    filename: 'qwen_image_2.1_vae_bf16.safetensors', targetSubdir: 'vae', displayName: 'Qwen Image 2.1 VAE BF16',
+    downloadUrl: hfResolve('Comfy-Org/Qwen-Image-2.1', 'vae/qwen_image_2.1_vae_bf16.safetensors'),
+    sourceUrl: hfBlob('Comfy-Org/Qwen-Image-2.1', 'vae/qwen_image_2.1_vae_bf16.safetensors'),
+    licenseUrl: 'https://huggingface.co/Qwen/Qwen-Image-2.1/blob/main/LICENSE',
+    sizeBytes: 675509688, sha256: 'bb21f7473051e1ac368515dd3f2e15cd44d7a11748ee8823e1ddca3e4876b7c9',
+    notes: 'Official Qwen Image 2.1 VAE with native RGBA decoding.',
+  }),
+  [modelKey('loras', 'NSFW Qwen Lora.safetensors')]: createModelRecipe({
+    filename: 'NSFW Qwen Lora.safetensors', targetSubdir: 'loras', displayName: 'NSFW LoRA for Qwen Image 2.1 v1.0',
+    downloadUrl: '',
+    sourceUrl: 'https://civitai.red/models/2958918/nsfw-lora-or-qwen-image-21?modelVersionId=3351951',
+    sizeBytes: 159436456, sha256: 'c29f503f3515877882fd6b10f6849c78a4f2337c09021f4bd4b93d060c311aea',
+    notes: 'Civitai model version 3351951. Install through Generate > Community so the saved Civitai API key and consent gate are respected.',
+  }),
+  ...Object.fromEntries(AINVFX_FLUID_MODELS.map(model => [modelKey(model.targetSubdir, model.filename), createModelRecipe(model)])),
+  ...Object.fromEntries(VDN_H3_STAGE_FILES.map(file => [modelKey(file.targetSubdir, file.filename), createModelRecipe({
+    ...file, displayName: 'VDN-H3 ' + file.relativePath.replace('stage-dmd-step-250/', ''),
+    downloadUrl: hfResolve('OpenVDN/vdn-minimax-h3', file.relativePath),
+    sourceUrl: hfBlob('OpenVDN/vdn-minimax-h3', file.relativePath),
+    licenseUrl: 'https://huggingface.co/OpenVDN/vdn-minimax-h3/blob/main/LICENSE',
+    notes: 'Part of the complete 8-step VDN stage. Keep its exact directory layout.',
+  })])),
+  [modelKey('diffusion_models', 'minimax_h3_fl2va_int8_convrot.safetensors')]: createModelRecipe({
+    filename: 'minimax_h3_fl2va_int8_convrot.safetensors', targetSubdir: 'diffusion_models', displayName: 'MiniMax H3 FL2VA INT8 ConvRot (VDN base)',
+    downloadUrl: hfResolve('Comfy-Org/MiniMax-H3', 'diffusion_models/minimax_h3_fl2va_int8_convrot.safetensors'),
+    sourceUrl: hfBlob('Comfy-Org/MiniMax-H3', 'diffusion_models/minimax_h3_fl2va_int8_convrot.safetensors'),
+    licenseUrl: 'https://huggingface.co/MiniMaxAI/MiniMax-H3/blob/main/LICENSE',
+    sizeBytes: 34038892334, sha256: '7ad4c73e6e378b822ffd1629f27f632d3787d95f5e468e3af958f98c58df96a5',
+    notes: 'Plain base for VDN; do not substitute the Fast H3 Turbo/Mystic fused model.',
+  }),
+  [modelKey('diffusion_models', 'minimax_h3_fl2va_pruned_int8_convrot.safetensors')]: createModelRecipe({
+    filename: 'minimax_h3_fl2va_pruned_int8_convrot.safetensors', targetSubdir: 'diffusion_models', displayName: 'MiniMax H3 FL2VA Pruned INT8 ConvRot',
+    downloadUrl: hfResolve('Comfy-Org/MiniMax-H3', 'diffusion_models/minimax_h3_fl2va_pruned_int8_convrot.safetensors'),
+    sourceUrl: hfBlob('Comfy-Org/MiniMax-H3', 'diffusion_models/minimax_h3_fl2va_pruned_int8_convrot.safetensors'),
+    licenseUrl: 'https://huggingface.co/MiniMaxAI/MiniMax-H3/blob/main/LICENSE',
+    sizeBytes: 20970379616, sha256: 'e889202c41dafb67b10d67b97f0d8541508036a6090af23425a5c2615d03c47a',
+    notes: 'Official ComfyUI-packaged pruned FL2VA INT8 ConvRot base used by the dedicated 360 Orbit flow.',
+  }),
   [modelKey('diffusion_models', 'minimax-h3-ref2va-Q4_0.gguf')]: createModelRecipe({
     filename: 'minimax-h3-ref2va-Q4_0.gguf',
     targetSubdir: 'diffusion_models',
@@ -725,7 +858,7 @@ export const MODEL_INSTALL_RECIPES = Object.freeze({
     licenseUrl: 'https://huggingface.co/MiniMaxAI/MiniMax-H3/blob/main/LICENSE',
     sizeBytes: 11377542880,
     sha256: '737463c522b0f78ebe157df918c272935c2b61047ba7ae303008cfc84ba81644',
-    notes: 'Q4 Ref2VA model for the CANVAS H3 Character Sheet flow. It reuses the existing H3 GGUF encoder, mmproj, and VAEs. MiniMax H3 uses its own community license.',
+    notes: 'Q4 Ref2VA model shared by the CANVAS H3 Character Sheet and Reference Video to Video flows. It reuses the existing H3 GGUF encoder, mmproj, and VAEs. MiniMax H3 uses its own community license.',
   }),
   [modelKey('diffusion_models', 'minimax_h3_fl2va_pruned_fp8_Q4_0.gguf')]: createModelRecipe({
     filename: 'minimax_h3_fl2va_pruned_fp8_Q4_0.gguf',
@@ -763,6 +896,27 @@ export const MODEL_INSTALL_RECIPES = Object.freeze({
     licenseUrl: 'https://huggingface.co/MiniMaxAI/MiniMax-H3/blob/main/LICENSE',
     notes: 'Official ComfyUI-packaged video VAE for MiniMax H3.',
   }),
+  [modelKey('diffusion_models', 'minimax_h3_fused_refdelta_r1024_turbo8_mystic07_int8_convrot.safetensors')]: createModelRecipe({
+    filename: 'minimax_h3_fused_refdelta_r1024_turbo8_mystic07_int8_convrot.safetensors', targetSubdir: 'diffusion_models', displayName: 'Fast MiniMax H3 fused Turbo/Mystic INT8',
+    downloadUrl: hfResolve('MATLOWAI/minimax-h3-fused-turbo-int8-convrot', 'diffusion_models/minimax_h3_fused_refdelta_r1024_turbo8_mystic07_int8_convrot.safetensors'),
+    sourceUrl: hfBlob('MATLOWAI/minimax-h3-fused-turbo-int8-convrot', 'diffusion_models/minimax_h3_fused_refdelta_r1024_turbo8_mystic07_int8_convrot.safetensors'),
+    licenseUrl: 'https://huggingface.co/MiniMaxAI/MiniMax-H3/blob/main/LICENSE',
+    sizeBytes: 20980178976, sha256: '4262e4e9963c553fa00016bbe83961407a4fc0a888be95fd836c8d4f2304e48b',
+  }),
+  [modelKey('vae', 'minimax_h3_video_vae_int8_convrot.safetensors')]: createModelRecipe({
+    filename: 'minimax_h3_video_vae_int8_convrot.safetensors', targetSubdir: 'vae', displayName: 'MiniMax H3 video VAE INT8 ConvRot',
+    downloadUrl: hfResolve('Kijai/MiniMax-H3-experimental', 'minimax_h3_video_vae_int8_convrot.safetensors'),
+    sourceUrl: hfBlob('Kijai/MiniMax-H3-experimental', 'minimax_h3_video_vae_int8_convrot.safetensors'),
+    licenseUrl: 'https://huggingface.co/MiniMaxAI/MiniMax-H3/blob/main/LICENSE',
+    sizeBytes: 3171670912, sha256: '9bb2d96f218c76babd85e0611b85ca8fb330a90546c01a0005e8a58a59593410',
+  }),
+  [modelKey('text_encoders', 'qwen3vl_32b_minimax_h3_nvfp4_awq.safetensors')]: createModelRecipe({
+    filename: 'qwen3vl_32b_minimax_h3_nvfp4_awq.safetensors', targetSubdir: 'text_encoders', displayName: 'MiniMax H3 Qwen3 VL NVFP4 AWQ',
+    downloadUrl: hfResolve('Comfy-Org/MiniMax-H3', 'text_encoders/qwen3vl_32b_minimax_h3_nvfp4_awq.safetensors'),
+    sourceUrl: hfBlob('Comfy-Org/MiniMax-H3', 'text_encoders/qwen3vl_32b_minimax_h3_nvfp4_awq.safetensors'),
+    licenseUrl: 'https://huggingface.co/MiniMaxAI/MiniMax-H3/blob/main/LICENSE',
+    sizeBytes: 15687142551, sha256: '35a88d51044231fe332301d7a62aa81e3f2cba62febeb446e2c1e3e0ef76f2c6',
+  }),
   [modelKey('vae', 'minimax_h3_audio_vae_fp32.safetensors')]: createModelRecipe({
     filename: 'minimax_h3_audio_vae_fp32.safetensors',
     targetSubdir: 'vae',
@@ -783,6 +937,88 @@ export const MODEL_INSTALL_RECIPES = Object.freeze({
     licenseUrl: 'https://huggingface.co/lightx2v/Minimax-h3-Turbo',
     notes: 'Officially packaged LightX2V Turbo LoRA used to reduce the default CANVAS flow to eight sampling steps.',
   }),
+  [modelKey('loras', 'MiniMax-H3-Ref2VA-Acc-8Step_pruned_comfy.safetensors')]: createModelRecipe({
+    filename: 'MiniMax-H3-Ref2VA-Acc-8Step_pruned_comfy.safetensors',
+    targetSubdir: 'loras',
+    displayName: 'Kijai MiniMax H3 Ref2VA PDD Acc 8-step (pruned)',
+    downloadUrl: hfResolve('Kijai/MiniMax-H3-experimental', 'loras/MiniMax-H3-Ref2VA-Acc-8Step_pruned_comfy.safetensors'),
+    sourceUrl: hfBlob('Kijai/MiniMax-H3-experimental', 'loras/MiniMax-H3-Ref2VA-Acc-8Step_pruned_comfy.safetensors'),
+    licenseUrl: 'https://huggingface.co/MiniMaxAI/MiniMax-H3/blob/main/LICENSE',
+    sizeBytes: 1725921392,
+    sha256: '6f18e1c2eccb14b37322607730f26b16bf1169b56cd098ea006cffaec43d1e39',
+    notes: 'PDD acceleration LoRA matched to the pruned Ref2VA GGUF base. Use only at strength 1.0 with Euler/simple, 8 steps, CFG 1, and MiniMax H3 video/audio sigma shifts 12/3. Do not stack with another distillation LoRA.',
+  }),
+  [modelKey('loras', 'h3_character_swap_pro4500_1000.safetensors')]: createModelRecipe({
+    filename: 'h3_character_swap_pro4500_1000.safetensors',
+    targetSubdir: 'loras',
+    displayName: 'Akatz MiniMax H3 Character Swap LoRA v1 (1000-step)',
+    downloadUrl: hfResolve('akatz-ai/MiniMax-H3-Character-Swap-LoRA', 'h3_character_swap_pro4500_1000.safetensors'),
+    sourceUrl: hfBlob('akatz-ai/MiniMax-H3-Character-Swap-LoRA', 'h3_character_swap_pro4500_1000.safetensors'),
+    licenseUrl: 'https://huggingface.co/akatz-ai/MiniMax-H3-Character-Swap-LoRA/blob/main/LICENSE',
+    sizeBytes: 155110320,
+    sha256: '4b2a3f420ae804c0aa3422761ff84dbd1bf52eef6900ffab6d2e66df63cb4e79',
+    notes: 'Experimental Ref2VA character-replacement adapter. Use alone at strength 1.0 with one source video and one replacement image. The beginner CANVAS preset is intentionally limited to 4-5 second shots at 24 fps and does not stack a Turbo LoRA.',
+  }),
+  [modelKey('loras', 'minimax_h3_flf2v_lora_v1.safetensors')]: createModelRecipe({
+    filename: 'minimax_h3_flf2v_lora_v1.safetensors',
+    targetSubdir: 'loras',
+    displayName: 'Pablo Dawson MiniMax H3 360 Orbit LoRA v1',
+    downloadUrl: 'https://huggingface.co/pablodawson/MiniMax-H3-360-Orbit-LoRA/resolve/5ddbc2dbbe95edbbdaf5017c3e934b1d01791697/minimax_h3_flf2v_lora_v1.safetensors',
+    sourceUrl: 'https://huggingface.co/pablodawson/MiniMax-H3-360-Orbit-LoRA/blob/5ddbc2dbbe95edbbdaf5017c3e934b1d01791697/minimax_h3_flf2v_lora_v1.safetensors',
+    licenseUrl: 'https://huggingface.co/MiniMaxAI/MiniMax-H3/blob/main/LICENSE',
+    sizeBytes: 155111424,
+    sha256: '14f13e3effaf3e729fdc0c97680344aa63f473be0c55963f963d718b3db2a4d4',
+    notes: 'Commit-pinned experimental FL2VA orbit adapter. Use alone at strength 1.0 with the same 768x768 image as first and last frame, 73 frames, 24 fps, 28 steps, no CFG, and no audio.',
+  }),
+  [modelKey('loras', 'handheld_h3_100.safetensors')]: createModelRecipe({
+    filename: 'handheld_h3_100.safetensors',
+    targetSubdir: 'loras',
+    displayName: 'neph1 MiniMax H3 Handheld Shaky Camera',
+    downloadUrl: 'https://huggingface.co/neph1/minimax_h3_handheld_shaky_camera/resolve/c089b7833cbdffc05bdf17b188e7d7a4aa9e3d88/handheld_h3_100.safetensors',
+    sourceUrl: 'https://huggingface.co/neph1/minimax_h3_handheld_shaky_camera/blob/c089b7833cbdffc05bdf17b188e7d7a4aa9e3d88/handheld_h3_100.safetensors',
+    licenseUrl: 'https://huggingface.co/MiniMaxAI/MiniMax-H3/blob/main/LICENSE',
+    sizeBytes: 77580048,
+    sha256: 'd56360bc9de18abec4298518ed630167ee4a3f64a7dbbc8bc0c2259d33f74069',
+    notes: 'Commit-pinned experimental MiniMax H3 camera-motion LoRA mirrored from Civitai model version 3343481. The publisher showcase uses about 1.7 strength and does not guarantee compatibility with other LoRAs.',
+  }),
+  [modelKey('loras', 'SexGod_NaughtyTimes_v3_rank64_pruned_NOADALN.safetensors')]: createModelRecipe({
+    filename: 'SexGod_NaughtyTimes_v3_rank64_pruned_NOADALN.safetensors', targetSubdir: 'loras', displayName: 'NaughtyTimes MiniMax H3 v3 rank-64 (pruned)',
+    downloadUrl: hfResolve('SexGod1979/NaughtyTimes-MiniMax-H3', 'SexGod_NaughtyTimes_v3_rank64_pruned_NOADALN.safetensors'),
+    sourceUrl: hfBlob('SexGod1979/NaughtyTimes-MiniMax-H3', 'SexGod_NaughtyTimes_v3_rank64_pruned_NOADALN.safetensors'),
+    licenseUrl: 'https://huggingface.co/SexGod1979/NaughtyTimes-MiniMax-H3',
+    notes: 'Published pruned_NOADALN variant for the pruned FL2VA preset.',
+  }),
+  [modelKey('loras', 'PinkFluffyBunny-unpruned-v2-rank128.safetensors')]: createModelRecipe({
+    filename: 'PinkFluffyBunny-unpruned-v2-rank128.safetensors',
+    targetSubdir: 'loras',
+    displayName: 'PinkFluffyBunny MiniMax H3 FL2VA v2 rank-128',
+    downloadUrl: hfResolve('SexGod1979/PinkFluffyBunny-MiniMax-H3', 'PinkFluffyBunny-unpruned-fl2va-v2-rank128.safetensors'),
+    sourceUrl: hfBlob('SexGod1979/PinkFluffyBunny-MiniMax-H3', 'PinkFluffyBunny-unpruned-fl2va-v2-rank128.safetensors'),
+    licenseUrl: 'https://huggingface.co/SexGod1979/PinkFluffyBunny-MiniMax-H3',
+    sizeBytes: 1121253992,
+    sha256: '6f3b80b901b04813d76bfc2c1d38789541eefcc4a6ade93b645fdad82f1540d6',
+    notes: 'NSFW FL2VA LoRA. The local legacy filename is retained so an existing Downloads copy can be installed without renaming. Do not stack with Turbo.',
+  }),
+  [modelKey('loras', 'AfterMidnight_ref2va_h3_sexytime_rank64-v1.2.safetensors')]: createModelRecipe({
+    filename: 'AfterMidnight_ref2va_h3_sexytime_rank64-v1.2.safetensors',
+    targetSubdir: 'loras',
+    displayName: 'AfterMidnight MiniMax H3 Ref2VA sexytime rank-64 v1.2',
+    downloadUrl: hfResolve('SexGod1979/AfterMidnight-MiniMax-H3-NSFW', 'AfterMidnight_ref2va_h3_sexytime_rank64-v1.2.safetensors'),
+    sourceUrl: hfBlob('SexGod1979/AfterMidnight-MiniMax-H3-NSFW', 'AfterMidnight_ref2va_h3_sexytime_rank64-v1.2.safetensors'),
+    licenseUrl: 'https://huggingface.co/SexGod1979/AfterMidnight-MiniMax-H3-NSFW/blob/main/README.md',
+    sizeBytes: 1192828320,
+    sha256: '82226a7c7f0b4631092f9270fa33d078c985a2d757895fcbe8f3fca8881bef59',
+    notes: 'Ref2VA NSFW LoRA. Use alone at strength 1.0 with Euler sampler and beta scheduler as required by the author.',
+  }),
+  [modelKey('loras', 'minimax-h3_fl2v_8Step_motion_enhancer.safetensors')]: createModelRecipe({
+    filename: 'minimax-h3_fl2v_8Step_motion_enhancer.safetensors',
+    targetSubdir: 'loras',
+    displayName: 'MiniMax H3 FL2V 8-step Motion Enhancer',
+    downloadUrl: hfResolve('rzgar/minimax-h3_fl2v_8Step_motion_enhancer', 'minimax-h3_fl2v_8Step_motion_enhancer.safetensors'),
+    sourceUrl: hfBlob('rzgar/minimax-h3_fl2v_8Step_motion_enhancer', 'minimax-h3_fl2v_8Step_motion_enhancer.safetensors'),
+    licenseUrl: 'https://huggingface.co/rzgar/minimax-h3_fl2v_8Step_motion_enhancer',
+    notes: 'Dedicated eight-step NSFW motion LoRA. Replaces the vanilla LightX2V adapter.',
+  }),
   [modelKey('checkpoints', 'irodori-tts-500m-v3.safetensors')]: createModelRecipe({
     filename: 'irodori-tts-500m-v3.safetensors',
     targetSubdir: 'checkpoints',
@@ -793,6 +1029,17 @@ export const MODEL_INSTALL_RECIPES = Object.freeze({
     sizeBytes: 2048269748,
     sha256: '8dbd537f8edebcce7fddc2a093fd8bd649cfb87741800ddf417f52bdfeb55b70',
     notes: 'Latest local Irodori-TTS v3 checkpoint used by Short Film Creation. Existing copies in checkpoint subfolders are detected by filename.',
+  }),
+  [modelKey('checkpoints', 'irodori-tts-v4.1-anime.safetensors')]: createModelRecipe({
+    filename: 'irodori-tts-v4.1-anime.safetensors',
+    targetSubdir: 'checkpoints',
+    displayName: 'Irodori-TTS v4.1 Anime',
+    downloadUrl: hfResolve('phasefield-audio/Irodori-TTS-v4.1-Anime', 'model.safetensors'),
+    sourceUrl: hfBlob('phasefield-audio/Irodori-TTS-v4.1-Anime', 'model.safetensors'),
+    licenseUrl: 'https://huggingface.co/phasefield-audio/Irodori-TTS-v4.1-Anime',
+    sizeBytes: 3064295596,
+    sha256: '5630aa0a661930ff678a1d1f1893876e24520f4776d4fcc25ca54e6ab9f41f37',
+    notes: 'Anime-style Japanese Irodori v4.1 checkpoint. Supports the existing Irodori inference interface; caption and emoji behavior may differ from the base model.',
   }),
   [modelKey('checkpoints', 'irodori-tts-500m-v2-VoiceDesign.safetensors')]: createModelRecipe({
     filename: 'irodori-tts-500m-v2-VoiceDesign.safetensors',
@@ -948,6 +1195,41 @@ export const MODEL_INSTALL_RECIPES = Object.freeze({
     sizeBytes: 8040000000,
     notes: 'Text encoder used by Z Image Turbo.',
   }),
+  [modelKey('text_encoders', 'qwen3vl_4b_fp8_scaled.safetensors')]: createModelRecipe({
+    filename: 'qwen3vl_4b_fp8_scaled.safetensors',
+    targetSubdir: 'text_encoders',
+    displayName: 'Krea 2 Qwen3-VL 4B FP8 text encoder',
+    downloadUrl: hfResolve('Comfy-Org/Krea-2', 'text_encoders/qwen3vl_4b_fp8_scaled.safetensors'),
+    sourceUrl: hfBlob('Comfy-Org/Krea-2', 'text_encoders/qwen3vl_4b_fp8_scaled.safetensors'),
+    licenseUrl: 'https://huggingface.co/Comfy-Org/Krea-2/blob/main/LICENSE.pdf',
+    sizeBytes: 5242467968,
+    sha256: '54bd5144df0bbc25dd6ccadfcb826b521445a1b06ae5a42570bdd2974ca87094',
+    notes: 'Official Comfy-Org Krea 2 FP8 text encoder.',
+  }),
+  [modelKey('diffusion_models', 'darkBeastH3Director_darkBeastKREA2FP8_2958418.safetensors')]: createModelRecipe({
+    filename: 'darkBeastH3Director_darkBeastKREA2FP8_2958418.safetensors',
+    targetSubdir: 'diffusion_models',
+    displayName: 'Dark Beast KREA 2 FP8 (Civitai version 3078453)',
+    downloadUrl: '',
+    sourceUrl: 'https://civitai.red/models/2242173/dark-beast-or-h3-director-edition?modelVersionId=3078453',
+    licenseUrl: 'https://civitai.red/models/2242173/dark-beast-or-h3-director-edition?modelVersionId=3078453',
+    sizeBytes: 12820167396,
+    sha256: '0C005BB2DA4AA249CEB4E9A90C3914DA9280660CF480F780C7386B92A8CFFC1B',
+    requiresAccessApproval: true,
+    notes: 'Install through Generate > Community with a Civitai API key. The exact linked version is Krea 2, not MiniMax H3.',
+  }),
+  [modelKey('diffusion_models', 'harukiMIX_kr2V20Int8Convrot.safetensors')]: createModelRecipe({
+    filename: 'harukiMIX_kr2V20Int8Convrot.safetensors',
+    targetSubdir: 'diffusion_models',
+    displayName: 'HARUKI_MIX KR2 V2.0 INT8 ConvRot (Civitai version 3188234)',
+    downloadUrl: '',
+    sourceUrl: 'https://civitai.red/models/856375/harukimix?modelVersionId=3188234',
+    licenseUrl: 'https://civitai.red/models/856375/harukimix?modelVersionId=3188234',
+    sizeBytes: 13492078408,
+    sha256: '7B903F38BC8A6F9E988A46F373B70BEAF4FB70534A7A94FB94F300D461361BB9',
+    requiresAccessApproval: true,
+    notes: 'Install through Generate > Community with a Civitai API key and the external-model consent gate. Do not redistribute, merge, or use it in a paid generation service.',
+  }),
   [modelKey('text_encoders', 'Qwen3-4B-Q4_K_M.gguf')]: createModelRecipe({
     filename: 'Qwen3-4B-Q4_K_M.gguf',
     targetSubdir: 'text_encoders',
@@ -1049,6 +1331,17 @@ export const MODEL_INSTALL_RECIPES = Object.freeze({
     licenseUrl: 'https://huggingface.co/Wan-AI/Wan2.2-I2V-A14B',
     sizeBytes: 6735906897,
     notes: 'Text encoder for the bundled WAN 2.2 workflow.',
+  }),
+  [modelKey('diffusion_models', 'wan_1.3B_e10.safetensors')]: createModelRecipe({
+    filename: 'wan_1.3B_e10.safetensors',
+    targetSubdir: 'diffusion_models',
+    displayName: 'NSFW Wan 1.3B e10 diffusion model',
+    downloadUrl: hfResolve('NSFW-API/NSFW_Wan_1.3b', 'wan_1.3B_e10.safetensors'),
+    sourceUrl: hfBlob('NSFW-API/NSFW_Wan_1.3b', 'wan_1.3B_e10.safetensors'),
+    licenseUrl: 'https://huggingface.co/NSFW-API/NSFW_Wan_1.3b',
+    sizeBytes: 2838095480,
+    sha256: 'b0be4a5dded7594deb7c11bcb808dac86c79619ae73ca9917cd8f0447f203d80',
+    notes: 'Requested legacy e10 full Wan 2.1 T2V checkpoint. The publisher warns that the original e4-e20 run can show anatomy degradation and currently recommends exp_e14 instead.',
   }),
   [modelKey('text_encoders', 'umt5-xxl-encoder-Q4_K_M.gguf')]: createModelRecipe({
     filename: 'umt5-xxl-encoder-Q4_K_M.gguf',
@@ -1359,6 +1652,11 @@ export function getNodeInstallInfo(classType = '') {
     searchTerm: normalized,
     notes: 'No curated install recipe is available yet for this node class.',
   })
+}
+
+export function getNodePackInstallInfo(packId = '') {
+  const normalized = String(packId || '').trim()
+  return CURATED_NODE_PACKS.find(pack => pack.id === normalized) || null
 }
 
 export function getModelInstallInfo({ filename = '', targetSubdir = '' } = {}) {

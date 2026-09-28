@@ -36,6 +36,7 @@ import useGenerationHistoryStore from '../stores/generationHistoryStore'
 import { isPromptHandledByApp } from './comfyPromptGuard'
 import { classifyBatchOutputs } from './comfyWorkflowGraph'
 import { IMPORTED_COMFY_ASSET_FOLDERS } from '../config/generateWorkspaceConfig'
+import { ensureNsfwPrefix, isNsfwWorkflow } from './nsfwWorkflowVisibility.mjs'
 
 export const AUTO_IMPORT_SETTING_KEY = 'comfystudio-auto-import-comfy-outputs'
 const SEQUENCE_MIN_FRAMES = 8
@@ -91,13 +92,18 @@ async function saveAutoImportedGenerationHistory({ promptId, apiWorkflow, uiWork
   const outputAssetIds = importedAssets.map((asset) => asset?.id).filter(Boolean)
   if (!apiWorkflow || outputAssetIds.length === 0) return
   const summary = summarizeApiWorkflow(apiWorkflow)
+  const isNsfw = isNsfwWorkflow({ resources: summary.modelRefs })
   const history = useGenerationHistoryStore.getState()
   const record = history.createRecord({
-    title: `ComfyUI generation ${String(promptId || '').slice(0, 8)}`,
+    title: isNsfw
+      ? ensureNsfwPrefix(`ComfyUI generation ${String(promptId || '').slice(0, 8)}`)
+      : `ComfyUI generation ${String(promptId || '').slice(0, 8)}`,
+    nsfw: isNsfw,
   })
   const version = history.appendVersion(record.id, {
     workflowId: 'comfyui-auto-import',
-    workflowLabel: 'ComfyUI',
+    workflowLabel: isNsfw ? ensureNsfwPrefix('ComfyUI') : 'ComfyUI',
+    nsfw: isNsfw,
     promptId,
     prompt: summary.prompt,
     seed: summary.seed,
@@ -567,6 +573,15 @@ async function runImportPipeline(promptId, preFetchedEntry, projectDir) {
   const apiWorkflow = extractApiWorkflow(historyEntry)
   const uiWorkflow = extractUiWorkflow(historyEntry)
   const allOutputFiles = collectOutputFiles(historyEntry)
+  const canvasOutput = historyEntry?.prompt?.[3]?.lumeweft_canvas_output
+  if (typeof projectDir === 'string' && canvasOutput?.projectDir === projectDir) {
+    for (const file of allOutputFiles) {
+      const folder = canvasOutput.outputFolders?.[file.kind]
+      if (Array.isArray(folder) && folder.every(part => typeof part === 'string' && part.trim())) {
+        file.canvasOutputFolder = folder
+      }
+    }
+  }
   if (allOutputFiles.length === 0) return
 
   // Dedupe first. If every single file in this prompt has already been
@@ -679,7 +694,7 @@ async function importSingleFile({ file, kind, apiWorkflow, promptId, projectDir 
   if (markSignature(sig)) return
 
   const category = kind === 'image' ? 'images' : kind
-  const folderId = ensureAssetFolderPath(IMPORTED_COMFY_ASSET_FOLDERS[kind])
+  const folderId = ensureAssetFolderPath(file.canvasOutputFolder || IMPORTED_COMFY_ASSET_FOLDERS[kind])
   if (!folderId) return
 
   const url = comfyui.getMediaUrl(file.filename, file.subfolder || '', file.type || 'output')
@@ -751,7 +766,7 @@ async function importSingleFile({ file, kind, apiWorkflow, promptId, projectDir 
 
   const assetType = assetInfo?.type || (kind === 'images' || kind === 'image' ? 'image' : kind)
   const importedFolderKind = assetType === 'image' ? 'image' : kind
-  const importedFolderId = ensureAssetFolderPath(IMPORTED_COMFY_ASSET_FOLDERS[importedFolderKind]) || folderId
+  const importedFolderId = ensureAssetFolderPath(file.canvasOutputFolder || IMPORTED_COMFY_ASSET_FOLDERS[importedFolderKind]) || folderId
   const assetUrl = assetInfo?.url || URL.createObjectURL(blobFile)
   const newAsset = addAsset({
     ...assetInfo,

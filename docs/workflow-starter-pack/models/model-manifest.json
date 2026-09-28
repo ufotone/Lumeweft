@@ -1,6 +1,6 @@
 {
-  "generatedAt": "2026-08-30T04:29:06.605Z",
-  "totalModels": 63,
+  "generatedAt": "2026-09-28T13:33:59.315Z",
+  "totalModels": 99,
   "models": [
     {
       "filename": "ace_1.5_vae.safetensors",
@@ -45,6 +45,90 @@
       "notes": "Required by the built-in music generation workflow."
     },
     {
+      "filename": "adapter_config.json",
+      "targetSubdir": "vdn/stage-dmd-step-250/adapters/default",
+      "folder": "models/vdn/stage-dmd-step-250/adapters/default",
+      "loaders": [
+        "ApplyVDNH3"
+      ],
+      "inputKeys": [
+        "vdn_checkpoint"
+      ],
+      "workflows": [
+        "vdn-h3-t2va"
+      ],
+      "downloadUrl": "https://huggingface.co/OpenVDN/vdn-minimax-h3/resolve/main/stage-dmd-step-250/adapters/default/adapter_config.json",
+      "sourceUrl": "https://huggingface.co/OpenVDN/vdn-minimax-h3/blob/main/stage-dmd-step-250/adapters/default/adapter_config.json",
+      "licenseUrl": "https://huggingface.co/OpenVDN/vdn-minimax-h3/blob/main/LICENSE",
+      "sizeBytes": 415,
+      "sha256": "89e0ff8920b9629b826eb99ab6150cce6924a53aa445186d1b493225fd091b96",
+      "autoInstallSupported": true,
+      "notes": "Part of the complete 8-step VDN stage. Keep its exact directory layout."
+    },
+    {
+      "filename": "adapter_config.json",
+      "targetSubdir": "vdn/stage-dmd-step-250/adapters/turbo",
+      "folder": "models/vdn/stage-dmd-step-250/adapters/turbo",
+      "loaders": [
+        "ApplyVDNH3"
+      ],
+      "inputKeys": [
+        "vdn_checkpoint"
+      ],
+      "workflows": [
+        "vdn-h3-t2va"
+      ],
+      "downloadUrl": "https://huggingface.co/OpenVDN/vdn-minimax-h3/resolve/main/stage-dmd-step-250/adapters/turbo/adapter_config.json",
+      "sourceUrl": "https://huggingface.co/OpenVDN/vdn-minimax-h3/blob/main/stage-dmd-step-250/adapters/turbo/adapter_config.json",
+      "licenseUrl": "https://huggingface.co/OpenVDN/vdn-minimax-h3/blob/main/LICENSE",
+      "sizeBytes": 22264,
+      "sha256": "627968f670747c29cd7a0d3f8c75166e501d70f9e829b5cd3242a8f14cefbc18",
+      "autoInstallSupported": true,
+      "notes": "Part of the complete 8-step VDN stage. Keep its exact directory layout."
+    },
+    {
+      "filename": "adapter_model.safetensors",
+      "targetSubdir": "vdn/stage-dmd-step-250/adapters/default",
+      "folder": "models/vdn/stage-dmd-step-250/adapters/default",
+      "loaders": [
+        "ApplyVDNH3"
+      ],
+      "inputKeys": [
+        "vdn_checkpoint"
+      ],
+      "workflows": [
+        "vdn-h3-t2va"
+      ],
+      "downloadUrl": "https://huggingface.co/OpenVDN/vdn-minimax-h3/resolve/main/stage-dmd-step-250/adapters/default/adapter_model.safetensors",
+      "sourceUrl": "https://huggingface.co/OpenVDN/vdn-minimax-h3/blob/main/stage-dmd-step-250/adapters/default/adapter_model.safetensors",
+      "licenseUrl": "https://huggingface.co/OpenVDN/vdn-minimax-h3/blob/main/LICENSE",
+      "sizeBytes": 334026912,
+      "sha256": "58558fef506f88bb41649242de9b9b3a365da806b51b2e96afbbe1625222058a",
+      "autoInstallSupported": true,
+      "notes": "Part of the complete 8-step VDN stage. Keep its exact directory layout."
+    },
+    {
+      "filename": "adapter_model.safetensors",
+      "targetSubdir": "vdn/stage-dmd-step-250/adapters/turbo",
+      "folder": "models/vdn/stage-dmd-step-250/adapters/turbo",
+      "loaders": [
+        "ApplyVDNH3"
+      ],
+      "inputKeys": [
+        "vdn_checkpoint"
+      ],
+      "workflows": [
+        "vdn-h3-t2va"
+      ],
+      "downloadUrl": "https://huggingface.co/OpenVDN/vdn-minimax-h3/resolve/main/stage-dmd-step-250/adapters/turbo/adapter_model.safetensors",
+      "sourceUrl": "https://huggingface.co/OpenVDN/vdn-minimax-h3/blob/main/stage-dmd-step-250/adapters/turbo/adapter_model.safetensors",
+      "licenseUrl": "https://huggingface.co/OpenVDN/vdn-minimax-h3/blob/main/LICENSE",
+      "sizeBytes": 851452696,
+      "sha256": "24fc93c82fe84dc45d0627f4e72c637bc387d282ba18f60ed3b7f8c81089392c",
+      "autoInstallSupported": true,
+      "notes": "Part of the complete 8-step VDN stage. Keep its exact directory layout."
+    },
+    {
       "filename": "ae.safetensors",
       "targetSubdir": "vae",
       "folder": "models/vae",
@@ -66,6 +150,91 @@
       "sha256": "afc8e28272cd15db3919bacdb6918ce9c1ed22e96cb12c4d5ed0fba823529e38",
       "autoInstallSupported": true,
       "notes": "Flux-compatible VAE used by Z Image Turbo."
+    },
+    {
+      "filename": "AfterMidnight_ref2va_h3_sexytime_rank64-v1.2.safetensors",
+      "targetSubdir": "loras",
+      "folder": "models/loras",
+      "loaders": [
+        "LoraLoaderModelOnly"
+      ],
+      "inputKeys": [
+        "lora_name"
+      ],
+      "workflows": [
+        "minimax-h3-aftermidnight-3ref",
+        "minimax-h3-aftermidnight-r2v"
+      ],
+      "downloadUrl": "https://huggingface.co/SexGod1979/AfterMidnight-MiniMax-H3-NSFW/resolve/main/AfterMidnight_ref2va_h3_sexytime_rank64-v1.2.safetensors",
+      "sourceUrl": "https://huggingface.co/SexGod1979/AfterMidnight-MiniMax-H3-NSFW/blob/main/AfterMidnight_ref2va_h3_sexytime_rank64-v1.2.safetensors",
+      "licenseUrl": "https://huggingface.co/SexGod1979/AfterMidnight-MiniMax-H3-NSFW/blob/main/README.md",
+      "sizeBytes": 1192828320,
+      "sha256": "82226a7c7f0b4631092f9270fa33d078c985a2d757895fcbe8f3fca8881bef59",
+      "autoInstallSupported": true,
+      "notes": "Ref2VA NSFW LoRA. Use alone at strength 1.0 with Euler sampler and beta scheduler as required by the author."
+    },
+    {
+      "filename": "ainvfx-fluid.safetensors",
+      "targetSubdir": "loras",
+      "folder": "models/loras",
+      "loaders": [
+        "LTXICLoRALoaderModelOnly"
+      ],
+      "inputKeys": [
+        "lora_name"
+      ],
+      "workflows": [
+        "ainvfx-fluid"
+      ],
+      "downloadUrl": "https://huggingface.co/AInVFX/ainvfx-fluid/resolve/6b6d96562d5ef6f3bd4a1dd1846504dd4285fdf3/ltx-2.5/ainvfx-fluid.safetensors",
+      "sourceUrl": "https://huggingface.co/AInVFX/ainvfx-fluid/blob/6b6d96562d5ef6f3bd4a1dd1846504dd4285fdf3/ltx-2.5/ainvfx-fluid.safetensors",
+      "licenseUrl": "https://huggingface.co/AInVFX/ainvfx-fluid/blob/6b6d96562d5ef6f3bd4a1dd1846504dd4285fdf3/LICENSE",
+      "sizeBytes": 654446312,
+      "sha256": "9f1e188a76adf242521b6c92f0d582221518220af24d985ef344dc5ba8e06a79",
+      "autoInstallSupported": true,
+      "notes": "AInVFX IC-LoRA for LTX 2.5; LTX-2.x Community License. Not a standalone model."
+    },
+    {
+      "filename": "config.json",
+      "targetSubdir": "vdn/stage-dmd-step-250/linear_branch",
+      "folder": "models/vdn/stage-dmd-step-250/linear_branch",
+      "loaders": [
+        "ApplyVDNH3"
+      ],
+      "inputKeys": [
+        "vdn_checkpoint"
+      ],
+      "workflows": [
+        "vdn-h3-t2va"
+      ],
+      "downloadUrl": "https://huggingface.co/OpenVDN/vdn-minimax-h3/resolve/main/stage-dmd-step-250/linear_branch/config.json",
+      "sourceUrl": "https://huggingface.co/OpenVDN/vdn-minimax-h3/blob/main/stage-dmd-step-250/linear_branch/config.json",
+      "licenseUrl": "https://huggingface.co/OpenVDN/vdn-minimax-h3/blob/main/LICENSE",
+      "sizeBytes": 465,
+      "sha256": "decb06ac7e664610f677fb445318502b3c51f9c1b8603a2cdd00b16042be5bc8",
+      "autoInstallSupported": true,
+      "notes": "Part of the complete 8-step VDN stage. Keep its exact directory layout."
+    },
+    {
+      "filename": "darkBeastH3Director_darkBeastKREA2FP8_2958418.safetensors",
+      "targetSubdir": "diffusion_models",
+      "folder": "models/diffusion_models",
+      "loaders": [
+        "UNETLoader"
+      ],
+      "inputKeys": [
+        "unet_name"
+      ],
+      "workflows": [
+        "dark-beast-krea2-i2i"
+      ],
+      "downloadUrl": null,
+      "sourceUrl": "https://civitai.red/models/2242173/dark-beast-or-h3-director-edition?modelVersionId=3078453",
+      "licenseUrl": "https://civitai.red/models/2242173/dark-beast-or-h3-director-edition?modelVersionId=3078453",
+      "sizeBytes": 12820167396,
+      "sha256": "0c005bb2da4aa249ceb4e9a90c3914da9280660cf480f780c7386b92a8cffc1b",
+      "autoInstallSupported": false,
+      "notes": "Install through Generate > Community with a Civitai API key. The exact linked version is Krea 2, not MiniMax H3."
     },
     {
       "filename": "ernie-image-prompt-enhancer.safetensors",
@@ -283,6 +452,90 @@
       "notes": "No curated download recipe is available yet for this model."
     },
     {
+      "filename": "gemma4-12b-with-proj-ltx-2.5-comfy-int8-convrot.safetensors",
+      "targetSubdir": "text_encoders",
+      "folder": "models/text_encoders",
+      "loaders": [
+        "CLIPLoader"
+      ],
+      "inputKeys": [
+        "clip_name"
+      ],
+      "workflows": [
+        "ainvfx-fluid"
+      ],
+      "downloadUrl": "https://huggingface.co/Lightricks/LTX-2.5/resolve/5e6e71018ee1756ed329b697a7b4aedc934dfce9/text_encoders/gemma4-12b-with-proj-ltx-2.5-comfy-int8-convrot.safetensors",
+      "sourceUrl": "https://huggingface.co/Lightricks/LTX-2.5/blob/5e6e71018ee1756ed329b697a7b4aedc934dfce9/text_encoders/gemma4-12b-with-proj-ltx-2.5-comfy-int8-convrot.safetensors",
+      "licenseUrl": "https://huggingface.co/Lightricks/LTX-2.5/blob/5e6e71018ee1756ed329b697a7b4aedc934dfce9/LICENSE",
+      "sizeBytes": 15372969374,
+      "sha256": "6ce688a0aa98a5fa36a9f1e6c3f42152a498cc2b53ee8c15674c64244f91487f",
+      "autoInstallSupported": true,
+      "notes": "LTX 2.5 requires Hugging Face access approval. If automatic download returns 401/403, download from the source page after signing in and place this file in the indicated ComfyUI model folder. LTX 2.3 weights cannot replace it."
+    },
+    {
+      "filename": "h3_character_swap_pro4500_1000.safetensors",
+      "targetSubdir": "loras",
+      "folder": "models/loras",
+      "loaders": [
+        "LoraLoaderModelOnly"
+      ],
+      "inputKeys": [
+        "lora_name"
+      ],
+      "workflows": [
+        "minimax-h3-character-swap"
+      ],
+      "downloadUrl": "https://huggingface.co/akatz-ai/MiniMax-H3-Character-Swap-LoRA/resolve/main/h3_character_swap_pro4500_1000.safetensors",
+      "sourceUrl": "https://huggingface.co/akatz-ai/MiniMax-H3-Character-Swap-LoRA/blob/main/h3_character_swap_pro4500_1000.safetensors",
+      "licenseUrl": "https://huggingface.co/akatz-ai/MiniMax-H3-Character-Swap-LoRA/blob/main/LICENSE",
+      "sizeBytes": 155110320,
+      "sha256": "4b2a3f420ae804c0aa3422761ff84dbd1bf52eef6900ffab6d2e66df63cb4e79",
+      "autoInstallSupported": true,
+      "notes": "Experimental Ref2VA character-replacement adapter. Use alone at strength 1.0 with one source video and one replacement image. The beginner CANVAS preset is intentionally limited to 4-5 second shots at 24 fps and does not stack a Turbo LoRA."
+    },
+    {
+      "filename": "handheld_h3_100.safetensors",
+      "targetSubdir": "loras",
+      "folder": "models/loras",
+      "loaders": [
+        "LoraLoaderModelOnly"
+      ],
+      "inputKeys": [
+        "lora_name"
+      ],
+      "workflows": [
+        "minimax-h3-handheld"
+      ],
+      "downloadUrl": "https://huggingface.co/neph1/minimax_h3_handheld_shaky_camera/resolve/c089b7833cbdffc05bdf17b188e7d7a4aa9e3d88/handheld_h3_100.safetensors",
+      "sourceUrl": "https://huggingface.co/neph1/minimax_h3_handheld_shaky_camera/blob/c089b7833cbdffc05bdf17b188e7d7a4aa9e3d88/handheld_h3_100.safetensors",
+      "licenseUrl": "https://huggingface.co/MiniMaxAI/MiniMax-H3/blob/main/LICENSE",
+      "sizeBytes": 77580048,
+      "sha256": "d56360bc9de18abec4298518ed630167ee4a3f64a7dbbc8bc0c2259d33f74069",
+      "autoInstallSupported": true,
+      "notes": "Commit-pinned experimental MiniMax H3 camera-motion LoRA mirrored from Civitai model version 3343481. The publisher showcase uses about 1.7 strength and does not guarantee compatibility with other LoRAs."
+    },
+    {
+      "filename": "harukiMIX_kr2V20Int8Convrot.safetensors",
+      "targetSubdir": "diffusion_models",
+      "folder": "models/diffusion_models",
+      "loaders": [
+        "UNETLoader"
+      ],
+      "inputKeys": [
+        "unet_name"
+      ],
+      "workflows": [
+        "haruki-mix-krea2-t2i"
+      ],
+      "downloadUrl": null,
+      "sourceUrl": "https://civitai.red/models/856375/harukimix?modelVersionId=3188234",
+      "licenseUrl": "https://civitai.red/models/856375/harukimix?modelVersionId=3188234",
+      "sizeBytes": 13492078408,
+      "sha256": "7b903f38bc8a6f9e988a46f373b70beaf4fb70534a7a94fb94f300d461361bb9",
+      "autoInstallSupported": false,
+      "notes": "Install through Generate > Community with a Civitai API key and the external-model consent gate. Do not redistribute, merge, or use it in a paid generation service."
+    },
+    {
       "filename": "irodori-tts-500m-v2-VoiceDesign.safetensors",
       "targetSubdir": "checkpoints",
       "folder": "models/checkpoints",
@@ -324,6 +577,28 @@
       "sha256": "8dbd537f8edebcce7fddc2a093fd8bd649cfb87741800ddf417f52bdfeb55b70",
       "autoInstallSupported": true,
       "notes": "Latest local Irodori-TTS v3 checkpoint used by Short Film Creation. Existing copies in checkpoint subfolders are detected by filename."
+    },
+    {
+      "filename": "irodori-tts-v4.1-anime.safetensors",
+      "targetSubdir": "checkpoints",
+      "folder": "models/checkpoints",
+      "loaders": [
+        "jupo.IrodoriTTS.ModelLoader"
+      ],
+      "inputKeys": [
+        "model"
+      ],
+      "workflows": [
+        "irodori-v4-1-anime",
+        "irodori-voice-clone"
+      ],
+      "downloadUrl": "https://huggingface.co/phasefield-audio/Irodori-TTS-v4.1-Anime/resolve/main/model.safetensors",
+      "sourceUrl": "https://huggingface.co/phasefield-audio/Irodori-TTS-v4.1-Anime/blob/main/model.safetensors",
+      "licenseUrl": "https://huggingface.co/phasefield-audio/Irodori-TTS-v4.1-Anime",
+      "sizeBytes": 3064295596,
+      "sha256": "5630aa0a661930ff678a1d1f1893876e24520f4776d4fcc25ca54e6ab9f41f37",
+      "autoInstallSupported": true,
+      "notes": "Anime-style Japanese Irodori v4.1 checkpoint. Supports the existing Irodori inference interface; caption and emoji behavior may differ from the base model."
     },
     {
       "filename": "longcat_image_bf16.safetensors",
@@ -571,6 +846,69 @@
       "notes": "Required for the bundled LTX 2.3 upscaling step."
     },
     {
+      "filename": "ltx-2.5-22b-distilled-transformer-comfy-int8-convrot.safetensors",
+      "targetSubdir": "diffusion_models",
+      "folder": "models/diffusion_models",
+      "loaders": [
+        "UNETLoader"
+      ],
+      "inputKeys": [
+        "unet_name"
+      ],
+      "workflows": [
+        "ainvfx-fluid"
+      ],
+      "downloadUrl": "https://huggingface.co/Lightricks/LTX-2.5/resolve/5e6e71018ee1756ed329b697a7b4aedc934dfce9/diffusion_models/ltx-2.5-22b-distilled-transformer-comfy-int8-convrot.safetensors",
+      "sourceUrl": "https://huggingface.co/Lightricks/LTX-2.5/blob/5e6e71018ee1756ed329b697a7b4aedc934dfce9/diffusion_models/ltx-2.5-22b-distilled-transformer-comfy-int8-convrot.safetensors",
+      "licenseUrl": "https://huggingface.co/Lightricks/LTX-2.5/blob/5e6e71018ee1756ed329b697a7b4aedc934dfce9/LICENSE",
+      "sizeBytes": 21504034224,
+      "sha256": "c4279eeff115cbeaca494bd2183e7d768c38fe85a184dc6afbb7159157c44334",
+      "autoInstallSupported": true,
+      "notes": "LTX 2.5 requires Hugging Face access approval. If automatic download returns 401/403, download from the source page after signing in and place this file in the indicated ComfyUI model folder. LTX 2.3 weights cannot replace it."
+    },
+    {
+      "filename": "ltx-2.5-audio-vae-bf16.safetensors",
+      "targetSubdir": "vae",
+      "folder": "models/vae",
+      "loaders": [
+        "VAELoader"
+      ],
+      "inputKeys": [
+        "vae_name"
+      ],
+      "workflows": [
+        "ainvfx-fluid"
+      ],
+      "downloadUrl": "https://huggingface.co/Lightricks/LTX-2.5/resolve/5e6e71018ee1756ed329b697a7b4aedc934dfce9/vae/ltx-2.5-audio-vae-bf16.safetensors",
+      "sourceUrl": "https://huggingface.co/Lightricks/LTX-2.5/blob/5e6e71018ee1756ed329b697a7b4aedc934dfce9/vae/ltx-2.5-audio-vae-bf16.safetensors",
+      "licenseUrl": "https://huggingface.co/Lightricks/LTX-2.5/blob/5e6e71018ee1756ed329b697a7b4aedc934dfce9/LICENSE",
+      "sizeBytes": 364866540,
+      "sha256": "c52733d37f6a7fb7949c3dc0fb468c6cb2169e4d836983a73babb9f0d54837a5",
+      "autoInstallSupported": true,
+      "notes": "LTX 2.5 requires Hugging Face access approval. If automatic download returns 401/403, download from the source page after signing in and place this file in the indicated ComfyUI model folder. LTX 2.3 weights cannot replace it."
+    },
+    {
+      "filename": "ltx-2.5-video-vae-bf16.safetensors",
+      "targetSubdir": "vae",
+      "folder": "models/vae",
+      "loaders": [
+        "VAELoader"
+      ],
+      "inputKeys": [
+        "vae_name"
+      ],
+      "workflows": [
+        "ainvfx-fluid"
+      ],
+      "downloadUrl": "https://huggingface.co/Lightricks/LTX-2.5/resolve/5e6e71018ee1756ed329b697a7b4aedc934dfce9/vae/ltx-2.5-video-vae-bf16.safetensors",
+      "sourceUrl": "https://huggingface.co/Lightricks/LTX-2.5/blob/5e6e71018ee1756ed329b697a7b4aedc934dfce9/vae/ltx-2.5-video-vae-bf16.safetensors",
+      "licenseUrl": "https://huggingface.co/Lightricks/LTX-2.5/blob/5e6e71018ee1756ed329b697a7b4aedc934dfce9/LICENSE",
+      "sizeBytes": 1472223346,
+      "sha256": "847e14ca7f3355debca0cea4eaa24ac0fbcdf0061da054ac89ca638a869ddba3",
+      "autoInstallSupported": true,
+      "notes": "LTX 2.5 requires Hugging Face access approval. If automatic download returns 401/403, download from the source page after signing in and place this file in the indicated ComfyUI model folder. LTX 2.3 weights cannot replace it."
+    },
+    {
       "filename": "Ltx2.3-Licon-VBVR-I2V-96000-R32.safetensors",
       "targetSubdir": "loras",
       "folder": "models/loras",
@@ -656,6 +994,27 @@
       "notes": "No curated download recipe is available yet for this model."
     },
     {
+      "filename": "metadata.json",
+      "targetSubdir": "vdn/stage-dmd-step-250",
+      "folder": "models/vdn/stage-dmd-step-250",
+      "loaders": [
+        "ApplyVDNH3"
+      ],
+      "inputKeys": [
+        "vdn_checkpoint"
+      ],
+      "workflows": [
+        "vdn-h3-t2va"
+      ],
+      "downloadUrl": "https://huggingface.co/OpenVDN/vdn-minimax-h3/resolve/main/stage-dmd-step-250/metadata.json",
+      "sourceUrl": "https://huggingface.co/OpenVDN/vdn-minimax-h3/blob/main/stage-dmd-step-250/metadata.json",
+      "licenseUrl": "https://huggingface.co/OpenVDN/vdn-minimax-h3/blob/main/LICENSE",
+      "sizeBytes": 463,
+      "sha256": "54054ceb1c91b3fdf7fa0278e4a8841c127e8cf666b5e240d69613661f9d3e9e",
+      "autoInstallSupported": true,
+      "notes": "Part of the complete 8-step VDN stage. Keep its exact directory layout."
+    },
+    {
       "filename": "minimax_h3_audio_vae_fp32.safetensors",
       "targetSubdir": "vae",
       "folder": "models/vae",
@@ -666,8 +1025,20 @@
         "vae_name"
       ],
       "workflows": [
+        "fast-minimax-h3-t2va",
+        "minimax-h3-aftermidnight-3ref",
+        "minimax-h3-aftermidnight-r2v",
+        "minimax-h3-character-actor",
         "minimax-h3-character-sheet",
-        "minimax-h3-gguf-i2v"
+        "minimax-h3-character-swap",
+        "minimax-h3-gguf-i2v",
+        "minimax-h3-gguf-r2v",
+        "minimax-h3-handheld",
+        "minimax-h3-naughty-times",
+        "minimax-h3-nsfw-motion-8step",
+        "minimax-h3-nsfw-pink-bunny",
+        "minimax-h3-pink-reference",
+        "vdn-h3-t2va"
       ],
       "downloadUrl": "https://huggingface.co/Comfy-Org/MiniMax-H3/resolve/main/vae/minimax_h3_audio_vae_fp32.safetensors",
       "sourceUrl": "https://huggingface.co/Comfy-Org/MiniMax-H3/blob/main/vae/minimax_h3_audio_vae_fp32.safetensors",
@@ -678,25 +1049,25 @@
       "notes": "Official ComfyUI-packaged audio VAE for native stereo audio output."
     },
     {
-      "filename": "minimax_h3_fl2v_turbo_8step_v1.0_comfyui_bf16.safetensors",
-      "targetSubdir": "loras",
-      "folder": "models/loras",
+      "filename": "minimax_h3_fl2va_int8_convrot.safetensors",
+      "targetSubdir": "diffusion_models",
+      "folder": "models/diffusion_models",
       "loaders": [
-        "LoraLoaderModelOnly"
+        "UNETLoader"
       ],
       "inputKeys": [
-        "lora_name"
+        "unet_name"
       ],
       "workflows": [
-        "minimax-h3-gguf-i2v"
+        "vdn-h3-t2va"
       ],
-      "downloadUrl": "https://huggingface.co/Comfy-Org/MiniMax-H3/resolve/main/loras/minimax_h3_fl2v_turbo_8step_v1.0_comfyui_bf16.safetensors",
-      "sourceUrl": "https://huggingface.co/Comfy-Org/MiniMax-H3/blob/main/loras/minimax_h3_fl2v_turbo_8step_v1.0_comfyui_bf16.safetensors",
-      "licenseUrl": "https://huggingface.co/lightx2v/Minimax-h3-Turbo",
-      "sizeBytes": null,
-      "sha256": null,
+      "downloadUrl": "https://huggingface.co/Comfy-Org/MiniMax-H3/resolve/main/diffusion_models/minimax_h3_fl2va_int8_convrot.safetensors",
+      "sourceUrl": "https://huggingface.co/Comfy-Org/MiniMax-H3/blob/main/diffusion_models/minimax_h3_fl2va_int8_convrot.safetensors",
+      "licenseUrl": "https://huggingface.co/MiniMaxAI/MiniMax-H3/blob/main/LICENSE",
+      "sizeBytes": 34038892334,
+      "sha256": "7ad4c73e6e378b822ffd1629f27f632d3787d95f5e468e3af958f98c58df96a5",
       "autoInstallSupported": true,
-      "notes": "Officially packaged LightX2V Turbo LoRA used to reduce the default CANVAS flow to eight sampling steps."
+      "notes": "Plain base for VDN; do not substitute the Fast H3 Turbo/Mystic fused model."
     },
     {
       "filename": "minimax_h3_fl2va_pruned_fp8_Q4_0.gguf",
@@ -709,7 +1080,9 @@
         "model_name"
       ],
       "workflows": [
-        "minimax-h3-gguf-i2v"
+        "minimax-h3-naughty-times",
+        "minimax-h3-nsfw-motion-8step",
+        "minimax-h3-nsfw-pink-bunny"
       ],
       "downloadUrl": "https://huggingface.co/molbal/MiniMax-H3-GGUF/resolve/main/minimax_h3_fl2va_pruned_fp8_Q4_0.gguf",
       "sourceUrl": "https://huggingface.co/molbal/MiniMax-H3-GGUF/blob/main/minimax_h3_fl2va_pruned_fp8_Q4_0.gguf",
@@ -718,6 +1091,73 @@
       "sha256": null,
       "autoInstallSupported": true,
       "notes": "Default GGUF diffusion model for the CANVAS MiniMax H3 image-to-video flow. MiniMax H3 uses its own community license."
+    },
+    {
+      "filename": "minimax_h3_fl2va_pruned_int8_convrot.safetensors",
+      "targetSubdir": "diffusion_models",
+      "folder": "models/diffusion_models",
+      "loaders": [
+        "UNETLoader"
+      ],
+      "inputKeys": [
+        "unet_name"
+      ],
+      "workflows": [
+        "minimax-h3-360-orbit",
+        "minimax-h3-handheld"
+      ],
+      "downloadUrl": "https://huggingface.co/Comfy-Org/MiniMax-H3/resolve/main/diffusion_models/minimax_h3_fl2va_pruned_int8_convrot.safetensors",
+      "sourceUrl": "https://huggingface.co/Comfy-Org/MiniMax-H3/blob/main/diffusion_models/minimax_h3_fl2va_pruned_int8_convrot.safetensors",
+      "licenseUrl": "https://huggingface.co/MiniMaxAI/MiniMax-H3/blob/main/LICENSE",
+      "sizeBytes": 20970379616,
+      "sha256": "e889202c41dafb67b10d67b97f0d8541508036a6090af23425a5c2615d03c47a",
+      "autoInstallSupported": true,
+      "notes": "Official ComfyUI-packaged pruned FL2VA INT8 ConvRot base used by the dedicated 360 Orbit flow."
+    },
+    {
+      "filename": "minimax_h3_flf2v_lora_v1.safetensors",
+      "targetSubdir": "loras",
+      "folder": "models/loras",
+      "loaders": [
+        "LoraLoaderModelOnly"
+      ],
+      "inputKeys": [
+        "lora_name"
+      ],
+      "workflows": [
+        "minimax-h3-360-orbit"
+      ],
+      "downloadUrl": "https://huggingface.co/pablodawson/MiniMax-H3-360-Orbit-LoRA/resolve/5ddbc2dbbe95edbbdaf5017c3e934b1d01791697/minimax_h3_flf2v_lora_v1.safetensors",
+      "sourceUrl": "https://huggingface.co/pablodawson/MiniMax-H3-360-Orbit-LoRA/blob/5ddbc2dbbe95edbbdaf5017c3e934b1d01791697/minimax_h3_flf2v_lora_v1.safetensors",
+      "licenseUrl": "https://huggingface.co/MiniMaxAI/MiniMax-H3/blob/main/LICENSE",
+      "sizeBytes": 155111424,
+      "sha256": "14f13e3effaf3e729fdc0c97680344aa63f473be0c55963f963d718b3db2a4d4",
+      "autoInstallSupported": true,
+      "notes": "Commit-pinned experimental FL2VA orbit adapter. Use alone at strength 1.0 with the same 768x768 image as first and last frame, 73 frames, 24 fps, 28 steps, no CFG, and no audio."
+    },
+    {
+      "filename": "minimax_h3_fused_refdelta_r1024_turbo8_mystic07_int8_convrot.safetensors",
+      "targetSubdir": "diffusion_models",
+      "folder": "models/diffusion_models",
+      "loaders": [
+        "DiffusionModelLoaderKJ",
+        "UNETLoader"
+      ],
+      "inputKeys": [
+        "model_name",
+        "unet_name"
+      ],
+      "workflows": [
+        "fast-minimax-h3-t2va",
+        "minimax-h3-gguf-i2v"
+      ],
+      "downloadUrl": "https://huggingface.co/MATLOWAI/minimax-h3-fused-turbo-int8-convrot/resolve/main/diffusion_models/minimax_h3_fused_refdelta_r1024_turbo8_mystic07_int8_convrot.safetensors",
+      "sourceUrl": "https://huggingface.co/MATLOWAI/minimax-h3-fused-turbo-int8-convrot/blob/main/diffusion_models/minimax_h3_fused_refdelta_r1024_turbo8_mystic07_int8_convrot.safetensors",
+      "licenseUrl": "https://huggingface.co/MiniMaxAI/MiniMax-H3/blob/main/LICENSE",
+      "sizeBytes": 20980178976,
+      "sha256": "4262e4e9963c553fa00016bbe83961407a4fc0a888be95fd836c8d4f2304e48b",
+      "autoInstallSupported": true,
+      "notes": ""
     },
     {
       "filename": "minimax_h3_video_vae_fp16.safetensors",
@@ -730,8 +1170,16 @@
         "vae_name"
       ],
       "workflows": [
+        "minimax-h3-aftermidnight-3ref",
+        "minimax-h3-aftermidnight-r2v",
+        "minimax-h3-character-actor",
         "minimax-h3-character-sheet",
-        "minimax-h3-gguf-i2v"
+        "minimax-h3-character-swap",
+        "minimax-h3-gguf-r2v",
+        "minimax-h3-naughty-times",
+        "minimax-h3-nsfw-motion-8step",
+        "minimax-h3-nsfw-pink-bunny",
+        "minimax-h3-pink-reference"
       ],
       "downloadUrl": "https://huggingface.co/Comfy-Org/MiniMax-H3/resolve/main/vae/minimax_h3_video_vae_fp16.safetensors",
       "sourceUrl": "https://huggingface.co/Comfy-Org/MiniMax-H3/blob/main/vae/minimax_h3_video_vae_fp16.safetensors",
@@ -740,6 +1188,52 @@
       "sha256": null,
       "autoInstallSupported": true,
       "notes": "Official ComfyUI-packaged video VAE for MiniMax H3."
+    },
+    {
+      "filename": "minimax_h3_video_vae_int8_convrot.safetensors",
+      "targetSubdir": "vae",
+      "folder": "models/vae",
+      "loaders": [
+        "VAELoader"
+      ],
+      "inputKeys": [
+        "vae_name"
+      ],
+      "workflows": [
+        "fast-minimax-h3-t2va",
+        "minimax-h3-360-orbit",
+        "minimax-h3-gguf-i2v",
+        "minimax-h3-handheld",
+        "vdn-h3-t2va"
+      ],
+      "downloadUrl": "https://huggingface.co/Kijai/MiniMax-H3-experimental/resolve/main/minimax_h3_video_vae_int8_convrot.safetensors",
+      "sourceUrl": "https://huggingface.co/Kijai/MiniMax-H3-experimental/blob/main/minimax_h3_video_vae_int8_convrot.safetensors",
+      "licenseUrl": "https://huggingface.co/MiniMaxAI/MiniMax-H3/blob/main/LICENSE",
+      "sizeBytes": 3171670912,
+      "sha256": "9bb2d96f218c76babd85e0611b85ca8fb330a90546c01a0005e8a58a59593410",
+      "autoInstallSupported": true,
+      "notes": ""
+    },
+    {
+      "filename": "minimax-h3_fl2v_8Step_motion_enhancer.safetensors",
+      "targetSubdir": "loras",
+      "folder": "models/loras",
+      "loaders": [
+        "LoraLoaderModelOnly"
+      ],
+      "inputKeys": [
+        "lora_name"
+      ],
+      "workflows": [
+        "minimax-h3-nsfw-motion-8step"
+      ],
+      "downloadUrl": "https://huggingface.co/rzgar/minimax-h3_fl2v_8Step_motion_enhancer/resolve/main/minimax-h3_fl2v_8Step_motion_enhancer.safetensors",
+      "sourceUrl": "https://huggingface.co/rzgar/minimax-h3_fl2v_8Step_motion_enhancer/blob/main/minimax-h3_fl2v_8Step_motion_enhancer.safetensors",
+      "licenseUrl": "https://huggingface.co/rzgar/minimax-h3_fl2v_8Step_motion_enhancer",
+      "sizeBytes": null,
+      "sha256": null,
+      "autoInstallSupported": true,
+      "notes": "Dedicated eight-step NSFW motion LoRA. Replaces the vanilla LightX2V adapter."
     },
     {
       "filename": "MiniMax-H3-encoder-mmproj-F16.gguf",
@@ -752,8 +1246,16 @@
         "mmproj_name"
       ],
       "workflows": [
+        "minimax-h3-aftermidnight-3ref",
+        "minimax-h3-aftermidnight-r2v",
+        "minimax-h3-character-actor",
         "minimax-h3-character-sheet",
-        "minimax-h3-gguf-i2v"
+        "minimax-h3-character-swap",
+        "minimax-h3-gguf-r2v",
+        "minimax-h3-naughty-times",
+        "minimax-h3-nsfw-motion-8step",
+        "minimax-h3-nsfw-pink-bunny",
+        "minimax-h3-pink-reference"
       ],
       "downloadUrl": "https://huggingface.co/joeygambino/MiniMax-H3-encoder-GGUF/resolve/main/MiniMax-H3-encoder-mmproj-F16.gguf",
       "sourceUrl": "https://huggingface.co/joeygambino/MiniMax-H3-encoder-GGUF/blob/main/MiniMax-H3-encoder-mmproj-F16.gguf",
@@ -774,8 +1276,16 @@
         "clip_name"
       ],
       "workflows": [
+        "minimax-h3-aftermidnight-3ref",
+        "minimax-h3-aftermidnight-r2v",
+        "minimax-h3-character-actor",
         "minimax-h3-character-sheet",
-        "minimax-h3-gguf-i2v"
+        "minimax-h3-character-swap",
+        "minimax-h3-gguf-r2v",
+        "minimax-h3-naughty-times",
+        "minimax-h3-nsfw-motion-8step",
+        "minimax-h3-nsfw-pink-bunny",
+        "minimax-h3-pink-reference"
       ],
       "downloadUrl": "https://huggingface.co/joeygambino/MiniMax-H3-encoder-GGUF/resolve/main/MiniMax-H3-encoder-Q4_K_M.gguf",
       "sourceUrl": "https://huggingface.co/joeygambino/MiniMax-H3-encoder-GGUF/blob/main/MiniMax-H3-encoder-Q4_K_M.gguf",
@@ -784,6 +1294,28 @@
       "sha256": null,
       "autoInstallSupported": true,
       "notes": "GGUF text encoder. Keep the matching mmproj sidecar in the same text_encoders folder."
+    },
+    {
+      "filename": "MiniMax-H3-Ref2VA-Acc-8Step_pruned_comfy.safetensors",
+      "targetSubdir": "loras",
+      "folder": "models/loras",
+      "loaders": [
+        "LoraLoaderModelOnly"
+      ],
+      "inputKeys": [
+        "lora_name"
+      ],
+      "workflows": [
+        "minimax-h3-character-actor",
+        "minimax-h3-gguf-r2v"
+      ],
+      "downloadUrl": "https://huggingface.co/Kijai/MiniMax-H3-experimental/resolve/main/loras/MiniMax-H3-Ref2VA-Acc-8Step_pruned_comfy.safetensors",
+      "sourceUrl": "https://huggingface.co/Kijai/MiniMax-H3-experimental/blob/main/loras/MiniMax-H3-Ref2VA-Acc-8Step_pruned_comfy.safetensors",
+      "licenseUrl": "https://huggingface.co/MiniMaxAI/MiniMax-H3/blob/main/LICENSE",
+      "sizeBytes": 1725921392,
+      "sha256": "6f18e1c2eccb14b37322607730f26b16bf1169b56cd098ea006cffaec43d1e39",
+      "autoInstallSupported": true,
+      "notes": "PDD acceleration LoRA matched to the pruned Ref2VA GGUF base. Use only at strength 1.0 with Euler/simple, 8 steps, CFG 1, and MiniMax H3 video/audio sigma shifts 12/3. Do not stack with another distillation LoRA."
     },
     {
       "filename": "minimax-h3-ref2va-Q4_0.gguf",
@@ -796,7 +1328,13 @@
         "model_name"
       ],
       "workflows": [
-        "minimax-h3-character-sheet"
+        "minimax-h3-aftermidnight-3ref",
+        "minimax-h3-aftermidnight-r2v",
+        "minimax-h3-character-actor",
+        "minimax-h3-character-sheet",
+        "minimax-h3-character-swap",
+        "minimax-h3-gguf-r2v",
+        "minimax-h3-pink-reference"
       ],
       "downloadUrl": "https://huggingface.co/molbal/MiniMax-H3-GGUF/resolve/main/minimax-h3-ref2va-Q4_0.gguf",
       "sourceUrl": "https://huggingface.co/molbal/MiniMax-H3-GGUF/blob/main/minimax-h3-ref2va-Q4_0.gguf",
@@ -804,7 +1342,7 @@
       "sizeBytes": 11377542880,
       "sha256": "737463c522b0f78ebe157df918c272935c2b61047ba7ae303008cfc84ba81644",
       "autoInstallSupported": true,
-      "notes": "Q4 Ref2VA model for the CANVAS H3 Character Sheet flow. It reuses the existing H3 GGUF encoder, mmproj, and VAEs. MiniMax H3 uses its own community license."
+      "notes": "Q4 Ref2VA model shared by the CANVAS H3 Character Sheet and Reference Video to Video flows. It reuses the existing H3 GGUF encoder, mmproj, and VAEs. MiniMax H3 uses its own community license."
     },
     {
       "filename": "ministral-3-3b.safetensors",
@@ -847,6 +1385,115 @@
       "sha256": null,
       "autoInstallSupported": true,
       "notes": "Text encoder used by the bundled Flux 2 text-to-image workflow."
+    },
+    {
+      "filename": "mmproj-qwen3vl_8b_heretic-f16.gguf",
+      "targetSubdir": "text_encoders",
+      "folder": "models/text_encoders",
+      "loaders": [
+        "CLIPLoaderGGUF"
+      ],
+      "inputKeys": [
+        "clip_name"
+      ],
+      "workflows": [
+        "qwen-image-2-1-character-sheet",
+        "qwen-image-2-1-heretic",
+        "qwen-image-2-1-heretic-edit",
+        "qwen-image-2-1-nsfw-lora"
+      ],
+      "downloadUrl": "https://huggingface.co/pottokao/Qwen-Image-2.1-Text-Encoder-Heretic-GGUF/resolve/main/mmproj-qwen3vl_8b_heretic-f16.gguf",
+      "sourceUrl": "https://huggingface.co/pottokao/Qwen-Image-2.1-Text-Encoder-Heretic-GGUF/blob/main/mmproj-qwen3vl_8b_heretic-f16.gguf",
+      "licenseUrl": "https://huggingface.co/pottokao/Qwen-Image-2.1-Text-Encoder-Heretic-GGUF/blob/main/LICENSE",
+      "sizeBytes": 1159030464,
+      "sha256": "4649839491c8df1ebc9bed2de158ad2a45b53ed1d3b311d92a69056b6764f101",
+      "autoInstallSupported": true,
+      "notes": "Required Qwen3-VL vision tower. Do not rename it; the patch matches it to the Heretic GGUF encoder by filename."
+    },
+    {
+      "filename": "model_spec.json",
+      "targetSubdir": "vdn/stage-dmd-step-250",
+      "folder": "models/vdn/stage-dmd-step-250",
+      "loaders": [
+        "ApplyVDNH3"
+      ],
+      "inputKeys": [
+        "vdn_checkpoint"
+      ],
+      "workflows": [
+        "vdn-h3-t2va"
+      ],
+      "downloadUrl": "https://huggingface.co/OpenVDN/vdn-minimax-h3/resolve/main/stage-dmd-step-250/model_spec.json",
+      "sourceUrl": "https://huggingface.co/OpenVDN/vdn-minimax-h3/blob/main/stage-dmd-step-250/model_spec.json",
+      "licenseUrl": "https://huggingface.co/OpenVDN/vdn-minimax-h3/blob/main/LICENSE",
+      "sizeBytes": 25705,
+      "sha256": "4171f4384e952f1f73467981a893440c03298af4956b947e2c8a857ba9f5a62b",
+      "autoInstallSupported": true,
+      "notes": "Part of the complete 8-step VDN stage. Keep its exact directory layout."
+    },
+    {
+      "filename": "model.safetensors",
+      "targetSubdir": "vdn/stage-dmd-step-250/linear_branch",
+      "folder": "models/vdn/stage-dmd-step-250/linear_branch",
+      "loaders": [
+        "ApplyVDNH3"
+      ],
+      "inputKeys": [
+        "vdn_checkpoint"
+      ],
+      "workflows": [
+        "vdn-h3-t2va"
+      ],
+      "downloadUrl": "https://huggingface.co/OpenVDN/vdn-minimax-h3/resolve/main/stage-dmd-step-250/linear_branch/model.safetensors",
+      "sourceUrl": "https://huggingface.co/OpenVDN/vdn-minimax-h3/blob/main/stage-dmd-step-250/linear_branch/model.safetensors",
+      "licenseUrl": "https://huggingface.co/OpenVDN/vdn-minimax-h3/blob/main/LICENSE",
+      "sizeBytes": 4279428112,
+      "sha256": "dec6981c7874f5b3bc92d1a02e256b673a3b3499dc1a124714bb3b19da602855",
+      "autoInstallSupported": true,
+      "notes": "Part of the complete 8-step VDN stage. Keep its exact directory layout."
+    },
+    {
+      "filename": "NSFW Qwen Lora.safetensors",
+      "targetSubdir": "loras",
+      "folder": "models/loras",
+      "loaders": [
+        "LoraLoaderModelOnly"
+      ],
+      "inputKeys": [
+        "lora_name"
+      ],
+      "workflows": [
+        "qwen-image-2-1-nsfw-lora"
+      ],
+      "downloadUrl": null,
+      "sourceUrl": "https://civitai.red/models/2958918/nsfw-lora-or-qwen-image-21?modelVersionId=3351951",
+      "licenseUrl": null,
+      "sizeBytes": 159436456,
+      "sha256": "c29f503f3515877882fd6b10f6849c78a4f2337c09021f4bd4b93d060c311aea",
+      "autoInstallSupported": false,
+      "notes": "Civitai model version 3351951. Install through Generate > Community so the saved Civitai API key and consent gate are respected."
+    },
+    {
+      "filename": "PinkFluffyBunny-unpruned-v2-rank128.safetensors",
+      "targetSubdir": "loras",
+      "folder": "models/loras",
+      "loaders": [
+        "LoraLoaderModelOnly"
+      ],
+      "inputKeys": [
+        "lora_name"
+      ],
+      "workflows": [
+        "minimax-h3-nsfw-pink-bunny",
+        "minimax-h3-pink-reference"
+      ],
+      "downloadUrl": "https://huggingface.co/SexGod1979/PinkFluffyBunny-MiniMax-H3/resolve/main/PinkFluffyBunny-unpruned-fl2va-v2-rank128.safetensors",
+      "sourceUrl": "https://huggingface.co/SexGod1979/PinkFluffyBunny-MiniMax-H3/blob/main/PinkFluffyBunny-unpruned-fl2va-v2-rank128.safetensors",
+      "licenseUrl": "https://huggingface.co/SexGod1979/PinkFluffyBunny-MiniMax-H3",
+      "sizeBytes": 1121253992,
+      "sha256": "6f3b80b901b04813d76bfc2c1d38789541eefcc4a6ade93b645fdad82f1540d6",
+      "autoInstallSupported": true,
+      "notes": "NSFW FL2VA LoRA. The local legacy filename is retained so an existing Downloads copy can be installed without renaming. Do not stack with Turbo."
     },
     {
       "filename": "qwen_0.6b_ace15.safetensors",
@@ -915,6 +1562,54 @@
       "notes": "Shared by Qwen image edit and multiple-angle workflows."
     },
     {
+      "filename": "qwen_image_2.1_int8_convrot.safetensors",
+      "targetSubdir": "diffusion_models",
+      "folder": "models/diffusion_models",
+      "loaders": [
+        "UNETLoader"
+      ],
+      "inputKeys": [
+        "unet_name"
+      ],
+      "workflows": [
+        "qwen-image-2-1-character-sheet",
+        "qwen-image-2-1-heretic",
+        "qwen-image-2-1-heretic-edit",
+        "qwen-image-2-1-nsfw-lora"
+      ],
+      "downloadUrl": "https://huggingface.co/Comfy-Org/Qwen-Image-2.1/resolve/main/diffusion_models/qwen_image_2.1_int8_convrot.safetensors",
+      "sourceUrl": "https://huggingface.co/Comfy-Org/Qwen-Image-2.1/blob/main/diffusion_models/qwen_image_2.1_int8_convrot.safetensors",
+      "licenseUrl": "https://huggingface.co/Qwen/Qwen-Image-2.1/blob/main/LICENSE",
+      "sizeBytes": 7256783064,
+      "sha256": "cb74113cb03faecd79611b01fd7fd642f0aa60d6f0b95086abee214d75eaa57d",
+      "autoInstallSupported": true,
+      "notes": "Official ComfyUI-packaged Qwen Image 2.1 diffusion model. Qwen Research License applies."
+    },
+    {
+      "filename": "qwen_image_2.1_vae_bf16.safetensors",
+      "targetSubdir": "vae",
+      "folder": "models/vae",
+      "loaders": [
+        "VAELoader"
+      ],
+      "inputKeys": [
+        "vae_name"
+      ],
+      "workflows": [
+        "qwen-image-2-1-character-sheet",
+        "qwen-image-2-1-heretic",
+        "qwen-image-2-1-heretic-edit",
+        "qwen-image-2-1-nsfw-lora"
+      ],
+      "downloadUrl": "https://huggingface.co/Comfy-Org/Qwen-Image-2.1/resolve/main/vae/qwen_image_2.1_vae_bf16.safetensors",
+      "sourceUrl": "https://huggingface.co/Comfy-Org/Qwen-Image-2.1/blob/main/vae/qwen_image_2.1_vae_bf16.safetensors",
+      "licenseUrl": "https://huggingface.co/Qwen/Qwen-Image-2.1/blob/main/LICENSE",
+      "sizeBytes": 675509688,
+      "sha256": "bb21f7473051e1ac368515dd3f2e15cd44d7a11748ee8823e1ddca3e4876b7c9",
+      "autoInstallSupported": true,
+      "notes": "Official Qwen Image 2.1 VAE with native RGBA decoding."
+    },
+    {
       "filename": "qwen_image_vae.safetensors",
       "targetSubdir": "vae",
       "folder": "models/vae",
@@ -925,6 +1620,8 @@
         "vae_name"
       ],
       "workflows": [
+        "dark-beast-krea2-i2i",
+        "haruki-mix-krea2-t2i",
         "image-edit",
         "image-edit-model-product",
         "multi-angles",
@@ -1114,6 +1811,98 @@
       "notes": "Memory-efficient Q4_K_M text encoder used by the bundled Z Image Turbo GGUF workflow."
     },
     {
+      "filename": "qwen3vl_32b_minimax_h3_nvfp4_awq.safetensors",
+      "targetSubdir": "text_encoders",
+      "folder": "models/text_encoders",
+      "loaders": [
+        "CLIPLoader"
+      ],
+      "inputKeys": [
+        "clip_name"
+      ],
+      "workflows": [
+        "fast-minimax-h3-t2va",
+        "minimax-h3-360-orbit",
+        "minimax-h3-gguf-i2v",
+        "minimax-h3-handheld",
+        "vdn-h3-t2va"
+      ],
+      "downloadUrl": "https://huggingface.co/Comfy-Org/MiniMax-H3/resolve/main/text_encoders/qwen3vl_32b_minimax_h3_nvfp4_awq.safetensors",
+      "sourceUrl": "https://huggingface.co/Comfy-Org/MiniMax-H3/blob/main/text_encoders/qwen3vl_32b_minimax_h3_nvfp4_awq.safetensors",
+      "licenseUrl": "https://huggingface.co/MiniMaxAI/MiniMax-H3/blob/main/LICENSE",
+      "sizeBytes": 15687142551,
+      "sha256": "35a88d51044231fe332301d7a62aa81e3f2cba62febeb446e2c1e3e0ef76f2c6",
+      "autoInstallSupported": true,
+      "notes": ""
+    },
+    {
+      "filename": "qwen3vl_4b_fp8_scaled.safetensors",
+      "targetSubdir": "text_encoders",
+      "folder": "models/text_encoders",
+      "loaders": [
+        "CLIPLoader"
+      ],
+      "inputKeys": [
+        "clip_name"
+      ],
+      "workflows": [
+        "dark-beast-krea2-i2i",
+        "haruki-mix-krea2-t2i"
+      ],
+      "downloadUrl": "https://huggingface.co/Comfy-Org/Krea-2/resolve/main/text_encoders/qwen3vl_4b_fp8_scaled.safetensors",
+      "sourceUrl": "https://huggingface.co/Comfy-Org/Krea-2/blob/main/text_encoders/qwen3vl_4b_fp8_scaled.safetensors",
+      "licenseUrl": "https://huggingface.co/Comfy-Org/Krea-2/blob/main/LICENSE.pdf",
+      "sizeBytes": 5242467968,
+      "sha256": "54bd5144df0bbc25dd6ccadfcb826b521445a1b06ae5a42570bdd2974ca87094",
+      "autoInstallSupported": true,
+      "notes": "Official Comfy-Org Krea 2 FP8 text encoder."
+    },
+    {
+      "filename": "qwen3vl_8b_heretic-Q4_K_M.gguf",
+      "targetSubdir": "text_encoders",
+      "folder": "models/text_encoders",
+      "loaders": [
+        "CLIPLoaderGGUF"
+      ],
+      "inputKeys": [
+        "clip_name"
+      ],
+      "workflows": [
+        "qwen-image-2-1-character-sheet",
+        "qwen-image-2-1-heretic",
+        "qwen-image-2-1-heretic-edit",
+        "qwen-image-2-1-nsfw-lora"
+      ],
+      "downloadUrl": "https://huggingface.co/pottokao/Qwen-Image-2.1-Text-Encoder-Heretic-GGUF/resolve/main/qwen3vl_8b_heretic-Q4_K_M.gguf",
+      "sourceUrl": "https://huggingface.co/pottokao/Qwen-Image-2.1-Text-Encoder-Heretic-GGUF/blob/main/qwen3vl_8b_heretic-Q4_K_M.gguf",
+      "licenseUrl": "https://huggingface.co/pottokao/Qwen-Image-2.1-Text-Encoder-Heretic-GGUF/blob/main/LICENSE",
+      "sizeBytes": 5027785376,
+      "sha256": "1338274ac7a6344f262a16c7a52d1bd7fe789307d252733b23ea421126e5d343",
+      "autoInstallSupported": true,
+      "notes": "Requested refusal-ablated community text encoder. Keep its original filename and the matching mmproj beside it."
+    },
+    {
+      "filename": "SexGod_NaughtyTimes_v3_rank64_pruned_NOADALN.safetensors",
+      "targetSubdir": "loras",
+      "folder": "models/loras",
+      "loaders": [
+        "LoraLoaderModelOnly"
+      ],
+      "inputKeys": [
+        "lora_name"
+      ],
+      "workflows": [
+        "minimax-h3-naughty-times"
+      ],
+      "downloadUrl": "https://huggingface.co/SexGod1979/NaughtyTimes-MiniMax-H3/resolve/main/SexGod_NaughtyTimes_v3_rank64_pruned_NOADALN.safetensors",
+      "sourceUrl": "https://huggingface.co/SexGod1979/NaughtyTimes-MiniMax-H3/blob/main/SexGod_NaughtyTimes_v3_rank64_pruned_NOADALN.safetensors",
+      "licenseUrl": "https://huggingface.co/SexGod1979/NaughtyTimes-MiniMax-H3",
+      "sizeBytes": null,
+      "sha256": null,
+      "autoInstallSupported": true,
+      "notes": "Published pruned_NOADALN variant for the pruned FL2VA preset."
+    },
+    {
       "filename": "taeltx2_3.safetensors",
       "targetSubdir": "vae",
       "folder": "models/vae",
@@ -1133,6 +1922,27 @@
       "sha256": null,
       "autoInstallSupported": false,
       "notes": "No curated download recipe is available yet for this model."
+    },
+    {
+      "filename": "umt5_xxl_fp8_e4m3fn_scaled.safetensors",
+      "targetSubdir": "text_encoders",
+      "folder": "models/text_encoders",
+      "loaders": [
+        "CLIPLoader"
+      ],
+      "inputKeys": [
+        "clip_name"
+      ],
+      "workflows": [
+        "nsfw-wan-1-3b-e10-t2v"
+      ],
+      "downloadUrl": "https://huggingface.co/Comfy-Org/Wan_2.2_ComfyUI_Repackaged/resolve/main/split_files/text_encoders/umt5_xxl_fp8_e4m3fn_scaled.safetensors",
+      "sourceUrl": "https://huggingface.co/Comfy-Org/Wan_2.2_ComfyUI_Repackaged/blob/main/split_files/text_encoders/umt5_xxl_fp8_e4m3fn_scaled.safetensors",
+      "licenseUrl": "https://huggingface.co/Wan-AI/Wan2.2-I2V-A14B",
+      "sizeBytes": 6735906897,
+      "sha256": null,
+      "autoInstallSupported": true,
+      "notes": "Text encoder for the bundled WAN 2.2 workflow."
     },
     {
       "filename": "umt5-xxl-encoder-Q4_K_M.gguf",
@@ -1157,6 +1967,27 @@
       "notes": "Shared Q4_K_M text encoder for the bundled WAN 2.2 I2V and T2V GGUF workflows."
     },
     {
+      "filename": "wan_1.3B_e10.safetensors",
+      "targetSubdir": "diffusion_models",
+      "folder": "models/diffusion_models",
+      "loaders": [
+        "UNETLoader"
+      ],
+      "inputKeys": [
+        "unet_name"
+      ],
+      "workflows": [
+        "nsfw-wan-1-3b-e10-t2v"
+      ],
+      "downloadUrl": "https://huggingface.co/NSFW-API/NSFW_Wan_1.3b/resolve/main/wan_1.3B_e10.safetensors",
+      "sourceUrl": "https://huggingface.co/NSFW-API/NSFW_Wan_1.3b/blob/main/wan_1.3B_e10.safetensors",
+      "licenseUrl": "https://huggingface.co/NSFW-API/NSFW_Wan_1.3b",
+      "sizeBytes": 2838095480,
+      "sha256": "b0be4a5dded7594deb7c11bcb808dac86c79619ae73ca9917cd8f0447f203d80",
+      "autoInstallSupported": true,
+      "notes": "Requested legacy e10 full Wan 2.1 T2V checkpoint. The publisher warns that the original e4-e20 run can show anatomy degradation and currently recommends exp_e14 instead."
+    },
+    {
       "filename": "wan_2.1_vae.safetensors",
       "targetSubdir": "vae",
       "folder": "models/vae",
@@ -1167,6 +1998,7 @@
         "vae_name"
       ],
       "workflows": [
+        "nsfw-wan-1-3b-e10-t2v",
         "wan22-i2v",
         "wan22-t2v"
       ],

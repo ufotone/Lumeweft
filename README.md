@@ -336,3 +336,5 @@ Lumeweft is distributed under **GNU General Public License v3.0 only (`GPL-3.0-o
 Lumeweft is an independent fork and is not affiliated with, endorsed by, or supported by VelornLabs. See [UPSTREAM.md](UPSTREAM.md) and [Changes from Velorn](docs/CHANGES_FROM_VELORN.md).
 
 Models, ComfyUI custom nodes, cloud services, example media, and other third-party components are not automatically relicensed by Lumeweft. Their own licenses, terms, acceptable-use rules, and commercial-use restrictions continue to apply. Lumeweft provides no warranty regarding third-party components or generated outputs.
+
+See [Third-party workflows and dependencies](docs/THIRD_PARTY_WORKFLOWS.md) for the licensing boundary, provenance records, and special restrictions that apply to bundled workflow definitions and installable dependencies.

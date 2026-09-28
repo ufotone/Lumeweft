@@ -1,6 +1,6 @@
 # Irodori Voice Studio
 
-Design a Japanese voice without a reference or clone one from reference audio, with emoji delivery cues.
+Generate standard, anime-style, designed, or reference-cloned Japanese voices with emoji delivery cues.
 
 - **Workflow ID:** `irodori-voice-clone`
 - **Category:** `audio`
@@ -40,6 +40,7 @@ Design a Japanese voice without a reference or clone one from reference audio, w
 |---|---|---|---|---|
 | `irodori-tts-500m-v2-VoiceDesign.safetensors` | `models/checkpoints` | `jupo.IrodoriTTS.ModelLoader` | `model` | [Download](https://huggingface.co/Aratako/Irodori-TTS-500M-v2-VoiceDesign/resolve/main/model.safetensors) |
 | `irodori-tts-500m-v3.safetensors` | `models/checkpoints` | `jupo.IrodoriTTS.ModelLoader` | `model` | [Download](https://huggingface.co/Aratako/Irodori-TTS-500M-v3/resolve/main/model.safetensors) |
+| `irodori-tts-v4.1-anime.safetensors` | `models/checkpoints` | `jupo.IrodoriTTS.ModelLoader` | `model` | [Download](https://huggingface.co/phasefield-audio/Irodori-TTS-v4.1-Anime/resolve/main/model.safetensors) |
 
 ## API Key
 - Not required for this workflow.

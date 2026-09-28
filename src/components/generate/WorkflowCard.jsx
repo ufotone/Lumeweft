@@ -1,4 +1,3 @@
-import { Play } from 'lucide-react'
 import { useI18n } from '../../i18n/I18nContext'
 
 export default function WorkflowCard({ workflow, selected = false, onSelect, showRouteBadge = true }) {
@@ -7,14 +6,15 @@ export default function WorkflowCard({ workflow, selected = false, onSelect, sho
 
   const coverIsVideo = /\.(mp4|webm|mov)(\?|#|$)/i.test(String(workflow.cover || ''))
   const coverPosition = workflow.coverPosition || 'center'
-  const routeClass = workflow.route === 'cloud'
+  const displayRuntime = workflow.runtimeLocation || workflow.route
+  const routeClass = displayRuntime === 'cloud'
     ? 'bg-fuchsia-400/15 text-fuchsia-200 border-fuchsia-300/25'
-    : workflow.route === 'custom'
+    : displayRuntime === 'custom'
       ? 'bg-amber-400/15 text-amber-200 border-amber-300/25'
       : 'bg-emerald-400/15 text-emerald-200 border-emerald-300/25'
-  const routeLabel = workflow.route === 'cloud'
+  const routeLabel = displayRuntime === 'cloud'
     ? t('generate.browser.card.cloud', {}, 'Cloud')
-    : workflow.route === 'custom'
+    : displayRuntime === 'custom'
       ? t('generate.browser.card.custom', {}, 'Custom')
       : t('generate.browser.card.local', {}, 'Local')
 
@@ -50,21 +50,15 @@ export default function WorkflowCard({ workflow, selected = false, onSelect, sho
           </div>
         )}
         <div className="absolute inset-0 bg-gradient-to-b from-black/35 via-transparent to-black/65" />
-        {showRouteBadge && (
+        {(showRouteBadge || workflow.runtimeLocation) && (
           <span className={`absolute left-2 top-2 inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-[10px] font-semibold ${routeClass}`}>
-            <span className={`h-1.5 w-1.5 rounded-full ${workflow.route === 'cloud' ? 'bg-fuchsia-300' : workflow.route === 'custom' ? 'bg-amber-300' : 'bg-emerald-300'}`} />
+            <span className={`h-1.5 w-1.5 rounded-full ${displayRuntime === 'cloud' ? 'bg-fuchsia-300' : displayRuntime === 'custom' ? 'bg-amber-300' : 'bg-emerald-300'}`} />
             {routeLabel}
           </span>
         )}
         <span className="absolute bottom-2 right-2 rounded-full bg-black/55 px-2 py-0.5 text-[10px] font-semibold text-white backdrop-blur">
           {workflow.badge || workflow.provider}
         </span>
-        {!workflow.runnable && (
-          <span className="absolute bottom-2 left-2 inline-flex items-center gap-1 rounded-full bg-yellow-400/15 px-2 py-0.5 text-[10px] font-semibold text-yellow-200">
-            <Play className="h-2.5 w-2.5" />
-            {t('generate.browser.card.preview', {}, 'Preview')}
-          </span>
-        )}
       </div>
       <div className="space-y-1 px-3 py-2.5">
         <div className="line-clamp-2 text-[13px] font-semibold leading-snug text-sf-text-primary">
@@ -73,10 +67,15 @@ export default function WorkflowCard({ workflow, selected = false, onSelect, sho
         <div className="truncate text-[11px] text-sf-text-secondary">{workflow.subtitle}</div>
         <div className="line-clamp-2 text-[11px] leading-relaxed text-sf-text-muted">{workflow.description}</div>
         <div className="flex items-center justify-between gap-2 pt-1">
-          <span className="rounded border border-sf-dark-600 bg-sf-dark-800 px-1.5 py-0.5 text-[10px] text-sf-text-secondary">
-            {workflow.provider}
+          <span
+            className="min-w-0 truncate rounded border border-sf-dark-600 bg-sf-dark-800 px-1.5 py-0.5 text-[10px] text-sf-text-secondary"
+            title={workflow.modelLabel || workflow.provider}
+          >
+            {workflow.modelLabel || workflow.provider}
           </span>
-          <span className="truncate text-[10px] text-sf-text-muted">{workflow.runtimeLabel}</span>
+          {!workflow.omitRuntimeLabel && (
+            <span className="truncate text-[10px] text-sf-text-muted">{workflow.runtimeLabel}</span>
+          )}
         </div>
       </div>
     </button>

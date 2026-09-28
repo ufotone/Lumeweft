@@ -17,7 +17,7 @@ StoryFlow is an AI-powered animatic and pre-visualization desktop application bu
 - **Frontend**: React + Vite + Tailwind CSS
 - **State Management**: Zustand (with persist middleware for localStorage)
 - **AI Backend**: ComfyUI (local instance at `http://127.0.0.1:8188`)
-- **Workflow**: LTX-2 Text-to-Video model (workflow stored at `C:\Users\papa\Documents\ComfyUI_windows_portable\workflow-StoryFlow`)
+- **Workflow**: LTX-2 Text-to-Video model (original machine-local workflow path intentionally omitted)
 
 ## Project Location
 `c:\Users\papa\Documents\coding_projects\general\comfyui_editing`

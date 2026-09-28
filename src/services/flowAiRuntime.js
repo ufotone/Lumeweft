@@ -1,12 +1,20 @@
+import { generationMemory } from './generationMemory'
+import { modifyAinvfxFluidWorkflow, validateAinvfxFluidSettings } from './ainvfxFluidWorkflow.mjs'
 import comfyui, {
+  modifyVdnH3Workflow,
+  modifyFastMinimaxH3Workflow,
   modifyGeminiPromptWorkflow,
   modifyMinimaxH3MediaPromptWorkflow,
   modifyMinimaxH3CharacterSheetWorkflow,
   modifyMinimaxH3GGUFI2VWorkflow,
+  modifyMinimaxH3GGUFReferenceWorkflow,
+  modifyMinimaxH3PinkReferenceWorkflow,
   modifyGrokTextToImageWorkflow,
   modifyGrokVideoI2VWorkflow,
   modifyKlingO3I2VWorkflow,
   modifyLTX23I2VWorkflow,
+  modifyLTX23LatentSyncWorkflow,
+  modifyIrodoriTextToSpeechWorkflow,
   modifyMusicWorkflow,
   modifyMultipleAnglesWorkflow,
   modifyNanoBanana2Workflow,
@@ -20,7 +28,7 @@ import comfyui, {
 import { BUILTIN_WORKFLOW_PATHS } from '../config/workflowRegistry'
 import { checkWorkflowDependencies } from './workflowDependencies'
 import { GENERATED_ASSET_FOLDERS, getWorkflowHardwareInfo } from '../config/generateWorkspaceConfig'
-import { importAsset, isElectron } from './fileSystem'
+import { getProjectFileUrl, importAsset, isElectron } from './fileSystem'
 import { canImportGifMedia, importGifAsset, isGifFilename } from './gifImport'
 import { enqueuePlaybackTranscode } from './playbackCache'
 import { enqueueProxyTranscode, isProxyPlaybackEnabled } from './proxyCache'
@@ -40,9 +48,28 @@ import {
   normalizeFlowImageVariantCount,
 } from './flowAiSchema'
 import { TOPAZ_VIDEO_UPSCALE_WORKFLOW_ID } from '../config/topazVideoUpscaleConfig'
+import { IRODORI_ANIME_MODEL_FILENAME } from '../config/shortFilmConfig'
 import { buildTopazVideoUpscaleBaseName, runTopazVideoUpscale } from './topazVideoUpscale'
+import { modifyAnimaLoraUpscaleWorkflow } from './animaLoraUpscaleWorkflow'
+import { ORTENZYA_WORKFLOW_ID, generateOrtenzyaText } from './ortenzyaCanvas.mjs'
+import { saveCanvasTextAsset } from './canvasTextAssets.mjs'
+import { optimizeH3Prompt } from './h3PromptOptimizer.mjs'
+import { searchBundledJpTags } from './jpTagAssistant.mjs'
+import { createNumberedReferenceSheet, planNumberedReferenceSheets } from './numberedReferenceSheets.mjs'
+import { modifyDarkBeastKrea2I2IWorkflow } from './darkBeastKrea2I2IWorkflow.mjs'
+import { modifyHarukiMixKrea2Workflow } from './harukiMixKrea2Workflow.mjs'
+import { modifyNsfwWan13bWorkflow } from './nsfwWan13bWorkflow.mjs'
+import { modifyQwenImage21CharacterSheetWorkflow, modifyQwenImage21HereticEditWorkflow, modifyQwenImage21HereticWorkflow } from './qwenImage21HereticWorkflow.mjs'
+import { createGoogleVideo, downloadGoogleMedia, generateGoogleImage, getGoogleVideoOperation } from './cloudRuntimes'
+import { buildCharacterPrompt, createCharacterFile, readCharacterFile, selectCharacterReferences } from './characterFile.mjs'
+import { modifyMinimaxH3CharacterActorWorkflow } from './minimaxH3CharacterActorWorkflow.mjs'
+import { modifyMinimaxH3360OrbitWorkflow } from './minimaxH3360OrbitWorkflow.mjs'
+import { modifyMinimaxH3HandheldWorkflow } from './minimaxH3HandheldWorkflow.mjs'
 
 const EXECUTABLE_NODE_TYPES = new Set([
+  FLOW_AI_NODE_TYPES.h3Optimizer,
+  FLOW_AI_NODE_TYPES.textOutput,
+  FLOW_AI_NODE_TYPES.characterBuilder,
   FLOW_AI_NODE_TYPES.promptAssist,
   FLOW_AI_NODE_TYPES.imageGen,
   FLOW_AI_NODE_TYPES.videoGen,
@@ -51,9 +78,25 @@ const EXECUTABLE_NODE_TYPES = new Set([
 ])
 
 const SINGLE_VIDEO_WORKFLOW_IDS = new Set([
+  'ainvfx-fluid',
+  'vdn-h3-t2va',
+  'fast-minimax-h3-t2va',
+  'minimax-h3-360-orbit',
+  'minimax-h3-handheld',
+  'minimax-h3-gguf-r2v',
+  'minimax-h3-character-actor',
+  'minimax-h3-character-swap',
+  'minimax-h3-pink-reference',
+  'minimax-h3-aftermidnight-r2v',
+  'minimax-h3-aftermidnight-3ref',
   'minimax-h3-gguf-i2v',
+  'minimax-h3-naughty-times',
+  'minimax-h3-nsfw-pink-bunny',
+  'minimax-h3-nsfw-motion-8step',
   'wan22-i2v',
+  'nsfw-wan-1-3b-e10-t2v',
   'ltx23-i2v',
+  'ltx23-latentsync',
   'kling-o3-i2v',
   'grok-video-i2v',
   'vidu-q2-i2v',
@@ -81,12 +124,30 @@ function documentUsesNumberedRunFolders(document) {
 const IMAGE_EXTENSIONS = new Set(['png', 'jpg', 'jpeg', 'webp'])
 const VIDEO_EXTENSIONS = new Set(['mp4', 'webm', 'mov', 'mkv', 'avi', 'gif'])
 const AUDIO_EXTENSIONS = new Set(['mp3', 'wav', 'ogg', 'm4a', 'flac'])
+const GOOGLE_DIRECT_WORKFLOW_IDS = new Set(['google-nano-banana-lite', 'google-veo-3-1-lite'])
 
 const WORKFLOW_MODIFIERS = Object.freeze({
+  'ainvfx-fluid': modifyAinvfxFluidWorkflow,
+  'anima-lora-upscale': modifyAnimaLoraUpscaleWorkflow,
+  'vdn-h3-t2va': modifyVdnH3Workflow,
+  'fast-minimax-h3-t2va': modifyFastMinimaxH3Workflow,
+  'minimax-h3-360-orbit': modifyMinimaxH3360OrbitWorkflow,
+  'minimax-h3-handheld': modifyMinimaxH3HandheldWorkflow,
+  'minimax-h3-gguf-r2v': modifyMinimaxH3GGUFReferenceWorkflow,
+  'minimax-h3-character-actor': modifyMinimaxH3CharacterActorWorkflow,
+  'minimax-h3-character-swap': modifyMinimaxH3PinkReferenceWorkflow,
+  'minimax-h3-pink-reference': modifyMinimaxH3PinkReferenceWorkflow,
+  'minimax-h3-aftermidnight-r2v': modifyMinimaxH3PinkReferenceWorkflow,
+  'minimax-h3-aftermidnight-3ref': modifyMinimaxH3PinkReferenceWorkflow,
   'minimax-h3-character-sheet': modifyMinimaxH3CharacterSheetWorkflow,
   'minimax-h3-gguf-i2v': modifyMinimaxH3GGUFI2VWorkflow,
+  'minimax-h3-naughty-times': modifyMinimaxH3GGUFI2VWorkflow,
+  'minimax-h3-nsfw-pink-bunny': modifyMinimaxH3GGUFI2VWorkflow,
+  'minimax-h3-nsfw-motion-8step': modifyMinimaxH3GGUFI2VWorkflow,
   'wan22-i2v': modifyWAN22Workflow,
+  'nsfw-wan-1-3b-e10-t2v': modifyNsfwWan13bWorkflow,
   'ltx23-i2v': modifyLTX23I2VWorkflow,
+  'ltx23-latentsync': modifyLTX23LatentSyncWorkflow,
   'kling-o3-i2v': modifyKlingO3I2VWorkflow,
   'grok-video-i2v': modifyGrokVideoI2VWorkflow,
   'vidu-q2-i2v': modifyViduQ2I2VWorkflow,
@@ -94,12 +155,20 @@ const WORKFLOW_MODIFIERS = Object.freeze({
   'multi-angles-scene': modifyMultipleAnglesWorkflow,
   'image-edit': modifyQwenImageEdit2509Workflow,
   'image-edit-model-product': modifyQwenImageEdit2509Workflow,
+  'dark-beast-krea2-i2i': modifyDarkBeastKrea2I2IWorkflow,
+  'haruki-mix-krea2-t2i': modifyHarukiMixKrea2Workflow,
+  'qwen-image-2-1-heretic': modifyQwenImage21HereticWorkflow,
+  'qwen-image-2-1-nsfw-lora': modifyQwenImage21HereticWorkflow,
+  'qwen-image-2-1-heretic-edit': modifyQwenImage21HereticEditWorkflow,
+  'qwen-image-2-1-character-sheet': modifyQwenImage21CharacterSheetWorkflow,
   'z-image-turbo': modifyZImageTurboWorkflow,
   'nano-banana-2': modifyNanoBanana2Workflow,
   'nano-banana-pro': modifyNanoBanana2Workflow,
   'grok-text-to-image': modifyGrokTextToImageWorkflow,
   'seedream-5-lite-image-edit': modifySeedream5LiteImageEditWorkflow,
   'music-gen': modifyMusicWorkflow,
+  'irodori-tts': modifyIrodoriTextToSpeechWorkflow,
+  'irodori-v4-1-anime': modifyIrodoriTextToSpeechWorkflow,
   'google-gemini-flash-lite': modifyGeminiPromptWorkflow,
   'minimax-h3-media-promptor': modifyMinimaxH3MediaPromptWorkflow,
   [TOPAZ_VIDEO_UPSCALE_WORKFLOW_ID]: modifyTopazVideoUpscaleWorkflow,
@@ -130,13 +199,30 @@ export function resolveFlowNodeText(document, nodeOrId, visited = new Set()) {
   const nextVisited = new Set(visited)
   if (nodeId) nextVisited.add(nodeId)
 
-  if (node.type === FLOW_AI_NODE_TYPES.prompt) {
-    return String(node?.data?.promptText || '').trim()
+  if (node?.data?.muted === true) {
+    const parts = []
+    for (const edge of collectIncomingEdges(document, node.id, 'in:text')) {
+      const sourceNode = nodesById.get(edge.source)
+      const text = resolveFlowNodeText(document, sourceNode, nextVisited)
+      if (text) parts.push(text)
+    }
+    return parts.join('\n\n').trim()
   }
-  if (node.type === FLOW_AI_NODE_TYPES.promptAssist) {
+
+  if (node.type === FLOW_AI_NODE_TYPES.prompt) {
+    return [node?.data?.basePrompt, node?.data?.promptText]
+      .map(value => String(value || '').trim())
+      .filter(Boolean)
+      .join('\n\n')
+  }
+  if (node.type === FLOW_AI_NODE_TYPES.textInput) {
+    const asset = assetMapFor().get(node.data?.assetId)
+    return asset?.type === 'text' ? String(asset.textContent || '') : ''
+  }
+  if (node.type === FLOW_AI_NODE_TYPES.promptAssist || node.type === FLOW_AI_NODE_TYPES.h3Optimizer) {
     return String(node?.data?.outputText || '').trim()
   }
-  if (node.type === FLOW_AI_NODE_TYPES.textViewer) {
+  if (node.type === FLOW_AI_NODE_TYPES.textViewer || node.type === FLOW_AI_NODE_TYPES.textOutput) {
     const parts = []
     for (const edge of collectIncomingEdges(document, node.id, 'in:text')) {
       const sourceNode = nodesById.get(edge.source)
@@ -153,7 +239,7 @@ function hasReusableNodeOutput(node) {
   if (Array.isArray(node?.data?.outputAssetIds) && node.data.outputAssetIds.length > 0) {
     return true
   }
-  if (node.type === FLOW_AI_NODE_TYPES.promptAssist) {
+  if (node.type === FLOW_AI_NODE_TYPES.promptAssist || node.type === FLOW_AI_NODE_TYPES.h3Optimizer) {
     return Boolean(String(node?.data?.outputText || '').trim())
   }
   return false
@@ -380,7 +466,7 @@ function resolveAssetOutputTarget(document, sourceNode, result, options = {}) {
   if (assetKind === 'image' && options.numberedRunFolderState) {
     if (!options.numberedRunFolderState.target) {
       const outputNode = (document?.nodes || []).find((node) => node.type === FLOW_AI_NODE_TYPES.output)
-      if (outputNode) {
+      if (outputNode && outputNode?.data?.muted !== true) {
         const baseFolderSegments = getFlowOutputFolderSegments(outputNode?.data?.folderName, 'image')
         const folderTarget = createNextNumberedAssetFolder(baseFolderSegments)
         options.numberedRunFolderState.target = {
@@ -396,14 +482,27 @@ function resolveAssetOutputTarget(document, sourceNode, result, options = {}) {
   const sourceHandle = getOutputHandleForAssetKind(assetKind)
   const targetHandle = getInputHandleForAssetKind(assetKind)
   const nodesById = nodeMapFor(document)
+  const visited = new Set()
+  const queue = [sourceNode.id]
+  let targetNode = null
+  while (queue.length > 0 && !targetNode) {
+    const currentId = queue.shift()
+    if (!currentId || visited.has(currentId)) continue
+    visited.add(currentId)
+    for (const edge of document?.edges || []) {
+      if (edge.source !== currentId) continue
+      if (sourceHandle && edge.sourceHandle !== sourceHandle) continue
+      if (targetHandle && edge.targetHandle !== targetHandle) continue
+      const candidate = nodesById.get(edge.target)
+      if (candidate?.type === FLOW_AI_NODE_TYPES.output && candidate?.data?.muted !== true) {
+        targetNode = candidate
+        break
+      }
+      if (candidate?.data?.muted === true) queue.push(candidate.id)
+    }
+  }
 
-  for (const edge of document?.edges || []) {
-    if (edge.source !== sourceNode.id) continue
-    if (sourceHandle && edge.sourceHandle !== sourceHandle) continue
-    if (targetHandle && edge.targetHandle !== targetHandle) continue
-
-    const targetNode = nodesById.get(edge.target)
-    if (targetNode?.type !== FLOW_AI_NODE_TYPES.output) continue
+  if (targetNode) {
 
     const baseFolderSegments = getFlowOutputFolderSegments(targetNode?.data?.folderName, assetKind)
     const usesNumberedRunFolders = Boolean(targetNode?.data?.numberedRunFolders)
@@ -464,10 +563,22 @@ function topologicalExecutionOrder(document, targetNodeId = null) {
     outgoing.set(nodeId, [])
   }
 
-  for (const edge of document?.edges || []) {
-    if (!relevant.has(edge.source) || !relevant.has(edge.target)) continue
-    outgoing.get(edge.source)?.push(edge.target)
-    indegree.set(edge.target, (indegree.get(edge.target) || 0) + 1)
+  for (const targetId of relevant) {
+    const parents = new Set()
+    const visited = new Set()
+    const visit = id => {
+      if (visited.has(id)) return
+      visited.add(id)
+      for (const edge of collectIncomingEdges(document, id)) {
+        if (relevant.has(edge.source)) parents.add(edge.source)
+        else visit(edge.source)
+      }
+    }
+    visit(targetId)
+    for (const parentId of parents) {
+      outgoing.get(parentId)?.push(targetId)
+      indegree.set(targetId, (indegree.get(targetId) || 0) + 1)
+    }
   }
 
   const queue = Array.from(relevant).filter((nodeId) => (indegree.get(nodeId) || 0) === 0)
@@ -545,7 +656,8 @@ function resolveConnectedAsset(document, node, targetHandle, desiredType = 'imag
   for (const edge of incoming) {
     const sourceNode = nodesById.get(edge.source)
     if (!sourceNode) continue
-    if (sourceNode.type === FLOW_AI_NODE_TYPES.imageInput || sourceNode.type === FLOW_AI_NODE_TYPES.styleReference) {
+    if (sourceNode?.data?.muted === true && !getFlowNodeSupportsExecution(sourceNode.type)) continue
+    if ([FLOW_AI_NODE_TYPES.imageInput, FLOW_AI_NODE_TYPES.styleReference, FLOW_AI_NODE_TYPES.characterInput].includes(sourceNode.type)) {
       const assetId = String(sourceNode?.data?.assetId || '').trim()
       if (!assetId) continue
       const asset = assetMapFor().get(assetId)
@@ -569,7 +681,8 @@ function resolveConnectedAssets(document, node, targetHandle, desiredType = 'ima
   for (const edge of collectIncomingEdges(document, node.id, targetHandle)) {
     const sourceNode = nodesById.get(edge.source)
     if (!sourceNode) continue
-    if (sourceNode.type === FLOW_AI_NODE_TYPES.imageInput || sourceNode.type === FLOW_AI_NODE_TYPES.styleReference) {
+    if (sourceNode?.data?.muted === true && !getFlowNodeSupportsExecution(sourceNode.type)) continue
+    if ([FLOW_AI_NODE_TYPES.imageInput, FLOW_AI_NODE_TYPES.styleReference, FLOW_AI_NODE_TYPES.characterInput].includes(sourceNode.type)) {
       const asset = assetsById.get(String(sourceNode?.data?.assetId || '').trim())
       if (asset && (!desiredType || asset.type === desiredType || (desiredType === 'image' && asset.type === 'video'))) {
         resolved.push(asset)
@@ -604,12 +717,71 @@ function resolvePromptText(document, node) {
   return String(node?.data?.inlinePrompt || '').trim()
 }
 
+function resolvePromptTextForHandle(document, node, targetHandle) {
+  const nodesById = nodeMapFor(document)
+  const parts = []
+  for (const edge of collectIncomingEdges(document, node.id, targetHandle)) {
+    const sourceNode = nodesById.get(edge.source)
+    const text = resolveFlowNodeText(document, sourceNode)
+    if (text) parts.push(text)
+  }
+  return parts.join('\n\n')
+}
+
+function resolveWorkflowControlData(document, node) {
+  const nodesById = nodeMapFor(document)
+  const resolved = {}
+  const pendingNodeIds = [node.id]
+  const visitedNodeIds = new Set()
+  while (pendingNodeIds.length > 0) {
+    const targetNodeId = pendingNodeIds.shift()
+    if (!targetNodeId || visitedNodeIds.has(targetNodeId)) continue
+    visitedNodeIds.add(targetNodeId)
+
+    for (const edge of collectIncomingEdges(document, targetNodeId)) {
+      const sourceNode = nodesById.get(edge.source)
+      if (edge.targetHandle === 'in:text' && sourceNode) {
+        pendingNodeIds.push(sourceNode.id)
+        continue
+      }
+      if (edge.targetHandle !== 'in:control'
+        || sourceNode?.type !== FLOW_AI_NODE_TYPES.workflowControl
+        || sourceNode?.data?.muted === true) continue
+      const data = sourceNode.data || {}
+      switch (data.controlKind) {
+        case 'checkpoint':
+          resolved.checkpointName = data.checkpointName
+          break
+        case 'lora-stack':
+          resolved.loras = data.loras
+          break
+        case 'image-size':
+          resolved.width = data.width
+          resolved.height = data.height
+          break
+        case 'upscale':
+          resolved.upscaleEnabled = data.upscaleEnabled
+          resolved.upscaleModel = data.upscaleModel
+          break
+        case 'transparent-png':
+          resolved.transparentPng = data.transparentPng === true
+          break
+        default:
+          break
+      }
+    }
+  }
+  return resolved
+}
+
 function collectOutputAssetIds(document, nodeId) {
   const nodesById = nodeMapFor(document)
+  if (nodesById.get(nodeId)?.data?.muted === true) return []
   const results = []
   for (const edge of collectIncomingEdges(document, nodeId)) {
     const sourceNode = nodesById.get(edge.source)
     if (!sourceNode) continue
+    if (sourceNode?.data?.muted === true && !getFlowNodeSupportsExecution(sourceNode.type)) continue
     if (getFlowNodeSupportsExecution(sourceNode.type)) {
       for (const assetId of sourceNode?.data?.outputAssetIds || []) {
         if (!results.includes(assetId)) results.push(assetId)
@@ -640,6 +812,7 @@ async function extractFrameAsFile(videoUrl, frameTime = 0, filename = 'frame.png
     video.muted = true
     video.crossOrigin = 'anonymous'
     let finished = false
+    let waitingForSeek = false
 
     const cleanup = () => {
       try {
@@ -686,8 +859,9 @@ async function extractFrameAsFile(videoUrl, frameTime = 0, filename = 'frame.png
     }
 
     video.onloadedmetadata = () => {
-      const safeTime = Math.max(0, Math.min(Number(frameTime) || 0, Math.max(0, (video.duration || 0) - 0.05)))
+      const safeTime = Math.max(0, Math.min(Number(frameTime) || 0, Math.max(0, (video.duration || 0) - 0.001)))
       if (Number.isFinite(safeTime) && safeTime > 0.001) {
+        waitingForSeek = true
         video.currentTime = safeTime
       } else {
         if (video.readyState >= 2) {
@@ -698,7 +872,12 @@ async function extractFrameAsFile(videoUrl, frameTime = 0, filename = 'frame.png
       }
     }
 
-    video.onloadeddata = captureCurrentFrame
+    // loadeddata may fire for the decoder's initial frame after currentTime was
+    // already moved. For non-zero targets, wait for seeked so the extracted
+    // endpoint cannot accidentally be the first frame again.
+    video.onloadeddata = () => {
+      if (!waitingForSeek) captureCurrentFrame()
+    }
     video.onseeked = captureCurrentFrame
 
     video.src = videoUrl
@@ -721,9 +900,182 @@ async function assetToUploadFile(asset, frameTime = 0, options = {}) {
     ? (sourceExtension || '.png')
     : asset.type === 'video'
       ? (sourceExtension || '.mp4')
-      : '.bin'
+      : asset.type === 'audio' ? (sourceExtension || '.wav') : '.bin'
   const baseName = sourceExtension ? sourceName.slice(0, -sourceExtension.length) : sourceName
   return new File([blob], `${sanitizeNameToken(baseName || 'asset', 'asset')}${extension}`, { type: blob.type || 'application/octet-stream' })
+}
+
+function decodeBase64File(data, filename, mimeType) {
+  const binary = atob(String(data || ''))
+  const bytes = new Uint8Array(binary.length)
+  for (let index = 0; index < binary.length; index += 1) bytes[index] = binary.charCodeAt(index)
+  return new File([bytes], filename, { type: mimeType })
+}
+
+function googleAspectRatio(width, height) {
+  const ratio = Math.max(1, Number(width) || 1) / Math.max(1, Number(height) || 1)
+  const options = [
+    ['1:1', 1], ['3:4', 3 / 4], ['4:3', 4 / 3], ['9:16', 9 / 16], ['16:9', 16 / 9],
+  ]
+  return options.sort((a, b) => Math.abs(a[1] - ratio) - Math.abs(b[1] - ratio))[0][0]
+}
+
+async function waitForGoogleVideo(operationName, node, options = {}) {
+  const startedAt = Date.now()
+  while (Date.now() - startedAt < 30 * 60 * 1000) {
+    throwIfFlowInterrupted(options.signal)
+    const operation = await getGoogleVideoOperation(operationName)
+    if (operation?.done) {
+      if (operation?.error) throw new Error(operation.error.message || 'Google Veo video generation failed.')
+      const response = operation?.response?.generateVideoResponse || operation?.response || {}
+      const sample = response?.generatedSamples?.[0] || response?.generatedVideos?.[0] || {}
+      const uri = sample?.video?.uri || sample?.video?.url || sample?.uri || ''
+      if (!uri) throw new Error('Google Veo completed without a downloadable video.')
+      return uri
+    }
+    const elapsedRatio = Math.min(1, (Date.now() - startedAt) / (5 * 60 * 1000))
+    options.onNodePatch?.(node.id, {
+      status: 'running',
+      statusMessage: 'Generating with Google Veo 3.1 Lite…',
+      progress: Math.min(90, 15 + (elapsedRatio * 75)),
+    })
+    await new Promise((resolve, reject) => {
+      const timer = setTimeout(resolve, 10000)
+      options.signal?.addEventListener('abort', () => {
+        clearTimeout(timer)
+        reject(createFlowInterruptedError())
+      }, { once: true })
+    })
+  }
+  throw new Error('Google Veo video generation timed out after 30 minutes.')
+}
+
+async function runGoogleDirectNode(document, node, options = {}) {
+  const workflowId = String(node?.data?.workflowId || '').trim()
+  const promptText = resolvePromptText(document, node)
+  if (!promptText) throw new Error('Enter or connect a prompt before running Google generation.')
+  const sourceAsset = resolveConnectedAsset(document, node, 'in:image', 'image')
+  let image = null
+  if (sourceAsset) {
+    const file = await assetToUploadFile(sourceAsset)
+    image = { bytes: new Uint8Array(await file.arrayBuffer()), mimeType: file.type || 'image/png' }
+  }
+  const width = Number(node?.data?.width) || (workflowId === 'google-veo-3-1-lite' ? 1280 : 1024)
+  const height = Number(node?.data?.height) || (workflowId === 'google-veo-3-1-lite' ? 720 : 1024)
+  const aspectRatio = googleAspectRatio(width, height)
+  const outputKind = workflowId === 'google-veo-3-1-lite' ? 'video' : 'image'
+  const outputTarget = resolveAssetOutputTarget(document, node, { type: outputKind })
+  const projectHandle = useProjectStore.getState().currentProjectHandle
+  const baseName = buildAssetBaseName(node, workflowId, promptText)
+  const duration = [4, 6, 8].reduce((best, value) => Math.abs(value - (Number(node?.data?.duration) || 4)) < Math.abs(best - (Number(node?.data?.duration) || 4)) ? value : best, 4)
+  const estimatedCostUsd = outputKind === 'image' ? 0.0336 : duration * 0.05
+
+  options.onNodePatch?.(node.id, {
+    status: 'queuing',
+    statusMessage: `Google Gemini APIへ送信中（概算 $${estimatedCostUsd.toFixed(outputKind === 'image' ? 4 : 2)}）…`,
+    progress: 5,
+    error: '',
+    estimatedCostUsd,
+  })
+
+  let file
+  let promptId = null
+  if (outputKind === 'image') {
+    const media = await generateGoogleImage({ prompt: promptText, image, aspectRatio, imageSize: '1K' })
+    const mimeType = media.mimeType || 'image/jpeg'
+    const extension = mimeType.includes('png') ? 'png' : mimeType.includes('webp') ? 'webp' : 'jpg'
+    file = decodeBase64File(media.data, `${baseName}.${extension}`, mimeType)
+  } else {
+    const operation = await createGoogleVideo({ prompt: promptText, image, aspectRatio, durationSeconds: duration, resolution: '720p' })
+    promptId = String(operation?.name || '')
+    if (!promptId) throw new Error('Google Veo did not return an operation ID.')
+    options.onNodePatch?.(node.id, { status: 'running', statusMessage: 'Generating with Google Veo 3.1 Lite…', progress: 15, lastPromptId: promptId })
+    const uri = await waitForGoogleVideo(promptId, node, options)
+    const media = await downloadGoogleMedia(uri)
+    file = decodeBase64File(media.data, `${baseName}.mp4`, media.mimeType || 'video/mp4')
+  }
+
+  throwIfFlowInterrupted(options.signal)
+  const assetInfo = await importAsset(projectHandle, file, outputKind === 'image' ? 'images' : 'video', {
+    subfolderSegments: outputTarget?.folderSegments || [],
+  })
+  const asset = useAssetsStore.getState().addAsset({
+    ...assetInfo,
+    name: baseName,
+    type: outputKind,
+    url: assetInfo?.url || URL.createObjectURL(file),
+    prompt: promptText,
+    isImported: true,
+    folderId: outputTarget?.folderId || ensureAssetFolderPath(outputKind === 'image' ? GENERATED_ASSET_FOLDERS.image : GENERATED_ASSET_FOLDERS.video),
+    settings: outputKind === 'video' ? { ...(assetInfo?.settings || {}), duration, fps: 24 } : assetInfo?.settings,
+    flowAi: {
+      documentId: options.documentId,
+      nodeId: node.id,
+      workflowId,
+      promptId,
+      runtime: 'google-gemini-api',
+      estimatedCostUsd,
+      importedAt: new Date().toISOString(),
+      assetOutputNodeId: outputTarget?.outputNode?.id || null,
+      assetOutputFolder: outputTarget?.folderSegments || null,
+    },
+  })
+  if (!asset) throw new Error('Google output was generated but could not be added to Assets.')
+  if (outputKind === 'video' && isElectron() && projectHandle && asset?.absolutePath) {
+    enqueuePlaybackTranscode(projectHandle, asset.id, asset.absolutePath).catch(() => {})
+    if (isProxyPlaybackEnabled()) enqueueProxyTranscode(projectHandle, asset.id, asset.absolutePath).catch(() => {})
+  }
+  return { promptId, workflowId, importedAssets: [asset], textOutput: '' }
+}
+
+function buildUniqueComfyInputFilename(prefix, asset, file) {
+  const sourceName = String(file?.name || asset?.name || 'input.bin').trim()
+  const extension = sourceName.match(/\.[a-z0-9]{2,8}$/i)?.[0] || ''
+  const baseName = extension ? sourceName.slice(0, -extension.length) : sourceName
+  const assetToken = sanitizeNameToken(asset?.id || 'asset', 'asset').slice(0, 32)
+  const nonce = `${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 8)}`
+  return `${sanitizeNameToken(prefix, 'canvas_input')}_${assetToken}_${nonce}_${sanitizeNameToken(baseName, 'input')}${extension}`
+}
+
+function resolveMutedNodePassthrough(document, node) {
+  if (!node || node?.data?.muted !== true) return { outputAssetIds: [], outputText: '' }
+
+  if ([FLOW_AI_NODE_TYPES.promptAssist, FLOW_AI_NODE_TYPES.h3Optimizer, FLOW_AI_NODE_TYPES.textOutput].includes(node.type)) {
+    return {
+      outputAssetIds: [],
+      outputText: resolvePromptTextForHandle(document, node, 'in:text'),
+    }
+  }
+
+  const candidates = node.type === FLOW_AI_NODE_TYPES.imageGen
+    ? [['in:image', 'image']]
+    : node.type === FLOW_AI_NODE_TYPES.videoGen || node.type === FLOW_AI_NODE_TYPES.videoUpscale
+      ? [['in:video', 'video']]
+      : node.type === FLOW_AI_NODE_TYPES.musicGen
+        ? [['in:audio', 'audio'], ['in:voice', 'audio']]
+        : []
+
+  for (const [handle, kind] of candidates) {
+    const assets = resolveConnectedAssets(document, node, handle, kind)
+    if (assets.length > 0) {
+      return {
+        outputAssetIds: Array.from(new Set(assets.map(asset => asset.id).filter(Boolean))),
+        outputText: '',
+      }
+    }
+  }
+  return { outputAssetIds: [], outputText: '' }
+}
+
+function resolveVideoFrameTime(node, asset) {
+  const mode = String(node?.data?.frameTimeMode || '').trim()
+  if (mode === 'first') return 0
+  if (mode === 'last') {
+    const duration = Number(asset?.duration || asset?.settings?.duration)
+    const fps = Math.max(1, Number(asset?.fps || asset?.settings?.fps) || 24)
+    return duration > 0 ? Math.max(0, duration - (1 / fps)) : Number.MAX_SAFE_INTEGER
+  }
+  return Math.max(0, Number(node?.data?.frameTime) || 0)
 }
 
 async function fitImageFileToSquare(file, size = 1024) {
@@ -755,25 +1107,6 @@ async function fitImageFileToSquare(file, size = 1024) {
   }
 }
 
-async function resolveMinimaxH3Provider(classType) {
-  const response = await comfyui.getObjectInfo(classType)
-  const info = response?.[classType] || response
-  const providerSpec = info?.input?.optional?.provider || info?.input?.required?.provider
-  const choices = Array.isArray(providerSpec?.[0]) ? providerSpec[0] : []
-  const defaultChoice = String(providerSpec?.[1]?.default || '').trim()
-  if (defaultChoice && !/no provider configured|error loading providers/i.test(defaultChoice)) {
-    return defaultChoice
-  }
-  const configured = choices.find((choice) => {
-    const value = String(choice || '').trim()
-    return value && !/no provider configured|error loading providers/i.test(value)
-  })
-  if (!configured) {
-    throw new Error('MiniMax H3 Promptor has no LLM provider configured. Open ComfyUI Settings, configure a vision-capable provider for H3 Promptor, then run this node again.')
-  }
-  return String(configured)
-}
-
 async function loadWorkflowDefinition(workflowId) {
   const workflowPath = BUILTIN_WORKFLOW_PATHS[String(workflowId || '').trim()]
   if (!workflowPath) {
@@ -789,11 +1122,67 @@ async function loadWorkflowDefinition(workflowId) {
 function buildOutputPrefix(node, workflowId) {
   const token = `${sanitizeNameToken(node?.data?.label || workflowId || 'flow_ai', 'flow_ai')}_${Date.now()}`
   if (workflowId === 'music-gen' || TEXT_OUTPUT_WORKFLOW_IDS.has(String(workflowId || '').trim())) return ''
+  if (workflowId === 'irodori-tts' || workflowId === 'irodori-v4-1-anime') return `audio/${token}`
   if (SINGLE_VIDEO_WORKFLOW_IDS.has(workflowId)) return `video/${token}`
   return `image/${token}`
 }
 
-async function pollForResult(promptId, workflowId, expectedOutputPrefix = '', onStatus = () => {}) {
+function createFlowInterruptedError() {
+  const error = new Error('CANVAS interrupted.')
+  error.name = 'AbortError'
+  return error
+}
+
+async function resolveMinimaxH3NodeConfiguration() {
+  const visionResponse = await comfyui.getObjectInfo('H3_Vision')
+  const visionInfo = visionResponse?.H3_Vision || visionResponse
+
+  const promptorResponse = await comfyui.getObjectInfo('H3_Promptor')
+  const promptorInfo = promptorResponse?.H3_Promptor || promptorResponse
+
+  const providerFor = (info) => {
+    const providerSpec = info?.input?.optional?.provider || info?.input?.required?.provider
+    const choices = Array.isArray(providerSpec?.[0]) ? providerSpec[0] : []
+    const defaultChoice = String(providerSpec?.[1]?.default || '').trim()
+    if (defaultChoice && !/no provider configured|error loading providers/i.test(defaultChoice)) return defaultChoice
+    return String(choices.find((choice) => {
+      const value = String(choice || '').trim()
+      return value && !/no provider configured|error loading providers/i.test(value)
+    }) || '').trim()
+  }
+
+  const visionProvider = providerFor(visionInfo)
+  const promptorProvider = providerFor(promptorInfo)
+  if (!visionProvider || !promptorProvider) {
+    throw new Error('MiniMax H3 Promptor has no LLM provider configured. Open ComfyUI Settings, configure vision and prompt providers for H3 Promptor, then run this node again.')
+  }
+
+  return {
+    visionProvider,
+    promptorProvider,
+  }
+}
+
+function throwIfFlowInterrupted(signal) {
+  if (signal?.aborted) throw createFlowInterruptedError()
+}
+
+function waitForFlowPoll(milliseconds, signal) {
+  throwIfFlowInterrupted(signal)
+  return new Promise((resolve, reject) => {
+    const timeout = setTimeout(() => {
+      signal?.removeEventListener?.('abort', handleAbort)
+      resolve()
+    }, milliseconds)
+    const handleAbort = () => {
+      clearTimeout(timeout)
+      reject(createFlowInterruptedError())
+    }
+    signal?.addEventListener?.('abort', handleAbort, { once: true })
+  })
+}
+
+async function pollForResult(promptId, workflowId, expectedOutputPrefix = '', onStatus = () => {}, signal = null) {
   const startedAt = Date.now()
   let lastActivityAt = Date.now()
   let wsReportedSuccess = false
@@ -840,6 +1229,7 @@ async function pollForResult(promptId, workflowId, expectedOutputPrefix = '', on
   try {
     let postSuccessTries = 0
     while (true) {
+      throwIfFlowInterrupted(signal)
       const now = Date.now()
       const elapsed = now - startedAt
       const idleFor = now - lastActivityAt
@@ -847,7 +1237,7 @@ async function pollForResult(promptId, workflowId, expectedOutputPrefix = '', on
       if (elapsed > MAX_TOTAL_MS) break
       if (wsReportedSuccess && postSuccessTries >= MAX_POST_SUCCESS_TRIES) break
 
-      await new Promise((resolve) => setTimeout(resolve, POLL_INTERVAL_MS))
+      await waitForFlowPoll(POLL_INTERVAL_MS, signal)
       if (wsReportedSuccess) postSuccessTries += 1
 
       const progressPct = Math.min(90, (elapsed / (15 * 60 * 1000)) * 90)
@@ -1038,6 +1428,31 @@ async function importRunResult({
     importedAt: new Date().toISOString(),
     assetOutputNodeId: outputTarget?.outputNode?.id || null,
     assetOutputFolder: outputTarget?.folderSegments || null,
+    ...(workflowId === 'ainvfx-fluid' ? {
+      frames: 121, fps: Number(node.data.fps) || 25, steps: 8, cfg: 1, sampler: 'euler_ancestral',
+      fluidStrength: node.data.fluidStrength ?? 1,
+      firstFrameAssetId: resolveConnectedAsset(document, node, 'in:image', 'image')?.id || null,
+      lastFrameAssetId: resolveConnectedAsset(document, node, 'in:last-image', 'image')?.id || null,
+      sourceUrl: 'https://huggingface.co/AInVFX/ainvfx-fluid',
+    } : {}),
+    ...(workflowId === 'vdn-h3-t2va' ? {
+      vdnCheckpoint: 'stage-dmd-step-250', steps: 8, sampler: 'er_sde', scheduler: 'beta',
+      vdnBranchWeights: 'stream', vdnLoraMode: 'merge', vdnAttentionBackend: 'grouped',
+    } : {}),
+    ...(workflowId === 'fast-minimax-h3-t2va' ? {
+      referenceImageAssetIds: resolveConnectedAssets(document, node, 'in:style', 'image').map(asset => asset.id),
+      referenceAudioAssetIds: resolveConnectedAssets(document, node, 'in:voice', 'audio').map(asset => asset.id),
+      fastH3Steps: [4, 6, 8].includes(Number(node?.data?.fastH3Steps)) ? Number(node.data.fastH3Steps) : 4,
+      useSageAttention: true,
+    } : {}),
+    ...(['minimax-h3-gguf-r2v', 'minimax-h3-character-swap', 'minimax-h3-pink-reference', 'minimax-h3-aftermidnight-r2v', 'minimax-h3-aftermidnight-3ref'].includes(workflowId) ? {
+      referenceVideoAssetId: resolveConnectedAsset(document, node, 'in:video', 'video')?.id || null,
+      referenceImageAssetIds: resolveConnectedAssets(document, node, 'in:style', 'image').map(asset => asset.id),
+      referenceStart: Number(node?.data?.referenceStart) || 0,
+      referenceDuration: Number(node?.data?.referenceDuration) || 5,
+      useReferenceAudio: workflowId === 'minimax-h3-character-swap' ? false : Boolean(node?.data?.useReferenceAudio),
+      useSageAttention: workflowId === 'minimax-h3-character-swap' ? false : node?.data?.useSageAttention !== false,
+    } : {}),
   }
 
   if (result?.type === 'video') {
@@ -1190,6 +1605,93 @@ async function configureWorkflow(workflowId, workflowJson, context) {
   }
 
   switch (workflowId) {
+    case 'qwen-image-2-1-heretic':
+    case 'qwen-image-2-1-nsfw-lora':
+      return modifier(workflowJson, {
+        prompt: context.promptText,
+        negativePrompt: context.negativePrompt,
+        transparentPng: context.transparentPng,
+        width: context.width,
+        height: context.height,
+        seed: context.seed,
+        steps: context.steps,
+        cfg: context.cfg,
+        samplerName: context.samplerName,
+        scheduler: context.scheduler,
+        variantCount: context.variantCount,
+        filenamePrefix: context.outputPrefix,
+      })
+    case 'qwen-image-2-1-heretic-edit':
+      return modifier(workflowJson, {
+        inputImage: context.uploadedFilename,
+        prompt: context.promptText,
+        negativePrompt: context.negativePrompt,
+        transparentPng: context.transparentPng,
+        resolution: context.resolution,
+        seed: context.seed,
+        steps: context.steps,
+        cfg: context.cfg,
+        samplerName: context.samplerName,
+        scheduler: context.scheduler,
+        filenamePrefix: context.outputPrefix,
+      })
+    case 'qwen-image-2-1-character-sheet':
+      return modifier(workflowJson, {
+        inputImage: context.uploadedFilename,
+        prompt: context.promptText,
+        negativePrompt: context.negativePrompt,
+        resolution: context.resolution,
+        width: context.width,
+        height: context.height,
+        seed: context.seed,
+        steps: context.steps,
+        cfg: context.cfg,
+        samplerName: context.samplerName,
+        scheduler: context.scheduler,
+        filenamePrefix: context.outputPrefix || 'image/CANVAS_qwen_character_sheet',
+      })
+    case 'vdn-h3-t2va':
+      return modifier(workflowJson, {
+        prompt: context.promptText, width: context.width, height: context.height,
+        duration: context.duration, seed: context.seed, filenamePrefix: context.outputPrefix,
+      })
+    case 'fast-minimax-h3-t2va':
+      return modifier(workflowJson, {
+        prompt: context.promptText, referenceImages: context.referenceFilenames,
+        referenceAudio: context.referenceAudioFilenames, width: context.width, height: context.height,
+        duration: context.duration, steps: context.fastH3Steps, seed: context.seed,
+        filenamePrefix: context.outputPrefix,
+      })
+    case 'ainvfx-fluid':
+      return modifier(workflowJson, {
+        firstFrame: context.uploadedFilename, lastFrame: context.lastFrameFilename,
+        prompt: context.promptText, negativePrompt: context.negativePrompt, width: context.width, height: context.height, fps: context.fps,
+        seed: context.seed, strength: context.fluidStrength, filenamePrefix: context.outputPrefix,
+      })
+    case 'minimax-h3-gguf-r2v':
+    case 'minimax-h3-character-swap':
+    case 'minimax-h3-pink-reference':
+    case 'minimax-h3-aftermidnight-r2v':
+    case 'minimax-h3-aftermidnight-3ref':
+      return modifier(workflowJson, {
+        prompt: context.promptText,
+        referenceVideo: context.referenceVideoFilename,
+        referenceImages: context.referenceFilenames,
+        referenceStart: context.referenceStart,
+        referenceDuration: context.referenceDuration,
+        useReferenceAudio: context.useReferenceAudio,
+        useSageAttention: context.useSageAttention,
+        allowImageOnly: workflowId === 'minimax-h3-aftermidnight-3ref',
+        minimumReferenceImages: workflowId === 'minimax-h3-character-swap' ? 1 : 0,
+        maximumReferenceImages: workflowId === 'minimax-h3-character-swap' ? 1 : 8,
+        minimumDuration: workflowId === 'minimax-h3-character-swap' ? 4 : 5,
+        maximumDuration: workflowId === 'minimax-h3-character-swap' ? 5 : 15,
+        width: context.width,
+        height: context.height,
+        duration: context.duration,
+        seed: context.seed,
+        filenamePrefix: context.outputPrefix,
+      })
     case 'minimax-h3-character-sheet':
       return modifier(workflowJson, {
         prompt: context.promptText,
@@ -1201,6 +1703,9 @@ async function configureWorkflow(workflowId, workflowJson, context) {
         filenamePrefix: context.outputPrefix || 'image/CANVAS_h3_character_sheet',
       })
     case 'minimax-h3-gguf-i2v':
+    case 'minimax-h3-naughty-times':
+    case 'minimax-h3-nsfw-pink-bunny':
+    case 'minimax-h3-nsfw-motion-8step':
       return modifier(workflowJson, {
         prompt: context.promptText,
         inputImage: context.uploadedFilename,
@@ -1209,6 +1714,12 @@ async function configureWorkflow(workflowId, workflowJson, context) {
         height: context.height,
         duration: context.duration,
         seed: context.seed,
+        loraName: workflowId === 'minimax-h3-naughty-times' ? 'SexGod_NaughtyTimes_v3_rank64_pruned_NOADALN.safetensors' : workflowId === 'minimax-h3-nsfw-pink-bunny'
+          ? 'PinkFluffyBunny-unpruned-v2-rank128.safetensors'
+          : workflowId === 'minimax-h3-nsfw-motion-8step'
+            ? 'minimax-h3_fl2v_8Step_motion_enhancer.safetensors'
+            : '',
+        steps: ['minimax-h3-naughty-times', 'minimax-h3-nsfw-pink-bunny'].includes(workflowId) ? 20 : 8,
         filenamePrefix: context.outputPrefix || 'video/CANVAS_minimax_h3_gguf',
       })
     case 'wan22-i2v':
@@ -1235,6 +1746,21 @@ async function configureWorkflow(workflowId, workflowJson, context) {
         fps: context.fps,
         seed: context.seed,
         filenamePrefix: context.outputPrefix || 'video/flow_ai_ltx',
+      })
+    case 'ltx23-latentsync':
+      return modifier(workflowJson, {
+        prompt: context.promptText,
+        negativePrompt: context.negativePrompt,
+        inputImage: context.uploadedFilename,
+        inputAudio: context.referenceAudioFilenames[0],
+        width: context.width,
+        height: context.height,
+        frames: Math.round((context.duration || 5) * (context.fps || 24)) + 1,
+        fps: context.fps,
+        seed: context.seed,
+        lipsExpression: context.lipsExpression,
+        inferenceSteps: context.lipSyncSteps,
+        filenamePrefix: context.outputPrefix || 'video/CANVAS_exact_audio_lipsync',
       })
     case 'kling-o3-i2v':
       return modifier(workflowJson, {
@@ -1298,6 +1824,27 @@ async function configureWorkflow(workflowId, workflowJson, context) {
         variantCount: context.variantCount,
         filenamePrefix: context.outputPrefix || 'image/flow_ai_z_image',
       })
+    case 'anima-lora-upscale':
+      return modifier(workflowJson, {
+        prompt: context.promptText,
+        negativePrompt: context.negativePrompt,
+        width: context.width,
+        height: context.height,
+        seed: context.seed,
+        steps: context.steps,
+        cfg: context.cfg,
+        eta: context.eta,
+        denoise: context.denoise,
+        samplerName: context.samplerName,
+        scheduler: context.scheduler,
+        samplerMode: context.samplerMode,
+        bongmath: context.bongmath,
+        checkpointName: context.checkpointName,
+        loras: context.loras,
+        upscaleEnabled: context.upscaleEnabled,
+        upscaleModel: context.upscaleModel,
+        filenamePrefix: context.outputPrefix || 'image/CANVAS_anima_lora',
+      })
     case 'nano-banana-2':
     case 'nano-banana-pro':
       return modifier(workflowJson, {
@@ -1338,6 +1885,21 @@ async function configureWorkflow(workflowId, workflowJson, context) {
         seed: context.seed,
         keyscale: context.keyscale,
       })
+    case 'irodori-tts':
+      return modifier(workflowJson, {
+        text: context.promptText,
+        seed: context.seed,
+        seconds: 0,
+        filenamePrefix: context.outputPrefix || 'audio/CANVAS_irodori',
+      })
+    case 'irodori-v4-1-anime':
+      return modifier(workflowJson, {
+        text: context.promptText,
+        model: IRODORI_ANIME_MODEL_FILENAME,
+        seed: context.seed,
+        seconds: 0,
+        filenamePrefix: context.outputPrefix || 'audio/CANVAS_irodori_anime',
+      })
     case 'google-gemini-flash-lite':
       return modifier(workflowJson, {
         prompt: context.promptText,
@@ -1356,6 +1918,76 @@ async function configureWorkflow(workflowId, workflowJson, context) {
         outputLanguage: context.outputLanguage,
         imageMode: context.imageAnalysisMode,
         videoMode: context.videoAnalysisMode,
+      })
+    case 'minimax-h3-360-orbit':
+      return modifier(workflowJson, {
+        prompt: context.promptText,
+        inputImage: context.uploadedFilename,
+        seed: context.seed,
+        filenamePrefix: context.outputPrefix || 'video/CANVAS_minimax_h3_360_orbit',
+      })
+    case 'minimax-h3-handheld':
+      return modifier(workflowJson, {
+        prompt: context.promptText,
+        inputImage: context.uploadedFilename,
+        width: context.width,
+        height: context.height,
+        duration: context.duration,
+        seed: context.seed,
+        filenamePrefix: context.outputPrefix || 'video/CANVAS_minimax_h3_handheld',
+      })
+    case 'minimax-h3-character-actor':
+      return modifier(workflowJson, {
+        prompt: context.promptText,
+        referenceImages: context.referenceFilenames,
+        useSageAttention: context.useSageAttention,
+        width: context.width,
+        height: context.height,
+        duration: context.duration,
+        seed: context.seed,
+        filenamePrefix: context.outputPrefix || 'video/CANVAS_h3_character_actor',
+      })
+    case 'nsfw-wan-1-3b-e10-t2v':
+      return modifier(workflowJson, {
+        prompt: context.promptText,
+        negativePrompt: context.negativePrompt,
+        width: context.width,
+        height: context.height,
+        frames: Math.round((context.duration || 5) * (context.fps || 16)) + 1,
+        fps: context.fps,
+        seed: context.seed,
+        steps: context.steps,
+        cfg: context.cfg,
+        samplerName: context.samplerName,
+        scheduler: context.scheduler,
+        filenamePrefix: context.outputPrefix || 'video/CANVAS_nsfw_wan_1_3b_e10',
+      })
+    case 'dark-beast-krea2-i2i':
+      return modifier(workflowJson, {
+        prompt: context.promptText,
+        inputImage: context.uploadedFilename,
+        width: context.width,
+        height: context.height,
+        seed: context.seed,
+        steps: context.steps,
+        cfg: context.cfg,
+        denoise: context.denoise,
+        samplerName: context.samplerName,
+        scheduler: context.scheduler,
+        filenamePrefix: context.outputPrefix || 'image/CANVAS_dark_beast_krea2',
+      })
+    case 'haruki-mix-krea2-t2i':
+      return modifier(workflowJson, {
+        prompt: context.promptText,
+        width: context.width,
+        height: context.height,
+        seed: context.seed,
+        steps: context.steps,
+        cfg: context.cfg,
+        samplerName: context.samplerName,
+        scheduler: context.scheduler,
+        variantCount: context.variantCount,
+        filenamePrefix: context.outputPrefix || 'image/CANVAS_haruki_mix_krea2',
       })
     case TOPAZ_VIDEO_UPSCALE_WORKFLOW_ID:
       return modifier(workflowJson, {
@@ -1383,14 +2015,125 @@ async function buildExecutionContext(document, node) {
   assertNoBundledExecutableInput(document, node, 'in:style', 'image')
   assertNoBundledExecutableInput(document, node, 'in:video', 'video')
 
-  const promptText = resolvePromptText(document, node)
+  let promptText = resolvePromptText(document, node)
+  const workflowControls = resolveWorkflowControlData(document, node)
+  const connectedNegativePrompt = resolvePromptTextForHandle(document, node, 'in:negative-text')
+  const effectiveData = { ...(node?.data || {}), ...workflowControls }
   const primaryAsset = resolveConnectedAsset(document, node, 'in:image', 'image')
   const maskAsset = resolveConnectedAsset(document, node, 'in:mask', '')
   const lastFrameAsset = resolveConnectedAsset(document, node, 'in:last-image', 'image')
   const videoAsset = resolveConnectedAsset(document, node, 'in:video', 'video')
-  const styleAssets = resolveConnectedAssets(document, node, 'in:style', 'image')
+  const characterAsset = resolveConnectedAsset(document, node, 'in:character', 'character')
+  let styleAssets = resolveConnectedAssets(document, node, 'in:style', 'image')
+  let numberedCharacterReferences = []
+  const isNumberedCharacterEdit = workflowId === 'image-edit' && node?.data?.referencePacking === 'numbered-six'
+  const isFastH3 = workflowId === 'fast-minimax-h3-t2va'
+  const isExactAudioLipSync = workflowId === 'ltx23-latentsync'
+  const audioAssets = (isFastH3 || isExactAudioLipSync) ? resolveConnectedAssets(document, node, 'in:voice', 'audio') : []
+  if (isFastH3) {
+    assertNoBundledExecutableInput(document, node, 'in:voice', 'audio')
+    if (styleAssets.length > 2 || audioAssets.length > 2) throw new Error('Fast H3: 参照画像・音声はそれぞれ2つまでです。 / Up to two images and two audio references.')
+  }
+  if (isExactAudioLipSync) {
+    assertNoBundledExecutableInput(document, node, 'in:voice', 'audio')
+    if (audioAssets.length !== 1) throw new Error('完成した音声を1つ接続してください。 / Connect one completed audio clip for Exact Audio lip-sync.')
+  }
+  const isMinimaxH3Reference = ['minimax-h3-gguf-r2v', 'minimax-h3-character-swap', 'minimax-h3-pink-reference', 'minimax-h3-aftermidnight-r2v', 'minimax-h3-aftermidnight-3ref'].includes(workflowId)
+  const isMinimaxH3CharacterActor = workflowId === 'minimax-h3-character-actor'
+  const isMinimaxH3CharacterSwap = workflowId === 'minimax-h3-character-swap'
+  const isMinimaxH3ImageOnlyReference = workflowId === 'minimax-h3-aftermidnight-3ref'
   const isMinimaxH3Promptor = workflowId === 'minimax-h3-media-promptor'
   const mediaAsset = isMinimaxH3Promptor ? (videoAsset || primaryAsset) : primaryAsset
+  let characterReferenceFiles = []
+  if (isMinimaxH3CharacterActor) {
+    if (!characterAsset) throw new Error('.char キャラクターを接続してください。 / Connect a Character File.')
+    const characterUrl = characterAsset.url || await getProjectFileUrl(useProjectStore.getState().currentProjectHandle, characterAsset.path)
+    const response = await fetch(characterUrl)
+    if (!response.ok) throw new Error(`.char を開けませんでした (${response.status})。`)
+    const character = await readCharacterFile(await response.arrayBuffer())
+    const selectedReferences = selectCharacterReferences(character.references, 9)
+    characterReferenceFiles = selectedReferences.map((ref, index) => new File(
+      [ref.bytes],
+      `canvas_character_${String(index + 1).padStart(2, '0')}.png`,
+      { type: 'image/png' }
+    ))
+    promptText = buildCharacterPrompt({
+      name: character.name,
+      description: character.description,
+      prompt: promptText,
+      references: selectedReferences,
+    })
+  }
+
+  if (isNumberedCharacterEdit) {
+    const nodesById = nodeMapFor(document)
+    const assetsById = assetMapFor()
+    numberedCharacterReferences = collectIncomingEdges(document, node.id, 'in:style')
+      .map(edge => {
+        const sourceNode = nodesById.get(edge.source)
+        const match = String(sourceNode?.data?.assetRole || '').match(/^character-reference-([2-6])$/)
+        const asset = sourceNode?.data?.muted === true
+          ? null
+          : assetsById.get(String(sourceNode?.data?.assetId || '').trim())
+        return match && asset?.type === 'image'
+          ? { asset, referenceNumber: Number(match[1]) }
+          : null
+      })
+      .filter(Boolean)
+      .sort((left, right) => left.referenceNumber - right.referenceNumber)
+    styleAssets = numberedCharacterReferences.map(entry => entry.asset)
+    if (styleAssets.length > 5) {
+      throw new Error('I2Iキャラクタ編集の追加参照画像は5枚までです。 / I2I Character Edit accepts five additional references.')
+    }
+  }
+
+  if (isMinimaxH3ImageOnlyReference) {
+    const nodesById = nodeMapFor(document)
+    const assetsById = assetMapFor()
+    const roleAssets = new Map()
+    for (const edge of collectIncomingEdges(document, node.id, 'in:style')) {
+      const sourceNode = nodesById.get(edge.source)
+      if (!sourceNode || sourceNode?.data?.muted === true) continue
+      const role = String(sourceNode?.data?.assetRole || '').trim()
+      const asset = assetsById.get(String(sourceNode?.data?.assetId || '').trim())
+      if (role && asset?.type === 'image') roleAssets.set(role, asset)
+    }
+    const sceneAsset = roleAssets.get('scene-reference')
+    const characterAsset = roleAssets.get('character-sheet-reference')
+    if (!sceneAsset || !characterAsset) {
+      throw new Error('シーン画像とキャラクターシートの2枚を接続してください。 / Connect both the scene image and character sheet.')
+    }
+    styleAssets = [sceneAsset, characterAsset, roleAssets.get('props-stage-reference')].filter(Boolean)
+  }
+
+  if (isMinimaxH3Reference && !isMinimaxH3ImageOnlyReference && !videoAsset) {
+    throw new Error('参照動画を接続してください。 / Connect a reference video before running MiniMax H3.')
+  }
+  if (isMinimaxH3CharacterSwap && styleAssets.length !== 1) {
+    throw new Error('差し替えるキャラクター画像を1枚接続してください。 / Connect exactly one replacement-character image.')
+  }
+  if (isMinimaxH3ImageOnlyReference && styleAssets.length > 3) {
+    throw new Error('このフローの参照画像は3枚までです。 / This flow accepts at most three reference images.')
+  }
+  if (isMinimaxH3Reference && styleAssets.length > 8) {
+    throw new Error('参照画像は8枚まで接続できます。 / MiniMax H3 accepts up to eight reference images in this flow.')
+  }
+  const referenceStart = Math.max(0, Number(node?.data?.referenceStart) || 0)
+  const referenceDuration = isMinimaxH3CharacterSwap
+    ? Math.max(4, Math.min(5, Math.round(Number(node?.data?.referenceDuration) || 5)))
+    : Math.max(2, Math.min(15, Number(node?.data?.referenceDuration) || 5))
+  const sourceDuration = Number(videoAsset?.duration || videoAsset?.settings?.duration)
+  const minimumRemainingDuration = isMinimaxH3CharacterSwap ? 4 : 2
+  if (isMinimaxH3Reference && sourceDuration > 0 && sourceDuration - referenceStart < minimumRemainingDuration) {
+    throw new Error(isMinimaxH3CharacterSwap
+      ? '参照開始位置から4秒以上残る動画を選んでください。 / The source video must have at least four seconds after the selected start.'
+      : '参照開始位置から2秒以上残る動画を選んでください。 / The reference video must have at least two seconds after the selected start.')
+  }
+
+  if (workflowId === 'ainvfx-fluid') {
+    validateAinvfxFluidSettings(effectiveData)
+    if (!primaryAsset || !lastFrameAsset) throw new Error('VFX: 最初と最後の描画画像を接続してください。 / Connect both painted keyframes.')
+  }
 
   const needsImage = Boolean(workflowOption.needsImage)
   if (needsImage && !primaryAsset) {
@@ -1399,17 +2142,22 @@ async function buildExecutionContext(document, node) {
   if (node?.data?.optionalStage === 'inpaint' && !maskAsset) {
     throw new Error('Turn Inpaint off, or connect an Inpaint Mask before running this optional edit.')
   }
-  if (node?.data?.requiresLastFrame && !lastFrameAsset) {
+  if (!isMinimaxH3Reference && !isFastH3 && workflowId !== 'vdn-h3-t2va' && node?.data?.requiresLastFrame && !lastFrameAsset) {
     throw new Error('This flow needs both a Start Frame and a Last Frame image.')
   }
   if (isMinimaxH3Promptor && !mediaAsset) {
     throw new Error('MiniMax H3 Media Promptor needs an upstream image or video asset.')
   }
 
-  const width = Number(node?.data?.width) || 1280
-  const height = Number(node?.data?.height) || 720
+  const width = Number(effectiveData.width) || 1280
+  const height = Number(effectiveData.height) || 720
   const seed = Number(node?.data?.seed)
-  const duration = Number(node?.data?.duration) || 5
+  const connectedAudioDuration = Number(audioAssets[0]?.duration || audioAssets[0]?.settings?.duration)
+  const duration = isMinimaxH3CharacterSwap
+    ? Math.max(4, Math.min(5, Math.round(Number(node?.data?.duration) || 5)))
+    : isExactAudioLipSync && connectedAudioDuration > 0
+      ? Math.max(2, Math.min(30, connectedAudioDuration))
+      : (Number(node?.data?.duration) || 5)
   const fps = Number(node?.data?.fps) || 24
   const outputPrefix = buildOutputPrefix(node, workflowId)
   const imageVariantBehavior = node?.type === FLOW_AI_NODE_TYPES.imageGen
@@ -1421,7 +2169,7 @@ async function buildExecutionContext(document, node) {
 
   let uploadedFilename = null
   if (mediaAsset) {
-    let fileToUpload = await assetToUploadFile(mediaAsset, Number(node?.data?.frameTime) || 0, {
+    let fileToUpload = await assetToUploadFile(mediaAsset, resolveVideoFrameTime(node, mediaAsset), {
       preserveVideo: isMinimaxH3Promptor && mediaAsset.type === 'video',
     })
     if (['multi-angles', 'multi-angles-scene'].includes(workflowId)) {
@@ -1429,6 +2177,17 @@ async function buildExecutionContext(document, node) {
     }
     const uploadResult = await comfyui.uploadFile(fileToUpload)
     uploadedFilename = uploadResult?.name || fileToUpload.name
+  }
+
+  let referenceVideoFilename = null
+  if (isMinimaxH3Reference && videoAsset) {
+    const videoFile = await assetToUploadFile(videoAsset, 0, { preserveVideo: true })
+    // ComfyUI video loaders may retain decoded data when the same input path is
+    // overwritten. A unique name makes every CANVAS run select the fresh clip,
+    // including replacements that share the same original filename.
+    const uploadName = buildUniqueComfyInputFilename('canvas_ref_video', videoAsset, videoFile)
+    const upload = await comfyui.uploadFile(videoFile, uploadName)
+    referenceVideoFilename = upload?.name || uploadName
   }
 
   let lastFrameFilename = null
@@ -1451,19 +2210,47 @@ async function buildExecutionContext(document, node) {
     maskFilename = maskUpload?.name || maskFile.name
   }
 
-  const h3Providers = isMinimaxH3Promptor
-    ? await Promise.all([
-        resolveMinimaxH3Provider('H3_Vision_Analyzer'),
-        resolveMinimaxH3Provider('H3_Promptor'),
-      ])
-    : ['', '']
+  const h3Configuration = isMinimaxH3Promptor
+    ? await resolveMinimaxH3NodeConfiguration()
+    : {
+        visionProvider: '',
+        promptorProvider: '',
+      }
 
+  const referenceAudioFilenames = []
+  for (const asset of audioAssets) {
+    const file = await assetToUploadFile(asset)
+    const upload = await comfyui.uploadFile(file)
+    referenceAudioFilenames.push(upload?.name || file.name)
+  }
   const referenceFilenames = []
-  if (styleAssets.length > 0) {
-    for (const asset of styleAssets.slice(0, 2)) {
+  if (isMinimaxH3CharacterActor) {
+    for (const file of characterReferenceFiles) {
+      const uploadName = `canvas_character_${Date.now()}_${file.name}`
+      const uploadResult = await comfyui.uploadFile(file, uploadName)
+      referenceFilenames.push(uploadResult?.name || uploadName)
+    }
+  } else if (isNumberedCharacterEdit && numberedCharacterReferences.length > 0) {
+    const numberedFiles = []
+    for (const entry of numberedCharacterReferences) {
+      numberedFiles.push({
+        referenceNumber: entry.referenceNumber,
+        file: await assetToUploadFile(entry.asset, 0),
+      })
+    }
+    for (const group of planNumberedReferenceSheets(numberedFiles)) {
+      const sheet = await createNumberedReferenceSheet(group)
+      const uploadResult = await comfyui.uploadFile(sheet)
+      referenceFilenames.push(uploadResult?.name || sheet.name)
+    }
+  } else if (styleAssets.length > 0) {
+    for (const asset of styleAssets.slice(0, isMinimaxH3Reference ? 8 : 2)) {
       const fileToUpload = await assetToUploadFile(asset, 0)
-      const uploadResult = await comfyui.uploadFile(fileToUpload)
-      referenceFilenames.push(uploadResult?.name || fileToUpload.name)
+      const uploadName = isMinimaxH3Reference
+        ? buildUniqueComfyInputFilename('canvas_ref_image', asset, fileToUpload)
+        : null
+      const uploadResult = await comfyui.uploadFile(fileToUpload, uploadName)
+      referenceFilenames.push(uploadResult?.name || uploadName || fileToUpload.name)
     }
   }
 
@@ -1471,36 +2258,63 @@ async function buildExecutionContext(document, node) {
     workflowId,
     workflowOption,
     promptText,
-    negativePrompt: String(node?.data?.negativePrompt || '').trim(),
+    negativePrompt: connectedNegativePrompt || String(effectiveData.negativePrompt || '').trim(),
     systemPrompt: String(node?.data?.systemPrompt || '').trim(),
     tags: String(node?.data?.tags || '').trim(),
     lyrics: promptText || String(node?.data?.lyrics || '').trim(),
     width,
     height,
+    resolution: Number.isFinite(Number(effectiveData.resolution))
+      ? Math.max(0, Math.min(2048, Math.round(Number(effectiveData.resolution))))
+      : 1024,
     duration,
     fps,
     bpm: Number(node?.data?.bpm) || 120,
     keyscale: String(node?.data?.keyscale || 'C Major').trim(),
     seed: Number.isFinite(seed) ? seed : Math.floor(Math.random() * 1000000),
+    steps: Math.max(1, Math.min(100, Math.round(Number(node?.data?.steps) || 15))),
+    cfg: Math.max(0, Math.min(100, Number.isFinite(Number(node?.data?.cfg)) ? Number(node.data.cfg) : 5)),
+    eta: Math.max(-100, Math.min(100, Number.isFinite(Number(node?.data?.eta)) ? Number(node.data.eta) : 0.5)),
+    denoise: Math.max(0, Math.min(1, Number.isFinite(Number(node?.data?.denoise)) ? Number(node.data.denoise) : 1)),
+    samplerName: String(node?.data?.samplerName || 'exponential/res_2s'),
+    scheduler: String(node?.data?.scheduler || 'karras'),
+    samplerMode: String(node?.data?.samplerMode || 'standard'),
+    bongmath: node?.data?.bongmath !== false,
+    checkpointName: String(effectiveData.checkpointName || '').trim(),
+    loras: Array.isArray(effectiveData.loras) ? effectiveData.loras : [],
+    upscaleEnabled: Boolean(effectiveData.upscaleEnabled),
+    upscaleModel: String(effectiveData.upscaleModel || '').trim(),
+    transparentPng: effectiveData.transparentPng === true,
     wanQualityPreset: String(node?.data?.wanQualityPreset || 'balanced').trim(),
     variantCount,
     imageVariantBehavior,
     preserveInputResolution: Boolean(node?.data?.preserveInputResolution),
     uploadedFilename,
+    referenceVideoFilename,
+    referenceStart,
+    referenceDuration,
+    useReferenceAudio: isMinimaxH3CharacterSwap ? false : Boolean(node?.data?.useReferenceAudio),
+    useSageAttention: isMinimaxH3CharacterSwap ? false : node?.data?.useSageAttention !== false,
     lastFrameFilename,
+    fluidStrength: node?.data?.fluidStrength ?? 1,
     uploadedMediaKind: mediaAsset?.type === 'video' ? 'video' : 'image',
-    visionProvider: h3Providers[0],
-    promptorProvider: h3Providers[1],
+    visionProvider: h3Configuration.visionProvider,
+    promptorProvider: h3Configuration.promptorProvider,
     outputLanguage: String(node?.data?.outputLanguage || 'English'),
     imageAnalysisMode: String(node?.data?.imageAnalysisMode || 'Comprehensive'),
     videoAnalysisMode: String(node?.data?.videoAnalysisMode || 'Comprehensive'),
     referenceFilenames,
+    referenceAudioFilenames,
+    fastH3Steps: [4, 6, 8].includes(Number(node?.data?.fastH3Steps)) ? Number(node.data.fastH3Steps) : 4,
+    lipsExpression: Math.max(1, Math.min(3, Number(node?.data?.lipsExpression) || 1.5)),
+    lipSyncSteps: Math.max(1, Math.min(50, Math.round(Number(node?.data?.lipSyncSteps) || 20))),
     maskFilename,
     outputPrefix,
   }
 }
 
 async function runExecutablePromptAttempt(document, node, context, options = {}) {
+  throwIfFlowInterrupted(options.signal)
   const workflowId = String(node?.data?.workflowId || '').trim()
   const workflowJson = await loadWorkflowDefinition(workflowId)
   const modifiedWorkflow = await configureWorkflow(workflowId, workflowJson, context)
@@ -1515,11 +2329,31 @@ async function runExecutablePromptAttempt(document, node, context, options = {})
     error: '',
   })
 
-  const promptId = await comfyui.queuePrompt(modifiedWorkflow)
+  const outputFolders = {}
+  for (const kind of ['video', 'audio', 'image']) {
+    const edge = document.edges?.find(edge => edge.source === node.id
+      && edge.sourceHandle === getOutputHandleForAssetKind(kind)
+      && edge.targetHandle === getInputHandleForAssetKind(kind)
+      && document.nodes?.some(target => target.id === edge.target && target.type === FLOW_AI_NODE_TYPES.output))
+    const outputNode = document.nodes?.find(target => target.id === edge?.target)
+    if (outputNode && !outputNode.data?.numberedRunFolders && !NUMBERED_RUN_FOLDER_TEMPLATE_IDS.has(document.templateId)) {
+      outputFolders[kind] = getFlowOutputFolderSegments(outputNode.data?.folderName, kind)
+    }
+  }
+  throwIfFlowInterrupted(options.signal)
+  const promptId = await comfyui.queuePrompt(modifiedWorkflow, {
+    canvasOutput: {
+      projectDir: useProjectStore.getState().currentProjectHandle,
+      documentId: document.id,
+      nodeId: node.id,
+      outputFolders,
+    },
+  })
   if (!promptId) {
     throw new Error('Failed to queue CANVAS prompt.')
   }
   markPromptHandledByApp(promptId)
+  throwIfFlowInterrupted(options.signal)
 
   options.onNodePatch?.(node.id, {
     status: 'running',
@@ -1538,7 +2372,7 @@ async function runExecutablePromptAttempt(document, node, context, options = {})
       statusMessage: isBundledRepeatRun ? `Generating ${runLabel}…` : (status?.statusMessage || 'Running workflow…'),
       progress: overallProgress,
     })
-  })
+  }, options.signal)
 
   if (!result) {
     throw new Error('Generation finished but CANVAS could not detect the output.')
@@ -1580,19 +2414,113 @@ async function runExecutablePromptAttempt(document, node, context, options = {})
 }
 
 async function runExecutableNode(document, node, options = {}) {
+  throwIfFlowInterrupted(options.signal)
   const projectState = useProjectStore.getState()
   if (!projectState.currentProjectHandle) {
     throw new Error('Open a project before running CANVAS.')
   }
+  if (node.type === FLOW_AI_NODE_TYPES.textOutput) {
+    const text = resolveFlowNodeText(document, node)
+    const asset = await saveCanvasTextAsset({ text, name: node.data.filename, folderName: node.data.folderName,
+      projectHandle: projectState.currentProjectHandle, documentId: options.documentId, nodeId: node.id,
+      importAsset, addAsset: useAssetsStore.getState().addAsset, ensureFolder: ensureAssetFolderPath })
+    return { promptId: null, workflowId: '', importedAssets: [asset], textOutput: text }
+  }
+  if (node.type === FLOW_AI_NODE_TYPES.characterBuilder) {
+    const roleAssets = {
+      face: resolveConnectedAssets(document, node, 'in:face', 'image'),
+      body: resolveConnectedAssets(document, node, 'in:body', 'image'),
+      cloth: resolveConnectedAssets(document, node, 'in:cloth', 'image'),
+    }
+    if (roleAssets.face.length < 1) throw new Error('顔リファレンスを1枚以上接続してください。 / Connect at least one face reference.')
+    const total = roleAssets.face.length + roleAssets.body.length + roleAssets.cloth.length
+    if (total > 9) throw new Error('顔・全身・衣装の参照は合計9枚までです。 / Use at most nine references in total.')
+    options.onNodePatch?.(node.id, { status: 'running', statusMessage: '.char を作成中… / Creating character file…', progress: 20, error: '' })
+    const references = []
+    for (const role of ['face', 'body', 'cloth']) {
+      for (const asset of roleAssets[role]) {
+        const source = await assetToUploadFile(asset, 0)
+        const bitmap = await createImageBitmap(source)
+        const canvas = document.createElement?.('canvas') || globalThis.document.createElement('canvas')
+        canvas.width = bitmap.width
+        canvas.height = bitmap.height
+        canvas.getContext('2d').drawImage(bitmap, 0, 0)
+        bitmap.close?.()
+        const blob = await new Promise((resolve, reject) => canvas.toBlob(value => value ? resolve(value) : reject(new Error('PNG conversion failed.')), 'image/png'))
+        references.push({ role, bytes: new Uint8Array(await blob.arrayBuffer()), width: canvas.width, height: canvas.height, name: source.name })
+      }
+    }
+    const characterFile = await createCharacterFile({
+      name: node?.data?.characterName || node?.data?.label || 'Character',
+      description: resolvePromptText(document, node) || node?.data?.inlinePrompt || '',
+      references,
+      appVersion: '1',
+    })
+    const imported = await importAsset(projectState.currentProjectHandle, characterFile, 'characters')
+    const url = await getProjectFileUrl(projectState.currentProjectHandle, imported.path)
+    const folderId = ensureAssetFolderPath(['CANVAS', 'Characters'])
+    const asset = useAssetsStore.getState().addAsset({
+      ...imported,
+      type: 'character',
+      name: characterFile.name,
+      url,
+      folderId,
+      mimeType: 'application/x-inline-character',
+      settings: { characterFile: true, format: 'INLINECHAR', formatVersion: 1, referenceCount: total, representativeAssetId: roleAssets.face[0]?.id || null },
+      flowAi: { documentId: options.documentId, nodeId: node.id, kind: 'character-file' },
+    })
+    return { promptId: null, workflowId: '', importedAssets: [asset], textOutput: '' }
+  }
 
   const workflowId = String(node?.data?.workflowId || '').trim()
+  if (node.type === FLOW_AI_NODE_TYPES.promptAssist && workflowId === 'jp-tag-assistant') {
+    const query = resolvePromptText(document, node)
+    if (!query) throw new Error('検索語を入力してください。 / Enter one or more search terms.')
+    options.onNodePatch?.(node.id, { status: 'running', statusMessage: '日本語タグ辞書を検索中… / Searching bundled tags…', progress: 10, error: '' })
+    const result = await searchBundledJpTags(query, {
+      limit: node?.data?.jpTagLimit,
+      useMachineLabels: node?.data?.jpTagUseMachineLabels,
+      excludeLicensed: node?.data?.jpTagExcludeLicensed,
+      insertSpaces: node?.data?.jpTagInsertSpaces,
+    })
+    if (!result.tags) throw new Error('一致するタグが見つかりませんでした。 / No matching tags were found.')
+    return { promptId: null, workflowId, importedAssets: [], textOutput: result.tags }
+  }
+  if (node.type === FLOW_AI_NODE_TYPES.h3Optimizer) {
+    options.onNodePatch?.(node.id, { status: 'running', statusMessage: 'H3構文へ整形中…', progress: 10, error: '' })
+    const result = await optimizeH3Prompt(resolvePromptText(document, node), node.data)
+    options.onNodePatch?.(node.id, { resolvedLlmModel: result.modelId })
+    return { promptId: null, workflowId: '', importedAssets: [], textOutput: result.text }
+  }
+  if (node.type === FLOW_AI_NODE_TYPES.promptAssist && workflowId === ORTENZYA_WORKFLOW_ID) {
+    if (collectIncomingEdges(document, node.id, 'in:image').length || collectIncomingEdges(document, node.id, 'in:video').length) {
+      throw new Error('このフローはテキスト入力用です。設定・指示文またはシナリオを接続してください。')
+    }
+    options.onNodePatch?.(node.id, { status: 'running', statusMessage: 'Ortenzyaで文章を生成中…', progress: 10, error: '' })
+    const generated = await generateOrtenzyaText({
+      prompt: resolvePromptText(document, node), systemPrompt: node.data.systemPrompt,
+      endpoint: node.data.localLlmEndpoint || 'http://localhost:1234', modelId: node.data.localLlmModel,
+      maxTokens: node.data.maxTokens, seed: node.data.seed,
+    })
+    options.onNodePatch?.(node.id, { resolvedLlmModel: generated.modelId, outputTruncated: generated.truncated })
+    return { promptId: null, workflowId, importedAssets: [], textOutput: generated.text }
+  }
+  if (GOOGLE_DIRECT_WORKFLOW_IDS.has(workflowId)) {
+    return runGoogleDirectNode(document, node, options)
+  }
   const dependencyCheck = await checkWorkflowDependencies(workflowId)
   if (dependencyCheck?.hasBlockingIssues) {
+    if (dependencyCheck.unresolvedModels?.some(model => model.exactPath)) {
+      throw new Error('VDNモデル一式を確認できません。Workflow SetupでComfyUIフォルダーを確認してください。 / Verify the VDN bundle in Workflow Setup before running.')
+    }
     if (dependencyCheck.missingAuth) {
       throw new Error(`Workflow ${workflowId} needs a Comfy partner API key or other setup before it can run.`)
     }
     if ((dependencyCheck.missingNodes || []).length > 0 || (dependencyCheck.missingModels || []).length > 0) {
       throw new Error(`Workflow ${workflowId} is missing dependencies. Open Workflow Setup to install the required nodes/models.`)
+    }
+    if ((dependencyCheck.missingNodePacks || []).length > 0 || (dependencyCheck.unresolvedNodePacks || []).length > 0) {
+      throw new Error(`Workflow ${workflowId} is missing a required custom-node add-on. Open Workflow Setup to install it, then restart ComfyUI.`)
     }
   }
 
@@ -1672,6 +2600,7 @@ async function runExecutableNode(document, node, options = {}) {
   let lastPromptId = null
 
   for (let runIndex = 0; runIndex < totalRuns; runIndex += 1) {
+    throwIfFlowInterrupted(options.signal)
     const runContext = {
       ...context,
       variantCount: 1,
@@ -1702,6 +2631,10 @@ async function runExecutableNode(document, node, options = {}) {
 }
 
 export async function runFlowGraph(document, options = {}) {
+  return generationMemory.withActivity(() => runFlowGraphImpl(document, options))
+}
+
+async function runFlowGraphImpl(document, options = {}) {
   const targetNodeId = options.targetNodeId || null
   const forceRunAll = Boolean(options.forceRunAll)
   const workingDocument = {
@@ -1738,7 +2671,23 @@ export async function runFlowGraph(document, options = {}) {
   }
 
   for (const node of orderedNodes) {
+    throwIfFlowInterrupted(options.signal)
     const liveNode = workingDocument.nodes.find((candidate) => candidate.id === node.id) || node
+    if (liveNode?.data?.muted === true) {
+      const passthrough = resolveMutedNodePassthrough(workingDocument, liveNode)
+      const passedCount = passthrough.outputAssetIds.length + (passthrough.outputText ? 1 : 0)
+      patchWorkingNode(node.id, {
+        status: 'idle',
+        statusMessage: passedCount > 0
+          ? 'Muted — passing the connected input through.'
+          : 'Muted — this node and its branch are ignored.',
+        error: '',
+        outputAssetIds: passthrough.outputAssetIds,
+        outputText: passthrough.outputText,
+        progress: 0,
+      })
+      continue
+    }
     if (liveNode?.data?.optionalStage === 'inpaint' && liveNode?.data?.enabled !== true) {
       const passthroughAsset = resolveConnectedAsset(workingDocument, liveNode, 'in:image', 'image')
       if (!passthroughAsset) {
@@ -1789,13 +2738,15 @@ export async function runFlowGraph(document, options = {}) {
         documentId: options.documentId,
         numberedRunFolderState,
         onNodePatch: patchWorkingNode,
+        signal: options.signal,
       })
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error || 'CANVAS run failed.')
+      const interrupted = error?.name === 'AbortError' || /interrupt/i.test(message)
       patchWorkingNode(node.id, {
-        status: 'error',
-        error: message,
-        statusMessage: '',
+        status: interrupted ? 'idle' : 'error',
+        error: interrupted ? '' : message,
+        statusMessage: interrupted ? 'Interrupted.' : '',
         progress: 0,
       })
       throw error

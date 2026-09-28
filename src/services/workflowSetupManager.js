@@ -4,7 +4,7 @@ import {
   OPEN_COMFY_TAB_EVENT,
   getWorkflowDisplayLabel,
 } from '../config/generateWorkspaceConfig'
-import { getModelInstallInfo, getNodeInstallInfo } from '../config/workflowInstallCatalog'
+import { getModelInstallInfo, getNodeInstallInfo, getNodePackInstallInfo } from '../config/workflowInstallCatalog'
 import { buildComfyGraphFromApiWorkflow } from './comfyWorkflowGraph'
 import { comfyui } from './comfyui'
 import { getLocalComfyConnectionSync } from './localComfyConnection'
@@ -116,7 +116,10 @@ function enrichMissingModel(model = {}) {
   return {
     ...model,
     install,
-    autoInstallable: Boolean(install.downloadUrl),
+    // Gated repositories require the user to accept the publisher's terms
+    // and download through an authorized Hugging Face account. Workflow
+    // Setup must not advertise an unauthenticated URL as a working install.
+    autoInstallable: Boolean(install.downloadUrl) && !install.requiresAccessApproval,
   }
 }
 
@@ -150,9 +153,16 @@ export function getWorkflowSetupWorkflows() {
 
 export function enrichWorkflowDependencyResult(checkResult) {
   const missingNodes = (checkResult?.missingNodes || []).map(enrichMissingNode)
+  const missingNodePacks = (checkResult?.missingNodePacks || []).map((entry) => ({
+    ...entry,
+    install: getNodePackInstallInfo(entry.id),
+  })).filter(entry => entry.install)
   const missingModels = (checkResult?.missingModels || []).map(enrichMissingModel)
   const autoNodePacks = uniqueBy(
-    missingNodes.filter((entry) => entry.autoInstallable).map((entry) => entry.install),
+    [
+      ...missingNodes.filter((entry) => entry.autoInstallable).map((entry) => entry.install),
+      ...missingNodePacks.map((entry) => entry.install),
+    ],
     (entry) => entry.id
   )
   const autoModels = missingModels.filter((entry) => entry.autoInstallable)
@@ -171,6 +181,7 @@ export function enrichWorkflowDependencyResult(checkResult) {
     ...checkResult,
     workflowLabel,
     missingNodes,
+    missingNodePacks,
     missingModels,
     autoNodePacks,
     autoModels,
@@ -276,6 +287,18 @@ export function buildWorkflowInstallPlan(results = [], selectedWorkflowIds = [])
   const authWorkflows = []
 
   for (const result of selectedResults) {
+    for (const pack of result.missingNodePacks || []) {
+      if (!pack.install) continue
+      const current = nodePackMap.get(pack.install.id) || {
+        ...pack.install,
+        workflowIds: [],
+        workflowLabels: [],
+        classTypes: [],
+      }
+      current.workflowIds.push(result.workflowId)
+      current.workflowLabels.push(result.workflowLabel)
+      nodePackMap.set(pack.install.id, current)
+    }
     for (const node of result.missingNodes || []) {
       if (node.autoInstallable) {
         const current = nodePackMap.get(node.install.id) || {
@@ -368,7 +391,9 @@ export function buildWorkflowInstallPlan(results = [], selectedWorkflowIds = [])
     authWorkflows,
     actionableTaskCount: nodePacks.length + models.length,
     hasActionableTasks: nodePacks.length + models.length > 0,
-    restartRecommended: nodePacks.length > 0,
+    // New model files do not appear in ComfyUI's object_info choices until
+    // the server reloads its model folders.
+    restartRecommended: nodePacks.length > 0 || models.length > 0,
   }
 }
 

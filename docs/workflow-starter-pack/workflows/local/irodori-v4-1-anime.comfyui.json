@@ -1,0 +1,75 @@
+{
+  "1": {
+    "inputs": {
+      "model": "irodori-tts-500m-v3.safetensors",
+      "model_device": "cuda",
+      "model_precision": "bf16",
+      "codec_device": "cpu",
+      "codec_precision": "fp32",
+      "enable_watermark": false,
+      "compile_model": false,
+      "compile_dynamic": false,
+      "runtime_cache_policy": "offload_after_use"
+    },
+    "class_type": "jupo.IrodoriTTS.ModelLoader",
+    "_meta": { "title": "IrodoriTTS Model Loader" }
+  },
+  "2": {
+    "inputs": {
+      "audio": "reference.wav",
+      "normalize_ref_audio": false,
+      "max_ref_seconds": 30
+    },
+    "class_type": "jupo.IrodoriTTS.ReferenceAudio",
+    "_meta": { "title": "IrodoriTTS Reference Audio" }
+  },
+  "3": {
+    "inputs": {
+      "cfg_guidance_mode": "independent",
+      "cfg_scale_text": 3,
+      "cfg_scale_speaker": 5,
+      "cfg_scale_caption": 3,
+      "cfg_scale_character": 3,
+      "cfg_scale_override": 0,
+      "cfg_min_t": 0.5,
+      "cfg_max_t": 1
+    },
+    "class_type": "jupo.IrodoriTTS.CFGConfig",
+    "_meta": { "title": "IrodoriTTS CFG Config" }
+  },
+  "6": {
+    "inputs": {
+      "caption": "大人の女性が、落ち着いた声で、穏やかにゆっくり話している。クリアな音質。",
+      "max_caption_len": 0
+    },
+    "class_type": "jupo.IrodoriTTS.VoiceDesignConfig",
+    "_meta": { "title": "IrodoriTTS VoiceDesign Config" }
+  },
+  "4": {
+    "inputs": {
+      "model_config": ["1", 0],
+      "ref_config": ["2", 0],
+      "cfg_config": ["3", 0],
+      "text": "😊こんにちは。参照音声の声で読み上げます。",
+      "seed": 1,
+      "seconds": 0,
+      "num_steps": 30,
+      "batch_size": 1,
+      "decode_mode": "sequential",
+      "context_kv_cache": true,
+      "max_text_len": 0,
+      "trim_tail": true
+    },
+    "class_type": "jupo.IrodoriTTS.Sampler",
+    "_meta": { "title": "IrodoriTTS Sampler" }
+  },
+  "5": {
+    "inputs": {
+      "audio": ["4", 0],
+      "filename_prefix": "audio/irodori_voice_clone",
+      "format": "flac"
+    },
+    "class_type": "SaveAudioAdvanced",
+    "_meta": { "title": "Save Audio (Advanced)" }
+  }
+}

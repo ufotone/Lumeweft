@@ -29,7 +29,7 @@ Per-shot LTX 2.3 music-video workflow with audio conditioning and lip-sync for D
   - No curated install recipe is available yet for this node class.
   - Docs: https://registry.comfy.org
 - `ImageResizeKJv2` - Auto-install supported
-  - Provides ImageResizeKJv2 and GetImagesFromBatchIndexed for bundled helper workflows.
+  - Provides image helpers and PathchSageAttentionKJ for H3 acceleration. SageAttention also needs a working sageattention Python package matching the ComfyUI GPU/PyTorch environment; KJNodes requirements do not install it.
   - Repo: https://github.com/kijai/ComfyUI-KJNodes
 - `LatentUpscaleModelLoader` - Built into newer ComfyUI builds
   - This loader is built into ComfyUI. Missing it usually means the install is outdated.
@@ -79,9 +79,9 @@ Per-shot LTX 2.3 music-video workflow with audio conditioning and lip-sync for D
 - `MelBandRoFormerSampler` - Manual setup
   - No curated install recipe is available yet for this node class.
   - Docs: https://registry.comfy.org
-- `PathchSageAttentionKJ` - Manual setup
-  - No curated install recipe is available yet for this node class.
-  - Docs: https://registry.comfy.org
+- `PathchSageAttentionKJ` - Auto-install supported
+  - Provides image helpers and PathchSageAttentionKJ for H3 acceleration. SageAttention also needs a working sageattention Python package matching the ComfyUI GPU/PyTorch environment; KJNodes requirements do not install it.
+  - Repo: https://github.com/kijai/ComfyUI-KJNodes
 - `Power Lora Loader (rgthree)` - Manual setup
   - No curated install recipe is available yet for this node class.
   - Docs: https://registry.comfy.org

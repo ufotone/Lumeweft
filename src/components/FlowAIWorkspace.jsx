@@ -26,6 +26,8 @@ import {
   ChevronRight,
   Copy,
   Download,
+  Eye,
+  EyeOff,
   ExternalLink,
   Film,
   FolderOpen,
@@ -49,10 +51,20 @@ import {
   X,
 } from 'lucide-react'
 import comfyui from '../services/comfyui'
+import ConfirmDialog from './ConfirmDialog'
+import LayerPaintDialog from './LayerPaintDialog'
+import useGenerationHistoryStore from '../stores/generationHistoryStore'
+import { createCanvasArchive, readCanvasArchive } from '../services/canvasWorkflowArchive.mjs'
+import { saveCanvasTextAsset } from '../services/canvasTextAssets.mjs'
+import { removeFlowAssetReferences, removeFlowProjectAssetReferences } from '../services/flowAiAssetReferences.mjs'
 import useProjectStore from '../stores/projectStore'
 import useAssetsStore from '../stores/assetsStore'
 import useViewportClampedPosition from '../hooks/useViewportClampedPosition'
+import useNsfwWorkflowVisibility from '../hooks/useNsfwWorkflowVisibility'
+import { ensureNsfwPrefix, isNsfwWorkflow } from '../services/nsfwWorkflowVisibility.mjs'
 import { checkWorkflowDependenciesBatch } from '../services/workflowDependencies'
+import { ORTENZYA_WORKFLOW_ID, ORTENZYA_MODEL_URL, cancelOrtenzyaGeneration } from '../services/ortenzyaCanvas.mjs'
+import { H3_PROMPT_MODES, H3_PROMPT_GUIDE } from '../services/h3PromptOptimizer.mjs'
 import {
   FLOW_AI_NODE_LIBRARY,
   FLOW_AI_NODE_TYPES,
@@ -69,6 +81,7 @@ import {
   getFlowNodeDefinition,
   getFlowNodeSupportsExecution,
   getFlowOutputDestinationLabel,
+  getFlowPromptLanguageLabel,
   getFlowTextWorkflowOptions,
   getFlowVideoWorkflowOptions,
   getFlowVideoUpscaleWorkflowOptions,
@@ -78,6 +91,7 @@ import {
   normalizeFlowAiProjectData,
   normalizeFlowImageVariantCount,
   parsePortType,
+  resolveFlowPromptLanguages,
 } from '../services/flowAiSchema'
 import {
   getTopazVideoUpscaleCreditsPerSecond,
@@ -92,8 +106,10 @@ import { getSpriteFramePosition } from '../services/thumbnailSprites'
 import { computeOutputNodeAssetIds, resolveFlowNodeText, runFlowGraph } from '../services/flowAiRuntime'
 import { formatCreditsPerSecond, formatCreditsRange } from '../utils/comfyCredits'
 import { canRevealAssetInFileManager, revealAssetInFileManager } from '../utils/revealInFileManager'
-import { getAbsoluteFileUrl, importAsset } from '../services/fileSystem'
+import { getAbsoluteFileUrl, getProjectFileUrl, importAsset } from '../services/fileSystem'
 import { getRecordedAbsolutePath, isAbsoluteRecordedPath } from '../services/assetRelinkFallback'
+import { getCharacterReferenceSheetLayout, getContainedImageRect } from '../services/characterReferenceSheet.mjs'
+import { readCharacterFile } from '../services/characterFile.mjs'
 import {
   chooseCivitaiAnimaDiffusionModel,
   chooseCivitaiLoraBaseCheckpoint,
@@ -150,9 +166,51 @@ const LORA_FACTORY_ROOT_SETTING_KEYS = Object.freeze({
   anima: 'animaLoraFactoryRootPath',
   sdxl: 'sdxlLoraFactoryRootPath',
 })
-const FLOW_ADVANCED_TEMPLATES = FLOW_AI_TEMPLATES.filter((template) => (
+const FLOW_TEMPLATE_CATEGORIES = Object.freeze([
+  { id: 'i2v', labelKey: 'canvas.templateCategories.i2v' },
+  { id: 't2v', labelKey: 'canvas.templateCategories.t2v' },
+  { id: 't2i', labelKey: 'canvas.templateCategories.t2i' },
+  { id: 'i2i', labelKey: 'canvas.templateCategories.i2i' },
+  { id: 'video-tools', labelKey: 'canvas.templateCategories.videoTools' },
+  { id: 'audio', labelKey: 'canvas.templateCategories.audio' },
+  { id: 'utility', labelKey: 'canvas.templateCategories.utility' },
+])
+const FLOW_PRESET_TEMPLATES = FLOW_AI_TEMPLATES.filter((template) => (
   FLOW_AI_TEMPLATE_INFO[template.id]?.presentation !== 'recipe'
 ))
+const FLOW_NEGATIVE_PROMPT_WORKFLOW_IDS = new Set([
+  'ainvfx-fluid',
+  'wan22-i2v',
+  'ltx23-i2v',
+  'ltx23-latentsync',
+])
+const FLOW_FIXED_FPS_WORKFLOW_IDS = new Set([
+  'vdn-h3-t2va',
+  'fast-minimax-h3-t2va',
+  'minimax-h3-gguf-i2v',
+  'minimax-h3-gguf-r2v',
+  'minimax-h3-character-actor',
+  'minimax-h3-character-swap',
+  'minimax-h3-pink-reference',
+  'minimax-h3-aftermidnight-r2v',
+  'minimax-h3-aftermidnight-3ref',
+  'minimax-h3-naughty-times',
+  'minimax-h3-nsfw-pink-bunny',
+  'minimax-h3-nsfw-motion-8step',
+])
+
+function getComfyInputChoices(response, classType, inputKey) {
+  const info = response?.[classType] || response
+  const spec = info?.input?.required?.[inputKey] || info?.input?.optional?.[inputKey]
+  const choices = Array.isArray(spec?.[0]) ? spec[0] : spec?.[1]?.options
+  return Array.isArray(choices) ? choices.map((value) => String(value)).filter(Boolean) : []
+}
+
+function includeCurrentChoice(choices, currentValue) {
+  const current = String(currentValue || '').trim()
+  if (!current || choices.includes(current)) return choices
+  return [current, ...choices]
+}
 
 function getComfyModelBasename(value = '') {
   return String(value || '').trim().split(/[\\/]/).pop() || ''
@@ -167,6 +225,8 @@ function getNodeIcon(nodeType) {
       return Type
     case FLOW_AI_NODE_TYPES.imageInput:
     case FLOW_AI_NODE_TYPES.styleReference:
+    case FLOW_AI_NODE_TYPES.characterInput:
+    case FLOW_AI_NODE_TYPES.characterBuilder:
       return ImageIcon
     case FLOW_AI_NODE_TYPES.imageGen:
       return Sparkles
@@ -176,6 +236,8 @@ function getNodeIcon(nodeType) {
       return ArrowUpDown
     case FLOW_AI_NODE_TYPES.musicGen:
       return Music
+    case FLOW_AI_NODE_TYPES.workflowControl:
+      return Settings2
     case FLOW_AI_NODE_TYPES.output:
       return Download
     default:
@@ -194,6 +256,7 @@ function shallowStringArrayEqual(left = [], right = []) {
 }
 
 function formatRuntimeLabel(workflowId = '') {
+  if (workflowId === ORTENZYA_WORKFLOW_ID) return 'Ortenzya Wordsmith 31B · Local LLM'
   const summary = getFlowWorkflowSummary(workflowId)
   if (!summary) return ''
   return `${summary.label} · ${summary.runtime === 'cloud' ? 'Cloud' : 'Local'}`
@@ -320,7 +383,7 @@ function getImageVariantInspectorNote(workflowId = '', variantCount = 1) {
 }
 
 const FLOW_NODE_PREVIEW_TYPES = Object.freeze(['image', 'video', 'audio'])
-const FLOW_NODE_PREVIEW_MAX_OUTPUT_ITEMS = 3
+const FLOW_NODE_PREVIEW_MAX_OUTPUT_ITEMS = 6
 const FLOW_NODE_PREVIEW_VISIBILITY_MARGIN_PX = 220
 const FLOW_NODE_PREVIEW_VIDEO_STEP_MS = 240
 const FLOW_NODE_PREVIEW_AUDIO_SAMPLE_COUNT = 160
@@ -410,8 +473,18 @@ function isFlowNodeRunnable(nodeType = '') {
 
 function doesFlowAssetInputAcceptAsset(node, asset) {
   if (!node || !asset) return false
+  const acceptedAssetTypes = Array.isArray(node?.data?.acceptedAssetTypes)
+    ? node.data.acceptedAssetTypes.map((type) => String(type || '').trim()).filter(Boolean)
+    : []
+  if (acceptedAssetTypes.length > 0) return acceptedAssetTypes.includes(asset.type)
+  if (node.type === FLOW_AI_NODE_TYPES.textInput) return asset.type === 'text'
+  if (node.type === FLOW_AI_NODE_TYPES.characterInput) return asset.type === 'character'
   if (node.type === FLOW_AI_NODE_TYPES.styleReference) return asset.type === 'image'
   if (node.type !== FLOW_AI_NODE_TYPES.imageInput) return false
+  if (node?.data?.assetRole === 'reference-audio') return asset.type === 'audio'
+  if (node?.data?.assetRole === 'reference-video') return asset.type === 'video'
+  if (node?.data?.assetRole === 'endpoint-video') return asset.type === 'video'
+  if (node?.data?.assetRole === 'fluid-keyframe') return asset.type === 'image'
   if (node?.data?.assetRole === 'mask') return asset.type === 'image' || asset.type === 'mask'
   return asset.type === 'image' || asset.type === 'video'
 }
@@ -621,12 +694,12 @@ function buildFlowPreviewPlaceholder(node) {
   switch (node?.type) {
     case FLOW_AI_NODE_TYPES.imageInput:
       return {
-        kind: 'image',
+        kind: node?.data?.assetRole === 'reference-audio' ? 'audio' : 'image',
         tone: 'neutral',
         title: 'No source asset yet',
         hint: 'Choose an image or video to feed this branch.',
         titleKey: 'canvas.preview.noSource',
-        hintKey: 'canvas.preview.noSourceHelp',
+        hintKey: node?.data?.assetRole === 'reference-audio' ? 'canvas.fastH3.chooseAudio' : 'canvas.preview.noSourceHelp',
       }
     case FLOW_AI_NODE_TYPES.styleReference:
       return {
@@ -688,24 +761,19 @@ function buildFlowPreviewPlaceholder(node) {
 }
 
 function buildOutputPreviewItems(assetIds = [], assetById = new Map()) {
-  const grouped = new Map()
+  const items = []
+  const seen = new Set()
   for (const assetId of assetIds || []) {
+    if (seen.has(assetId)) continue
+    seen.add(assetId)
     const asset = assetById.get(assetId)
     const kind = getFlowPreviewAssetKind(asset)
     if (!asset || !kind) continue
-    const existing = grouped.get(kind)
-    if (existing) {
-      existing.count += 1
-      continue
-    }
     const item = createFlowPreviewItem(asset, { count: 1 })
-    if (item) grouped.set(kind, item)
+    if (item) items.push(item)
+    if (items.length >= FLOW_NODE_PREVIEW_MAX_OUTPUT_ITEMS) break
   }
-
-  return FLOW_NODE_PREVIEW_TYPES
-    .map((kind) => grouped.get(kind))
-    .filter(Boolean)
-    .slice(0, FLOW_NODE_PREVIEW_MAX_OUTPUT_ITEMS)
+  return items
 }
 
 function buildFlowNodePreviewPayload(node, assetById = new Map()) {
@@ -735,11 +803,10 @@ function buildFlowNodePreviewPayload(node, assetById = new Map()) {
     || node.type === FLOW_AI_NODE_TYPES.musicGen
   ) {
     const outputAssetIds = Array.isArray(node?.data?.outputAssetIds) ? node.data.outputAssetIds : []
-    const firstAsset = outputAssetIds.map((assetId) => assetById.get(assetId)).find(Boolean)
-    const item = createFlowPreviewItem(firstAsset, { count: outputAssetIds.length })
+    const items = buildOutputPreviewItems(outputAssetIds, assetById)
     return {
-      items: item ? [item] : [],
-      placeholder: item ? null : buildFlowPreviewPlaceholder(node),
+      items,
+      placeholder: items.length > 0 ? null : buildFlowPreviewPlaceholder(node),
     }
   }
 
@@ -926,13 +993,13 @@ const FlowPreviewTile = memo(function FlowPreviewTile({ item, active, previewSte
     }`}>
       {item?.kind === 'image' && item?.url && (
         <>
+          <div className="absolute inset-0 bg-[linear-gradient(45deg,rgba(255,255,255,0.035)_25%,transparent_25%,transparent_75%,rgba(255,255,255,0.035)_75%),linear-gradient(45deg,rgba(255,255,255,0.035)_25%,transparent_25%,transparent_75%,rgba(255,255,255,0.035)_75%)] bg-[length:16px_16px] bg-[position:0_0,8px_8px]" />
           <img
             src={item.url}
             alt={item.label || itemKindLabel}
-            className="flow-ai-preview-drift h-full w-full object-cover"
-            style={{ animationPlayState: active ? 'running' : 'paused' }}
+            className="relative h-full w-full object-contain p-1"
           />
-          <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-transparent to-white/5" />
+          <div className="pointer-events-none absolute inset-0 bg-gradient-to-t from-black/65 via-transparent to-white/3" />
         </>
       )}
 
@@ -997,6 +1064,7 @@ const FlowNodePreview = memo(function FlowNodePreview({
   previewActive,
   previewStep,
   onActivate = null,
+  activateLabel = '',
 }) {
   const { t } = useI18n()
   if (type === FLOW_AI_NODE_TYPES.prompt) return null
@@ -1012,7 +1080,8 @@ const FlowNodePreview = memo(function FlowNodePreview({
             onMouseDown={(event) => event.stopPropagation()}
             onClick={onActivate}
             className="nodrag nopan block w-full rounded-xl text-left outline-none transition-shadow hover:ring-1 hover:ring-emerald-400/55 focus-visible:ring-2 focus-visible:ring-emerald-400"
-            aria-label={t('canvas.assets.chooseExisting')}
+            aria-label={activateLabel || t('canvas.assets.chooseExisting')}
+            title={activateLabel || undefined}
           >
             {placeholderContent}
           </button>
@@ -1021,9 +1090,9 @@ const FlowNodePreview = memo(function FlowNodePreview({
     )
   }
 
-  if (type === FLOW_AI_NODE_TYPES.output && previewItems.length > 1) {
+  if (previewItems.length > 1) {
     return (
-      <div className={`mt-3 grid gap-2 ${previewItems.length === 2 ? 'grid-cols-2' : 'grid-cols-3'}`}>
+      <div className="mt-3 grid grid-cols-2 gap-2">
         {previewItems.slice(0, FLOW_NODE_PREVIEW_MAX_OUTPUT_ITEMS).map((item) => (
           <FlowPreviewTile
             key={item.key}
@@ -1051,8 +1120,9 @@ const FlowNodePreview = memo(function FlowNodePreview({
           type="button"
           onMouseDown={(event) => event.stopPropagation()}
           onClick={onActivate}
-          className="nodrag nopan block w-full rounded-xl text-left outline-none transition-shadow hover:ring-1 hover:ring-emerald-400/55 focus-visible:ring-2 focus-visible:ring-emerald-400"
-          aria-label={t('canvas.assets.replaceExisting')}
+          className={`nodrag nopan block w-full rounded-xl text-left outline-none transition-shadow hover:ring-1 hover:ring-emerald-400/55 focus-visible:ring-2 focus-visible:ring-emerald-400 ${activateLabel ? 'cursor-zoom-in' : ''}`}
+          aria-label={activateLabel || t('canvas.assets.replaceExisting')}
+          title={activateLabel || undefined}
         >
           {previewContent}
         </button>
@@ -1202,13 +1272,39 @@ const FlowCanvasNode = memo(function FlowCanvasNode({ id, data, selected, type }
   const { t } = useI18n()
   const flowActions = useContext(FlowCanvasActionsContext)
   const [isPickingImage, setIsPickingImage] = useState(false)
+  const [isSavingPrompt, setIsSavingPrompt] = useState(false)
+  const [promptSaveMessage, setPromptSaveMessage] = useState('')
   const [isAssetMenuOpen, setIsAssetMenuOpen] = useState(false)
   const definition = getFlowNodeDefinition(type)
-  const Icon = getNodeIcon(type)
+  const isVideoOnlyInput = type === FLOW_AI_NODE_TYPES.imageInput
+    && ['reference-video', 'endpoint-video'].includes(data?.assetRole)
+  const displayNodeType = isVideoOnlyInput ? 'video-input' : type
+  const Icon = isVideoOnlyInput ? Film : getNodeIcon(type)
   const inputPorts = (definition?.inputs || []).filter((input) => (
-    input.id !== 'in:mask' || data?.optionalStage === 'inpaint'
+    (input.id !== 'in:mask' || data?.optionalStage === 'inpaint')
+    && (type !== FLOW_AI_NODE_TYPES.prompt || input.id !== 'in:control' || data?.acceptsPromptControls === true)
+    && (type !== FLOW_AI_NODE_TYPES.promptAssist || data?.workflowId !== 'jp-tag-assistant' || input.id === 'in:text')
+    && (type !== FLOW_AI_NODE_TYPES.imageGen
+      || (data?.workflowId === 'anima-lora-upscale'
+        ? ['in:text', 'in:negative-text', 'in:control'].includes(input.id)
+        : data?.workflowId === 'dark-beast-krea2-i2i'
+          ? ['in:image', 'in:text'].includes(input.id)
+        : !['in:negative-text', 'in:control'].includes(input.id)))
+    && (type !== FLOW_AI_NODE_TYPES.videoGen || (
+      data?.workflowId === 'vdn-h3-t2va' ? input.id === 'in:text' : data?.workflowId === 'fast-minimax-h3-t2va'
+        ? ['in:text', 'in:style', 'in:voice'].includes(input.id)
+        : data?.workflowId === 'minimax-h3-aftermidnight-3ref'
+          ? ['in:text', 'in:style'].includes(input.id)
+        : data?.workflowId === 'minimax-h3-character-actor'
+          ? ['in:text', 'in:character'].includes(input.id)
+        : ['minimax-h3-gguf-r2v', 'minimax-h3-character-swap', 'minimax-h3-pink-reference', 'minimax-h3-aftermidnight-r2v'].includes(data?.workflowId)
+          ? !['in:image', 'in:last-image', 'in:voice'].includes(input.id)
+          : data?.workflowId === 'ltx23-latentsync'
+            ? ['in:text', 'in:image', 'in:voice'].includes(input.id)
+          : !['in:video', 'in:style', 'in:voice'].includes(input.id)
+    ))
   ))
-  const outputPorts = definition?.outputs || []
+  const outputPorts = (definition?.outputs || []).filter((port) => (data?.assetRole !== 'fluid-keyframe' || port.type === 'image') && data?.assetRole === 'reference-audio' ? port.type === 'audio' : (type !== FLOW_AI_NODE_TYPES.imageInput || port.type !== 'audio') && (data?.assetRole !== 'reference-video' || port.type === 'video'))
   const inputCount = inputPorts.length
   const outputCount = outputPorts.length
   const statusLabel = buildNodeStatusSummary({ data })
@@ -1224,6 +1320,9 @@ const FlowCanvasNode = memo(function FlowCanvasNode({ id, data, selected, type }
   const imageVariantBadge = type === FLOW_AI_NODE_TYPES.imageGen
     ? getImageVariantBadge(data?.workflowId, data?.variantCount)
     : ''
+  const promptLanguages = type === FLOW_AI_NODE_TYPES.prompt && Array.isArray(data?._promptLanguages)
+    ? data._promptLanguages
+    : []
   const previewItems = Array.isArray(data?._previewItems) ? data._previewItems : []
   const previewPlaceholder = data?._previewPlaceholder || null
   const previewActive = Boolean(data?._previewAnimated)
@@ -1233,16 +1332,32 @@ const FlowCanvasNode = memo(function FlowCanvasNode({ id, data, selected, type }
       ? formatCreditsRange(data.estimatedCredits)
       : ''
   )
-  const isProjectAssetInput = type === FLOW_AI_NODE_TYPES.imageInput || type === FLOW_AI_NODE_TYPES.styleReference
+  const isProjectAssetInput = type === FLOW_AI_NODE_TYPES.imageInput || type === FLOW_AI_NODE_TYPES.styleReference || type === FLOW_AI_NODE_TYPES.characterInput
   const projectAssetOptions = type === FLOW_AI_NODE_TYPES.styleReference
     ? (flowActions?.styleAssetOptions || [])
+    : type === FLOW_AI_NODE_TYPES.characterInput
+      ? (flowActions?.characterAssetOptions || [])
     : data?.assetRole === 'mask'
       ? (flowActions?.maskAssetOptions || [])
-      : (flowActions?.imageInputAssetOptions || [])
+      : (data?.assetRole === 'reference-audio' ? flowActions?.audioInputAssetOptions || [] : flowActions?.imageInputAssetOptions || []).filter((asset) => doesFlowAssetInputAcceptAsset({ type, data }, asset))
   const handleToggleAssetMenu = useCallback((event) => {
     event?.stopPropagation?.()
     setIsAssetMenuOpen((current) => !current)
   }, [])
+  const imagePreviewAssetId = type === FLOW_AI_NODE_TYPES.imageInput
+    && previewItems.length === 1
+    && previewItems[0]?.kind === 'image'
+    ? previewItems[0].assetId
+    : ''
+  const handleActivatePreview = useCallback((event) => {
+    event?.stopPropagation?.()
+    if (imagePreviewAssetId && flowActions?.onOpenOriginalImage) {
+      setIsAssetMenuOpen(false)
+      flowActions.onOpenOriginalImage(imagePreviewAssetId)
+      return
+    }
+    handleToggleAssetMenu(event)
+  }, [flowActions, handleToggleAssetMenu, imagePreviewAssetId])
   const handleChooseProjectAsset = useCallback((event, assetId) => {
     event.stopPropagation()
     flowActions?.onChooseProjectAsset?.(id, assetId)
@@ -1264,10 +1379,15 @@ const FlowCanvasNode = memo(function FlowCanvasNode({ id, data, selected, type }
       setIsPickingImage(false)
     }
   }, [flowActions, id, isPickingImage])
+  const patchNodeData = useCallback((patch) => {
+    flowActions?.onUpdateNodeData?.(id, patch)
+  }, [flowActions, id])
+  const choices = flowActions?.animaChoices || { checkpoints: [], loras: [], upscalers: [], samplers: [], schedulers: [] }
+  const fieldClass = 'nodrag nopan w-full rounded-lg border border-sf-dark-700 bg-sf-dark-950 px-2 py-1.5 text-[11px] text-sf-text-primary outline-none'
 
   return (
     <div
-      className={`relative flex h-full w-full flex-col rounded-xl border bg-sf-dark-900/95 shadow-xl backdrop-blur-sm ${
+      className={`relative flex h-full w-full flex-col rounded-xl border bg-sf-dark-900/95 shadow-xl backdrop-blur-sm ${data?.muted === true ? 'opacity-60 saturate-50' : ''} ${
         selected
           ? 'border-sf-accent shadow-sf-accent/10'
           : isBusy
@@ -1341,10 +1461,12 @@ const FlowCanvasNode = memo(function FlowCanvasNode({ id, data, selected, type }
           <div className="min-w-0 flex-1">
             <div className="flex items-center gap-2">
               <div className="truncate text-sm font-semibold text-sf-text-primary">
-                {t(`canvas.nodes.${type}.label`, {}, data?.label || definition?.label || t('canvas.node'))}
+                {t(data?.labelKey || `canvas.nodes.${displayNodeType}.label`, {}, data?.label || definition?.label || t('canvas.node'))}
               </div>
               <div className={`rounded-full px-2 py-0.5 text-[10px] font-medium ${
-                data?.status === 'done'
+                data?.muted === true
+                  ? 'bg-amber-500/15 text-amber-300'
+                  : data?.status === 'done'
                   ? 'bg-emerald-500/15 text-emerald-300'
                   : data?.status === 'error'
                     ? 'bg-red-500/15 text-red-300'
@@ -1359,9 +1481,48 @@ const FlowCanvasNode = memo(function FlowCanvasNode({ id, data, selected, type }
                 )}
                 {statusLabel}
               </div>
+              {promptLanguages.map((language) => (
+                <span
+                  key={language}
+                  title={`Prompt language: ${getFlowPromptLanguageLabel(language)}`}
+                  className={`rounded-full border px-1.5 py-0.5 text-[9px] font-semibold tracking-wide ${
+                    language === 'JP'
+                      ? 'border-fuchsia-400/35 bg-fuchsia-400/10 text-fuchsia-200'
+                      : language === 'CH'
+                        ? 'border-amber-400/35 bg-amber-400/10 text-amber-200'
+                        : 'border-sky-400/35 bg-sky-400/10 text-sky-200'
+                  }`}
+                >
+                  {language}
+                </span>
+              ))}
+              <button
+                type="button"
+                aria-pressed={data?.muted === true}
+                aria-label={data?.muted === true ? t('canvas.actions.unmuteNode') : t('canvas.actions.muteNode')}
+                title={data?.muted === true ? t('canvas.actions.unmuteNodeHelp') : t('canvas.actions.muteNodeHelp')}
+                onMouseDown={(event) => event.stopPropagation()}
+                onClick={(event) => {
+                  event.stopPropagation()
+                  patchNodeData({
+                    muted: data?.muted !== true,
+                    status: 'idle',
+                    statusMessage: data?.muted === true ? '' : t('canvas.status.mutedHelp'),
+                    error: '',
+                    progress: 0,
+                  })
+                }}
+                className={`nodrag nopan ml-auto inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-lg border transition-colors ${
+                  data?.muted === true
+                    ? 'border-amber-400/50 bg-amber-400/15 text-amber-200'
+                    : 'border-sf-dark-700 bg-sf-dark-950/70 text-sf-text-muted hover:border-sf-dark-500 hover:text-sf-text-primary'
+                }`}
+              >
+                {data?.muted === true ? <EyeOff className="h-3.5 w-3.5" /> : <Eye className="h-3.5 w-3.5" />}
+              </button>
             </div>
             <div className="mt-1 text-[11px] text-sf-text-muted">
-              {workflowLabel || t(`canvas.nodes.${type}.description`, {}, definition?.description)}
+              {workflowLabel || t(`canvas.nodes.${displayNodeType}.description`, {}, definition?.description)}
             </div>
             {imageVariantBadge && (
               <div className="mt-2 inline-flex items-center rounded-full border border-sky-400/30 bg-sky-400/10 px-2 py-1 text-[10px] font-medium text-sky-300">
@@ -1369,14 +1530,15 @@ const FlowCanvasNode = memo(function FlowCanvasNode({ id, data, selected, type }
               </div>
             )}
 
-            <FlowNodePreview
+            {!(type === FLOW_AI_NODE_TYPES.imageGen && data?.workflowId === 'anima-lora-upscale') && <FlowNodePreview
               type={type}
               previewItems={previewItems}
               previewPlaceholder={previewPlaceholder}
               previewActive={previewActive}
               previewStep={previewStep}
-              onActivate={isProjectAssetInput ? handleToggleAssetMenu : null}
-            />
+              onActivate={isProjectAssetInput ? handleActivatePreview : null}
+              activateLabel={imagePreviewAssetId ? t('canvas.actions.openOriginalImage') : ''}
+            />}
             {isProjectAssetInput && isAssetMenuOpen && (
               <div
                 className="nodrag nopan mt-2 overflow-hidden rounded-xl border border-emerald-500/40 bg-sf-dark-950/95 shadow-xl"
@@ -1410,15 +1572,121 @@ const FlowCanvasNode = memo(function FlowCanvasNode({ id, data, selected, type }
           </div>
         </div>
 
-        {(type === FLOW_AI_NODE_TYPES.prompt || type === FLOW_AI_NODE_TYPES.musicGen || type === FLOW_AI_NODE_TYPES.promptAssist || type === FLOW_AI_NODE_TYPES.textViewer) && (
+        {type === FLOW_AI_NODE_TYPES.prompt && String(data?.promptRole || '').startsWith('anima-') && (
+          <textarea
+            rows={5}
+            value={data?.promptText || ''}
+            onMouseDown={(event) => event.stopPropagation()}
+            onChange={(event) => patchNodeData({ promptText: event.target.value })}
+            className="nodrag nopan mt-3 w-full resize-none rounded-lg border border-sf-dark-700 bg-sf-dark-950/70 px-3 py-2 text-[11px] leading-5 text-sf-text-secondary outline-none focus:border-fuchsia-400/50"
+          />
+        )}
+
+        {((type === FLOW_AI_NODE_TYPES.prompt && !String(data?.promptRole || '').startsWith('anima-')) || type === FLOW_AI_NODE_TYPES.musicGen || type === FLOW_AI_NODE_TYPES.promptAssist || type === FLOW_AI_NODE_TYPES.h3Optimizer || type === FLOW_AI_NODE_TYPES.textViewer || type === FLOW_AI_NODE_TYPES.textInput || type === FLOW_AI_NODE_TYPES.textOutput) && (
           <div className="mt-3 rounded-lg border border-sf-dark-700 bg-sf-dark-950/70 px-3 py-2 text-[11px] text-sf-text-secondary">
             {type === FLOW_AI_NODE_TYPES.prompt
-              ? (String(data?.promptText || '').trim() || t('canvas.nodeMessages.noPrompt'))
+              ? (String(data?.promptText || '').trim() || (data?.basePrompt ? t('canvas.nodeMessages.basePromptActive') : t('canvas.nodeMessages.noPrompt')))
               : type === FLOW_AI_NODE_TYPES.musicGen
-                ? (String(data?.tags || '').trim() || t('canvas.nodeMessages.noMusicTags'))
-                : type === FLOW_AI_NODE_TYPES.promptAssist
+                ? (data?.workflowId === 'irodori-tts'
+                  ? (String(data?.lyrics || '').trim() || t('canvas.nodeMessages.connectedDialogue'))
+                  : (String(data?.tags || '').trim() || t('canvas.nodeMessages.noMusicTags')))
+                : type === FLOW_AI_NODE_TYPES.promptAssist || type === FLOW_AI_NODE_TYPES.h3Optimizer
                   ? (String(data?.outputText || '').trim() || String(data?.inlinePrompt || '').trim() || t('canvas.nodeMessages.runForPrompt'))
                   : (String(data?._resolvedText || '').trim() || t('canvas.nodeMessages.connectText'))}
+          </div>
+        )}
+
+        {type === FLOW_AI_NODE_TYPES.workflowControl && (
+          <div className="nodrag nopan mt-3 space-y-2" onMouseDown={(event) => event.stopPropagation()}>
+            {data?.controlKind === 'checkpoint' && (
+              <select value={data?.checkpointName || ''} onFocus={() => flowActions?.onRefreshAnimaChoices?.()} onChange={(event) => patchNodeData({ checkpointName: event.target.value })} className={fieldClass}>
+                <option value="">Select checkpoint…</option>
+                {includeCurrentChoice(choices.checkpoints || [], data?.checkpointName).map((name) => <option key={name} value={name}>{name}</option>)}
+              </select>
+            )}
+            {data?.controlKind === 'image-size' && (
+              <div className="grid grid-cols-2 gap-2">
+                <label className="text-[10px] text-sf-text-muted">Width<input type="number" min="64" max="4096" step="8" value={data?.width ?? 768} onChange={(event) => patchNodeData({ width: Math.max(64, Math.min(4096, Number(event.target.value) || 768)) })} className={fieldClass} /></label>
+                <label className="text-[10px] text-sf-text-muted">Height<input type="number" min="64" max="4096" step="8" value={data?.height ?? 1280} onChange={(event) => patchNodeData({ height: Math.max(64, Math.min(4096, Number(event.target.value) || 1280)) })} className={fieldClass} /></label>
+              </div>
+            )}
+            {data?.controlKind === 'upscale' && (
+              <>
+                <label className="flex items-center gap-2 text-[11px] text-sf-text-secondary"><input type="checkbox" checked={Boolean(data?.upscaleEnabled)} onChange={(event) => patchNodeData({ upscaleEnabled: event.target.checked })} />Enable model upscale</label>
+                {data?.upscaleEnabled && <select value={data?.upscaleModel || ''} onFocus={() => flowActions?.onRefreshAnimaChoices?.()} onChange={(event) => patchNodeData({ upscaleModel: event.target.value })} className={fieldClass}><option value="">Select upscaler…</option>{includeCurrentChoice(choices.upscalers || [], data?.upscaleModel).map((name) => <option key={name} value={name}>{name}</option>)}</select>}
+              </>
+            )}
+            {data?.controlKind === 'transparent-png' && (
+              <div className="space-y-2 rounded-lg border border-sky-400/25 bg-sky-400/5 p-3">
+                <label className="flex items-center justify-between gap-3 text-[11px] font-medium text-sky-100">
+                  <span>透過PNG出力 / Transparent PNG</span>
+                  <input
+                    type="checkbox"
+                    checked={data?.transparentPng === true}
+                    onChange={(event) => patchNodeData({ transparentPng: event.target.checked })}
+                    className="h-4 w-4 accent-sky-400"
+                  />
+                </label>
+                <div className="text-[10px] leading-4 text-sf-text-muted">{data?.note}</div>
+                <div className="text-[9px] leading-4 text-sky-100/70">
+                  {data?.transparentPng === true ? 'ON: 実行時だけRGBA定型文を追加します。' : 'OFF: 入力したプロンプトをそのまま使います。'}
+                </div>
+              </div>
+            )}
+            {data?.controlKind === 'lora-stack' && Array.from({ length: 5 }, (_, index) => {
+              const loras = Array.isArray(data?.loras) ? data.loras : []
+              const slot = { enabled: false, name: '', strength: 1, ...(loras[index] || {}) }
+              const patchLora = (patch) => {
+                const next = Array.from({ length: 5 }, (__, slotIndex) => ({ enabled: false, name: '', strength: 1, ...(loras[slotIndex] || {}) }))
+                next[index] = { ...next[index], ...patch }
+                patchNodeData({ loras: next })
+              }
+              return <div key={index} className="grid grid-cols-[auto_1fr_4rem] items-center gap-1.5"><input type="checkbox" checked={Boolean(slot.enabled)} onChange={(event) => patchLora({ enabled: event.target.checked })} /><select value={slot.name || ''} onFocus={() => flowActions?.onRefreshAnimaChoices?.()} onChange={(event) => patchLora({ name: event.target.value })} className={fieldClass}><option value="">LoRA {index + 1}…</option>{includeCurrentChoice(choices.loras || [], slot.name).map((name) => <option key={name} value={name}>{name}</option>)}</select><input type="number" step="0.05" value={slot.strength ?? 1} onChange={(event) => patchLora({ strength: Number(event.target.value) || 0 })} className={fieldClass} /></div>
+            })}
+          </div>
+        )}
+
+        {type === FLOW_AI_NODE_TYPES.imageGen && data?.workflowId === 'anima-lora-upscale' && (
+          <div className="nodrag nopan mt-3 grid grid-cols-2 gap-2 rounded-lg border border-fuchsia-500/25 bg-fuchsia-500/5 p-2" onMouseDown={(event) => event.stopPropagation()}>
+            <label className="text-[10px] text-sf-text-muted">Steps<input type="number" min="1" max="100" value={data?.steps ?? 15} onChange={(event) => patchNodeData({ steps: Math.max(1, Math.min(100, Number(event.target.value) || 15)) })} className={fieldClass} /></label>
+            <label className="text-[10px] text-sf-text-muted">CFG<input type="number" min="0" max="100" step="0.1" value={data?.cfg ?? 5} onChange={(event) => patchNodeData({ cfg: Math.max(0, Math.min(100, Number(event.target.value))) })} className={fieldClass} /></label>
+            <label className="text-[10px] text-sf-text-muted">Seed<input type="number" value={data?.seed ?? 243} onChange={(event) => patchNodeData({ seed: Number(event.target.value) || 0 })} className={fieldClass} /></label>
+            <label className="text-[10px] text-sf-text-muted">Denoise<input type="number" min="0" max="1" step="0.01" value={data?.denoise ?? 1} onChange={(event) => patchNodeData({ denoise: Math.max(0, Math.min(1, Number(event.target.value))) })} className={fieldClass} /></label>
+            <label className="col-span-2 text-[10px] text-sf-text-muted">Sampler<select value={data?.samplerName || 'exponential/res_2s'} onFocus={() => flowActions?.onRefreshAnimaChoices?.()} onChange={(event) => patchNodeData({ samplerName: event.target.value })} className={fieldClass}>{includeCurrentChoice(choices.samplers || [], data?.samplerName || 'exponential/res_2s').map((name) => <option key={name} value={name}>{name}</option>)}</select></label>
+          </div>
+        )}
+
+        {type === FLOW_AI_NODE_TYPES.imageGen && data?.workflowId === 'dark-beast-krea2-i2i' && (
+          <div className="nodrag nopan mt-3 grid grid-cols-2 gap-2 rounded-lg border border-rose-500/25 bg-rose-500/5 p-2" onMouseDown={(event) => event.stopPropagation()}>
+            <label className="text-[10px] text-sf-text-muted">T2I Width<input type="number" min="256" max="4096" step="32" value={data?.width ?? 960} onChange={(event) => patchNodeData({ width: Math.max(256, Math.min(4096, Number(event.target.value) || 960)) })} className={fieldClass} /></label>
+            <label className="text-[10px] text-sf-text-muted">T2I Height<input type="number" min="256" max="4096" step="32" value={data?.height ?? 1440} onChange={(event) => patchNodeData({ height: Math.max(256, Math.min(4096, Number(event.target.value) || 1440)) })} className={fieldClass} /></label>
+            <label className="text-[10px] text-sf-text-muted">Steps<input type="number" min="1" max="100" value={data?.steps ?? 16} onChange={(event) => patchNodeData({ steps: Math.max(1, Math.min(100, Number(event.target.value) || 16)) })} className={fieldClass} /></label>
+            <label className="text-[10px] text-sf-text-muted">CFG<input type="number" min="0" max="100" step="0.1" value={data?.cfg ?? 1} onChange={(event) => patchNodeData({ cfg: Math.max(0, Math.min(100, Number(event.target.value))) })} className={fieldClass} /></label>
+            <label className="col-span-2 text-[10px] text-sf-text-muted">I2I Denoise / edit strength<input type="number" min="0" max="1" step="0.01" value={data?.denoise ?? 0.55} onChange={(event) => patchNodeData({ denoise: Math.max(0, Math.min(1, Number(event.target.value))) })} className={fieldClass} /></label>
+            <div className="col-span-2 text-[9px] leading-4 text-rose-100/75">No source: T2I size is used and denoise becomes 1. Source connected: its size and the I2I denoise are used.</div>
+          </div>
+        )}
+
+        {type === FLOW_AI_NODE_TYPES.imageGen && ['qwen-image-2-1-heretic', 'qwen-image-2-1-character-sheet'].includes(data?.workflowId) && (
+          <div className="nodrag nopan mt-3 grid grid-cols-2 gap-2 rounded-lg border border-sky-500/25 bg-sky-500/5 p-2" onMouseDown={(event) => event.stopPropagation()}>
+            <label className="text-[10px] text-sf-text-muted">Width<input type="number" min="256" max="4096" step="32" value={data?.width ?? (data?.workflowId === 'qwen-image-2-1-character-sheet' ? 2240 : 1024)} onChange={(event) => patchNodeData({ width: Math.max(256, Math.min(4096, Number(event.target.value) || (data?.workflowId === 'qwen-image-2-1-character-sheet' ? 2240 : 1024))) })} className={fieldClass} /></label>
+            <label className="text-[10px] text-sf-text-muted">Height<input type="number" min="256" max="4096" step="32" value={data?.height ?? (data?.workflowId === 'qwen-image-2-1-character-sheet' ? 1504 : 1024)} onChange={(event) => patchNodeData({ height: Math.max(256, Math.min(4096, Number(event.target.value) || (data?.workflowId === 'qwen-image-2-1-character-sheet' ? 1504 : 1024))) })} className={fieldClass} /></label>
+            <label className="text-[10px] text-sf-text-muted">Steps<input type="number" min="1" max="100" value={data?.steps ?? 25} onChange={(event) => patchNodeData({ steps: Math.max(1, Math.min(100, Number(event.target.value) || 25)) })} className={fieldClass} /></label>
+            <label className="text-[10px] text-sf-text-muted">CFG<input type="number" min="0" max="100" step="0.1" value={data?.cfg ?? 1} onChange={(event) => patchNodeData({ cfg: Math.max(0, Math.min(100, Number(event.target.value))) })} className={fieldClass} /></label>
+            <div className="col-span-2 text-[9px] leading-4 text-sky-100/75">
+              {data?.workflowId === 'qwen-image-2-1-character-sheet'
+                ? 'Source workflow baseline: 25 steps, CFG 1, res_2m / beta, approximately 3.4 MP in a 3:2 landscape layout.'
+                : 'Official baseline: 25 steps, CFG 1, Euler / Simple. Native 2K is supported; dimensions should be multiples of 32.'}
+            </div>
+          </div>
+        )}
+
+        {type === FLOW_AI_NODE_TYPES.imageGen && data?.workflowId === 'qwen-image-2-1-heretic-edit' && (
+          <div className="nodrag nopan mt-3 grid grid-cols-2 gap-2 rounded-lg border border-sky-500/25 bg-sky-500/5 p-2" onMouseDown={(event) => event.stopPropagation()}>
+            <label className="col-span-2 text-[10px] text-sf-text-muted">Resolution budget<input type="number" min="0" max="2048" step="32" value={data?.resolution ?? 1024} onChange={(event) => patchNodeData({ resolution: Math.max(0, Math.min(2048, Number(event.target.value) || 0)) })} className={fieldClass} /></label>
+            <label className="text-[10px] text-sf-text-muted">Steps<input type="number" min="1" max="100" value={data?.steps ?? 25} onChange={(event) => patchNodeData({ steps: Math.max(1, Math.min(100, Number(event.target.value) || 25)) })} className={fieldClass} /></label>
+            <label className="text-[10px] text-sf-text-muted">CFG<input type="number" min="0" max="100" step="0.1" value={data?.cfg ?? 1} onChange={(event) => patchNodeData({ cfg: Math.max(0, Math.min(100, Number(event.target.value))) })} className={fieldClass} /></label>
+            <div className="col-span-2 text-[9px] leading-4 text-sky-100/75">image_1 is the edit target. Resolution is a total pixel budget: 0 keeps the source canvas apart from the required multiple-of-32 alignment; 1024 is the official default and 2048 is the supported maximum.</div>
           </div>
         )}
 
@@ -1435,7 +1703,7 @@ const FlowCanvasNode = memo(function FlowCanvasNode({ id, data, selected, type }
               className="nodrag nopan inline-flex w-full items-center justify-center gap-2 rounded-lg border border-emerald-500/35 bg-emerald-500/10 px-3 py-2 text-xs font-medium text-emerald-200 transition-colors hover:border-emerald-400/60 hover:bg-emerald-500/15 disabled:cursor-wait disabled:opacity-60"
             >
               {isPickingImage ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <FolderOpen className="h-3.5 w-3.5" />}
-              {data?.assetId ? t('canvas.assets.replaceFile') : t('canvas.assets.chooseFile')}
+              {data?.assetRole === 'reference-audio' ? t('canvas.fastH3.chooseAudio') : isVideoOnlyInput ? t('canvas.h3Reference.chooseVideo') : data?.assetId ? t('canvas.assets.replaceFile') : t('canvas.assets.chooseFile')}
             </button>
             {data?.assetId && (
               <button
@@ -1540,6 +1808,35 @@ const FlowCanvasNode = memo(function FlowCanvasNode({ id, data, selected, type }
                 })}
               </div>
             )}
+          </div>
+        )}
+        {type === FLOW_AI_NODE_TYPES.prompt && (
+          <div className="mt-2 flex items-center justify-end gap-2 nodrag nopan">
+            <span role="status" className="text-[10px] text-sf-text-secondary">{promptSaveMessage}</span>
+            <button
+              type="button"
+              title="現在のプロンプトをTXT素材として保存"
+              aria-label="現在のプロンプトをTXT素材として保存"
+              disabled={isSavingPrompt || !String(data?.promptText || '').trim()}
+              onPointerDown={(event) => event.stopPropagation()}
+              onClick={async (event) => {
+                event.stopPropagation()
+                if (isSavingPrompt) return
+                setIsSavingPrompt(true)
+                setPromptSaveMessage('')
+                try {
+                  await flowActions.onSavePrompt(id, data?.promptText, data?.label)
+                  setPromptSaveMessage('TXT素材を保存しました')
+                } catch (error) {
+                  setPromptSaveMessage(error?.message || '保存に失敗しました')
+                } finally {
+                  setIsSavingPrompt(false)
+                }
+              }}
+              className="shrink-0 rounded p-1.5 text-sf-text-secondary hover:bg-sf-dark-700 hover:text-sf-accent disabled:opacity-40"
+            >
+              {isSavingPrompt ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
+            </button>
           </div>
         )}
       </div>
@@ -1678,6 +1975,10 @@ function LoraDatasetRecipeCanvas({
   onChooseExistingDataset,
   onLaunchFactory,
   onOpenFactorySettings,
+  referenceAsset,
+  isCreatingReference,
+  referenceError,
+  onCreateReference,
 }) {
   const { t } = useI18n()
   const sourceNode = nodes.find((node) => node?.data?.datasetRole === 'source')
@@ -2039,20 +2340,55 @@ function LoraDatasetRecipeCanvas({
                 )}
               </div>
               {resultAssets.length > 0 ? (
-                <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
-                  {resultAssets.slice(0, 8).map((asset) => (
-                    <button
-                      key={asset.id}
-                      type="button"
-                      onClick={() => onPreviewAsset(asset)}
-                      className="group overflow-hidden rounded-xl border border-sf-dark-700 bg-sf-dark-950 text-left hover:border-sky-400/50"
-                    >
-                      <div className="aspect-square overflow-hidden bg-sf-dark-900">
-                        {asset.url ? <img src={asset.url} alt="" className="h-full w-full object-contain transition-transform group-hover:scale-[1.02]" /> : null}
+                <div className="space-y-4">
+                  <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+                    {resultAssets.slice(0, 8).map((asset) => (
+                      <button
+                        key={asset.id}
+                        type="button"
+                        onClick={() => onPreviewAsset(asset)}
+                        className="group overflow-hidden rounded-xl border border-sf-dark-700 bg-sf-dark-950 text-left hover:border-sky-400/50"
+                      >
+                        <div className="aspect-square overflow-hidden bg-sf-dark-900">
+                          {asset.url ? <img src={asset.url} alt="" className="h-full w-full object-contain transition-transform group-hover:scale-[1.02]" /> : null}
+                        </div>
+                        <div className="truncate px-2.5 py-2 text-[10px] text-sf-text-secondary">{asset.name || asset.id}</div>
+                      </button>
+                    ))}
+                  </div>
+                  <div className="rounded-2xl border border-violet-400/30 bg-violet-400/8 p-4">
+                    <div className="flex flex-wrap items-center justify-between gap-3">
+                      <div>
+                        <div className="text-sm font-semibold text-sf-text-primary">{t('canvas.recipe.characterReference')}</div>
+                        <div className="mt-1 text-[11px] leading-5 text-sf-text-muted">{t('canvas.recipe.characterReferenceHelp')}</div>
                       </div>
-                      <div className="truncate px-2.5 py-2 text-[10px] text-sf-text-secondary">{asset.name || asset.id}</div>
-                    </button>
-                  ))}
+                      <button
+                        type="button"
+                        onClick={onCreateReference}
+                        disabled={isCreatingReference || resultAssets.length < 2}
+                        className="inline-flex items-center gap-2 rounded-xl border border-violet-300/35 bg-violet-400/10 px-3 py-2.5 text-xs font-medium text-violet-100 hover:border-violet-300/60 disabled:cursor-wait disabled:opacity-45"
+                      >
+                        {isCreatingReference ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <ImageIcon className="h-3.5 w-3.5" />}
+                        {referenceAsset ? t('canvas.recipe.rebuildCharacterReference') : t('canvas.recipe.createCharacterReference')}
+                      </button>
+                    </div>
+                    {referenceAsset && (
+                      <button
+                        type="button"
+                        onClick={() => onPreviewAsset(referenceAsset)}
+                        className="mt-3 flex w-full items-center gap-3 overflow-hidden rounded-xl border border-violet-300/25 bg-sf-dark-950/70 p-2 text-left hover:border-violet-300/50"
+                      >
+                        <div className="h-20 w-40 shrink-0 overflow-hidden rounded-lg bg-sf-dark-900">
+                          {referenceAsset.url ? <img src={referenceAsset.url} alt="" className="h-full w-full object-contain" /> : null}
+                        </div>
+                        <div className="min-w-0">
+                          <div className="truncate text-xs font-medium text-violet-100">{referenceAsset.name}</div>
+                          <div className="mt-1 text-[10px] text-sf-text-muted">{t('canvas.recipe.characterReferenceSaved')}</div>
+                        </div>
+                      </button>
+                    )}
+                    {referenceError && <div className="mt-3 text-[11px] text-red-200">{referenceError}</div>}
+                  </div>
                 </div>
               ) : (
                 <div className="rounded-2xl border border-dashed border-sf-dark-600 bg-sf-dark-950/45 px-5 py-8 text-center">
@@ -2078,8 +2414,10 @@ function renderWorkflowOptions(nodeType) {
   return []
 }
 
-export default function FlowAIWorkspace({ onOpenWorkflowSetup, onOpenSettings, onReloadWorkspace, templateRequest = null, recipeOnlyMode = false, onExitRecipe = null }) {
+export default function FlowAIWorkspace({ onOpenWorkflowSetup, onOpenSettings, onReloadWorkspace, templateRequest = null, recipeOnlyMode = false, onExitRecipe = null, canvasRestoreRequest = null, onCanvasRestoreConsumed }) {
+  const [paintRequest, setPaintRequest] = useState(null)
   const { t } = useI18n()
+  const showNsfwWorkflows = useNsfwWorkflowVisibility()
   const currentProject = useProjectStore((state) => state.currentProject)
   const currentProjectHandle = useProjectStore((state) => state.currentProjectHandle)
   const setFlowAiData = useProjectStore((state) => state.setFlowAiData)
@@ -2108,6 +2446,15 @@ export default function FlowAIWorkspace({ onOpenWorkflowSetup, onOpenSettings, o
 
   const [flowProjectData, setFlowProjectState] = useState(initialFlowState)
   const [activeDocumentId, setActiveDocumentId] = useState(initialFlowState.activeDocumentId)
+  const visiblePresetTemplates = useMemo(() => (
+    FLOW_PRESET_TEMPLATES.filter((template) => showNsfwWorkflows || !isNsfwWorkflow(template))
+  ), [showNsfwWorkflows])
+  const visibleFlowDocuments = useMemo(() => (
+    flowProjectData.documents.filter((document) => showNsfwWorkflows || !(
+      isNsfwWorkflow({ templateId: document.templateId })
+      || document.nodes?.some((node) => isNsfwWorkflow(node?.data))
+    ))
+  ), [flowProjectData.documents, showNsfwWorkflows])
   const activeDocument = useMemo(() => {
     return flowProjectData.documents.find((document) => document.id === activeDocumentId) || flowProjectData.documents[0]
   }, [activeDocumentId, flowProjectData])
@@ -2128,8 +2475,11 @@ export default function FlowAIWorkspace({ onOpenWorkflowSetup, onOpenSettings, o
   const [loraFactoryLaunchError, setLoraFactoryLaunchError] = useState(null)
   const [loraDatasetExportPath, setLoraDatasetExportPath] = useState('')
   const [loraDatasetStatus, setLoraDatasetStatus] = useState('none')
+  const [isCreatingCharacterReference, setIsCreatingCharacterReference] = useState(false)
+  const [characterReferenceError, setCharacterReferenceError] = useState('')
   const [nodeContextMenu, setNodeContextMenu] = useState(null)
   const [dependencyByWorkflow, setDependencyByWorkflow] = useState({})
+  const [animaChoices, setAnimaChoices] = useState({ checkpoints: [], loras: [], upscalers: [], samplers: [], schedulers: [], loading: false, error: '' })
   const [activeConnection, setActiveConnection] = useState(null)
   const [canvasBounds, setCanvasBounds] = useState({ width: 0, height: 0 })
   const [workspaceWidth, setWorkspaceWidth] = useState(0)
@@ -2141,12 +2491,30 @@ export default function FlowAIWorkspace({ onOpenWorkflowSetup, onOpenSettings, o
   const [isInspectorResizing, setIsInspectorResizing] = useState(false)
   const [isAssetBrowserOpen, setIsAssetBrowserOpen] = useState(true)
   const [isProcessConsoleOpen, setIsProcessConsoleOpen] = useState(true)
+
+  useEffect(() => {
+    if (visiblePresetTemplates.some((template) => template.id === selectedTemplateId)) return
+    setSelectedTemplateId(visiblePresetTemplates[0]?.id || 'blank')
+  }, [selectedTemplateId, visiblePresetTemplates])
+
+  useEffect(() => {
+    if (visibleFlowDocuments.some((document) => document.id === activeDocumentId)) return
+    const nextDocument = visibleFlowDocuments[0]
+    if (nextDocument) setActiveDocumentId(nextDocument.id)
+  }, [activeDocumentId, visibleFlowDocuments])
   const [processConsoleEntries, setProcessConsoleEntries] = useState([])
   const [isFactoryProcessRunning, setIsFactoryProcessRunning] = useState(false)
   const [assetBrowserFolderId, setAssetBrowserFolderId] = useState(null)
   const [assetBrowserSearch, setAssetBrowserSearch] = useState('')
   const [isRefreshingAssetBrowser, setIsRefreshingAssetBrowser] = useState(false)
   const [originalImageAsset, setOriginalImageAsset] = useState(null)
+  const [assetPendingDeletion, setAssetPendingDeletion] = useState(null)
+  const [isSavingFlow, setIsSavingFlow] = useState(false)
+  const savedFlowRecords = useGenerationHistoryStore((state) => state.records)
+  const flowFileInputRef = useRef(null)
+  const consumedCanvasRestoreRef = useRef(null)
+  const consumedTemplateRequestRef = useRef(null)
+  const documentBeforeTemplateRequestRef = useRef(null)
   const [recipeAssetTargetNodeId, setRecipeAssetTargetNodeId] = useState('')
   const hydratedProjectKeyRef = useRef(null)
   const lastPersistedSnapshotRef = useRef('')
@@ -2161,6 +2529,7 @@ export default function FlowAIWorkspace({ onOpenWorkflowSetup, onOpenSettings, o
   const processConsoleEndRef = useRef(null)
   const processConsoleSequenceRef = useRef(0)
   const lastNodeConsoleStatusRef = useRef(new Map())
+  const activeFlowAbortControllerRef = useRef(null)
   const effectiveInspectorWidth = useMemo(
     () => clampFlowInspectorWidth(inspectorWidth, workspaceWidth),
     [inspectorWidth, workspaceWidth]
@@ -2500,6 +2869,33 @@ export default function FlowAIWorkspace({ onOpenWorkflowSetup, onOpenSettings, o
     () => nodes.find((node) => node.id === selectedNodeId) || null,
     [nodes, selectedNodeId]
   )
+  const refreshAnimaChoices = useCallback(async () => {
+    setAnimaChoices((current) => ({ ...current, loading: true, error: '' }))
+    try {
+      const [checkpointInfo, loraInfo, upscaleInfo, samplerInfo] = await Promise.all([
+        comfyui.getObjectInfo('CheckpointLoaderSimple'),
+        comfyui.getObjectInfo('LoraLoader'),
+        comfyui.getObjectInfo('UpscaleModelLoader'),
+        comfyui.getObjectInfo('ClownsharKSampler_Beta'),
+      ])
+      setAnimaChoices({
+        checkpoints: getComfyInputChoices(checkpointInfo, 'CheckpointLoaderSimple', 'ckpt_name'),
+        loras: getComfyInputChoices(loraInfo, 'LoraLoader', 'lora_name'),
+        upscalers: getComfyInputChoices(upscaleInfo, 'UpscaleModelLoader', 'model_name'),
+        samplers: getComfyInputChoices(samplerInfo, 'ClownsharKSampler_Beta', 'sampler_name'),
+        schedulers: getComfyInputChoices(samplerInfo, 'ClownsharKSampler_Beta', 'scheduler'),
+        loading: false,
+        error: '',
+      })
+    } catch (error) {
+      setAnimaChoices((current) => ({ ...current, loading: false, error: error?.message || 'Could not read ComfyUI model choices.' }))
+    }
+  }, [])
+
+  useEffect(() => {
+    if (selectedNode?.data?.workflowId !== 'anima-lora-upscale' && selectedNode?.type !== FLOW_AI_NODE_TYPES.workflowControl) return
+    void refreshAnimaChoices()
+  }, [refreshAnimaChoices, selectedNode?.data?.workflowId])
   const selectedNodeIds = useMemo(
     () => nodes.filter((node) => node.selected).map((node) => node.id),
     [nodes]
@@ -2656,7 +3052,7 @@ export default function FlowAIWorkspace({ onOpenWorkflowSetup, onOpenSettings, o
       const previewPayload = buildFlowNodePreviewPayload(node, assetById)
       const previewAnimated = isPageVisible && isFlowNodePreviewVisible(node, viewport, canvasBounds)
       const hasAnimatedVideoPreview = (previewPayload.items || []).some((item) => item.kind === 'video' && item?.sprite?.url)
-      const resolvedText = node.type === FLOW_AI_NODE_TYPES.textViewer
+      const resolvedText = [FLOW_AI_NODE_TYPES.textViewer, FLOW_AI_NODE_TYPES.textInput, FLOW_AI_NODE_TYPES.textOutput].includes(node.type)
         ? resolveFlowNodeText(flowTextDocument, node)
         : ''
       return {
@@ -2670,6 +3066,9 @@ export default function FlowAIWorkspace({ onOpenWorkflowSetup, onOpenSettings, o
           _previewAnimated: previewAnimated,
           _previewStep: previewAnimated && hasAnimatedVideoPreview ? previewStep : 0,
           _resolvedText: resolvedText,
+          _promptLanguages: node.type === FLOW_AI_NODE_TYPES.prompt
+            ? resolveFlowPromptLanguages(flowTextDocument, node)
+            : undefined,
         },
       }
     })
@@ -2743,18 +3142,29 @@ export default function FlowAIWorkspace({ onOpenWorkflowSetup, onOpenSettings, o
         .map((node) => node.id)
     )
   }, [nodes])
+  const animatedSourceNodeIds = useMemo(() => {
+    return new Set(
+      nodes
+        .filter((node) => (
+          node?.data?.muted !== true
+          || (Array.isArray(node?.data?.outputAssetIds) && node.data.outputAssetIds.length > 0)
+          || Boolean(String(node?.data?.outputText || '').trim())
+        ))
+        .map((node) => node.id)
+    )
+  }, [nodes])
   const displayEdges = useMemo(() => {
     return edges.map((edge) => ({
       ...edge,
       type: 'flow-canvas',
       data: {
         ...(edge.data || {}),
-        isActive: activeTargetNodeIds.has(edge.target),
+        isActive: activeTargetNodeIds.has(edge.target) && animatedSourceNodeIds.has(edge.source),
         onDisconnect: handleDisconnectEdge,
         portType: parsePortType(edge.targetHandle || edge.sourceHandle),
       },
     }))
-  }, [activeTargetNodeIds, edges, handleDisconnectEdge])
+  }, [activeTargetNodeIds, animatedSourceNodeIds, edges, handleDisconnectEdge])
 
   const selectableAssets = useMemo(() => {
     return assets.map((asset) => ({
@@ -2769,6 +3179,8 @@ export default function FlowAIWorkspace({ onOpenWorkflowSetup, onOpenSettings, o
     () => selectableAssets.filter((entry) => entry.type === 'image' || entry.type === 'video'),
     [selectableAssets]
   )
+  const audioInputAssets = useMemo(() => selectableAssets.filter(entry => entry.type === 'audio'), [selectableAssets])
+  const characterAssets = useMemo(() => selectableAssets.filter(entry => entry.type === 'character'), [selectableAssets])
   const styleAssets = useMemo(
     () => selectableAssets.filter((entry) => entry.type === 'image'),
     [selectableAssets]
@@ -2809,8 +3221,10 @@ export default function FlowAIWorkspace({ onOpenWorkflowSetup, onOpenSettings, o
     return Array.from(new Set(
       nodes
         .filter((node) => getFlowNodeSupportsExecution(node.type))
+        .filter((node) => node?.data?.muted !== true)
         .filter((node) => !(node?.data?.optionalStage === 'inpaint' && node?.data?.enabled !== true))
         .map((node) => String(node?.data?.workflowId || '').trim())
+        .filter((id) => id !== ORTENZYA_WORKFLOW_ID)
         .filter(Boolean)
     ))
   }, [nodes])
@@ -2995,44 +3409,63 @@ export default function FlowAIWorkspace({ onOpenWorkflowSetup, onOpenSettings, o
       return null
     }
 
+    const targetNode = nodes.find((node) => node.id === nodeId)
+    const characterOnly = targetNode?.type === FLOW_AI_NODE_TYPES.characterInput
+    const audioOnly = targetNode?.data?.assetRole === 'reference-audio'
+    const videoOnly = ['reference-video', 'endpoint-video'].includes(targetNode?.data?.assetRole)
     const sourcePath = await electron.selectFile({
-      title: t('canvas.assets.chooseSourceImage'),
-      filters: [
-        { name: 'Image Files', extensions: ['png', 'jpg', 'jpeg', 'webp', 'gif'] },
-        { name: 'All Files', extensions: ['*'] },
-      ],
+      title: t(audioOnly ? 'canvas.fastH3.chooseAudio' : videoOnly ? 'canvas.h3Reference.chooseVideo' : 'canvas.assets.chooseSourceImage'),
+      filters: characterOnly
+        ? [{ name: 'Character Files', extensions: ['char'] }]
+        : audioOnly
+        ? [{ name: 'Audio Files', extensions: ['wav', 'mp3', 'flac', 'ogg', 'm4a', 'aac'] }]
+        : videoOnly
+          ? [{ name: 'Video Files', extensions: ['mp4', 'mov', 'webm', 'mkv', 'avi'] }]
+          : [
+            { name: 'Image Files', extensions: ['png', 'jpg', 'jpeg', 'webp', 'gif'] },
+            { name: 'All Files', extensions: ['*'] },
+          ],
     })
     if (!sourcePath) return null
+    if (videoOnly && !/\.(mp4|mov|webm|mkv|avi)$/i.test(sourcePath)) {
+      setRunNotice(t('canvas.h3Reference.videoOnly'))
+      return null
+    }
 
     try {
-      const assetInfo = await importAsset(currentProjectHandle, sourcePath, 'images')
+      const assetInfo = await importAsset(currentProjectHandle, sourcePath, characterOnly ? 'characters' : audioOnly ? 'audio' : videoOnly ? 'video' : 'images')
       const url = assetInfo?.absolutePath
         ? await getAbsoluteFileUrl(assetInfo.absolutePath)
         : ''
+      const character = characterOnly
+        ? await fetch(url).then(response => response.arrayBuffer()).then(readCharacterFile)
+        : null
       const newAsset = addAsset({
         ...assetInfo,
+        ...(characterOnly ? { type: 'character', mimeType: 'application/x-inline-character' } : {}),
         url,
         settings: {
           duration: assetInfo.duration,
           fps: assetInfo.fps,
+          ...(characterOnly ? { characterFile: true, format: 'INLINECHAR', formatVersion: 1, referenceCount: character.references.length } : {}),
         },
       })
       updateNodeData(nodeId, {
         assetId: newAsset.id,
         assetLabel: newAsset.name || assetInfo.name || 'Source image',
         status: 'idle',
-        statusMessage: 'Source image loaded. Run the next node to generate the camera angles.',
+        statusMessage: audioOnly ? t('canvas.fastH3.audioLoaded') : videoOnly ? t('canvas.h3Reference.videoLoaded') : 'Source image loaded. Run the next node to generate the camera angles.',
         error: '',
       })
       setPreview(newAsset)
-      setRunNotice(t('canvas.status.imageLoaded', { name: newAsset.name || t('canvas.assets.sourceImage') }))
+      setRunNotice(audioOnly ? t('canvas.fastH3.audioLoaded') : videoOnly ? t('canvas.h3Reference.videoLoaded') : t('canvas.status.imageLoaded', { name: newAsset.name || t('canvas.assets.sourceImage') }))
       return newAsset
     } catch (error) {
       console.error('Failed to load CANVAS source image:', error)
       setRunNotice(error?.message || t('canvas.status.imageLoadFailed'))
       return null
     }
-  }, [addAsset, currentProjectHandle, setPreview, updateNodeData])
+  }, [addAsset, currentProjectHandle, nodes, setPreview, t, updateNodeData])
 
   const handleChooseNodeProjectAsset = useCallback((nodeId, assetId) => {
     const node = nodes.find((entry) => entry.id === nodeId)
@@ -3055,7 +3488,7 @@ export default function FlowAIWorkspace({ onOpenWorkflowSetup, onOpenSettings, o
 
   const handleClearNodeProjectAsset = useCallback((nodeId) => {
     const node = nodes.find((entry) => entry.id === nodeId)
-    if (!node || (node.type !== FLOW_AI_NODE_TYPES.imageInput && node.type !== FLOW_AI_NODE_TYPES.styleReference)) {
+    if (!node || ![FLOW_AI_NODE_TYPES.imageInput, FLOW_AI_NODE_TYPES.styleReference, FLOW_AI_NODE_TYPES.characterInput].includes(node.type)) {
       return false
     }
     const clearedAssetId = String(node?.data?.assetId || '').trim()
@@ -3172,15 +3605,51 @@ export default function FlowAIWorkspace({ onOpenWorkflowSetup, onOpenSettings, o
     }
   }, [assets, currentProjectHandle, isRefreshingAssetBrowser, removeAsset, setNodes])
 
+  const handleSavePrompt = useCallback(async (nodeId, text, label) => {
+    return saveCanvasTextAsset({
+      text,
+      name: label || 'Prompt',
+      folderName: 'Prompts',
+      projectHandle: useProjectStore.getState().currentProjectHandle,
+      documentId: activeDocumentId,
+      nodeId,
+      importAsset,
+      addAsset: useAssetsStore.getState().addAsset,
+      ensureFolder: (segments) => {
+        let parentId = null
+        for (const name of segments) {
+          const state = useAssetsStore.getState()
+          const folder = state.folders.find((item) => item.parentId === parentId && item.name === name)
+            || state.addFolder({ name, parentId })
+          parentId = folder.id
+        }
+        return parentId
+      },
+    })
+  }, [activeDocumentId])
+
+  const handleOpenOriginalImage = useCallback((assetId) => {
+    const asset = assetById.get(assetId)
+    if (!asset?.url || !['image', 'mask'].includes(asset.type)) return
+    setOriginalImageAsset(asset)
+  }, [assetById])
+
   const flowCanvasActions = useMemo(() => ({
+    onSavePrompt: handleSavePrompt,
     onResizeStart: handleFlowNodeResizeStart,
     onPickImage: handlePickNodeImage,
     onChooseProjectAsset: handleChooseNodeProjectAsset,
     onClearProjectAsset: handleClearNodeProjectAsset,
+    onOpenOriginalImage: handleOpenOriginalImage,
     imageInputAssetOptions: imageInputAssets,
+    audioInputAssetOptions: audioInputAssets,
+    characterAssetOptions: characterAssets,
     styleAssetOptions: styleAssets,
     maskAssetOptions: maskAssets,
-  }), [handleChooseNodeProjectAsset, handleClearNodeProjectAsset, handleFlowNodeResizeStart, handlePickNodeImage, imageInputAssets, maskAssets, styleAssets])
+    onUpdateNodeData: updateNodeData,
+    animaChoices,
+    onRefreshAnimaChoices: refreshAnimaChoices,
+  }), [handleSavePrompt, animaChoices, handleChooseNodeProjectAsset, handleClearNodeProjectAsset, handleFlowNodeResizeStart, handleOpenOriginalImage, handlePickNodeImage, imageInputAssets, audioInputAssets, characterAssets, maskAssets, refreshAnimaChoices, styleAssets, updateNodeData])
 
   const handleConnect = useCallback((connection) => {
     if (!isValidFlowConnection(connection)) return
@@ -3410,6 +3879,33 @@ export default function FlowAIWorkspace({ onOpenWorkflowSetup, onOpenSettings, o
     setActiveDocumentId(nextActive.id)
   }, [activeDocument, flowProjectData.documents])
 
+  const handleDeleteBrowserAsset = async () => {
+    if (!assetPendingDeletion) return
+    const id = assetPendingDeletion.id
+    const deletedAssetName = assetPendingDeletion.name || id
+    const nextNodes = removeFlowAssetReferences(nodes, id)
+    const nextFlowProjectData = removeFlowProjectAssetReferences(
+      flowProjectData,
+      id,
+      activeDocumentId,
+      nodes
+    )
+
+    setAssetPendingDeletion(null)
+    setNodes(nextNodes)
+    setFlowProjectState(nextFlowProjectData)
+    setFlowAiData(nextFlowProjectData)
+    removeAsset(id)
+    if (currentPreviewAsset?.id === id) setPreview(null)
+    setOriginalImageAsset((current) => current?.id === id ? null : current)
+    setRunNotice(`素材「${deletedAssetName}」を削除しました。`)
+
+    const saved = await saveProject()
+    if (!saved) {
+      setRunNotice(`素材「${deletedAssetName}」は削除されましたが、プロジェクトの保存に失敗しました。`)
+    }
+  }
+
   const handleOpenInformationSource = useCallback(async () => {
     if (!informationDetails?.repositoryUrl) return
     await window?.electronAPI?.openExternalUrl?.(informationDetails.repositoryUrl)
@@ -3528,12 +4024,26 @@ export default function FlowAIWorkspace({ onOpenWorkflowSetup, onOpenSettings, o
   useEffect(() => {
     const requestId = String(templateRequest?.requestId || '').trim()
     const templateId = String(templateRequest?.templateId || '').trim()
-    if (!requestId || !FLOW_AI_TEMPLATES.some((template) => template.id === templateId)) return
+    if (!requestId) {
+      const previousDocumentId = String(documentBeforeTemplateRequestRef.current || '').trim()
+      if (previousDocumentId && flowProjectData.documents.some((document) => document.id === previousDocumentId)) {
+        setActiveDocumentId(previousDocumentId)
+      }
+      documentBeforeTemplateRequestRef.current = null
+      consumedTemplateRequestRef.current = null
+      return
+    }
+    if (!FLOW_AI_TEMPLATES.some((template) => template.id === templateId)) return
+    if (consumedTemplateRequestRef.current === requestId) return
+    consumedTemplateRequestRef.current = requestId
+    if (!documentBeforeTemplateRequestRef.current) {
+      documentBeforeTemplateRequestRef.current = activeDocumentId
+    }
     setSelectedTemplateId(templateId)
     const existingDocument = [...flowProjectData.documents].reverse().find((document) => document.templateId === templateId)
     if (existingDocument) setActiveDocumentId(existingDocument.id)
     else handleCreateDocument(templateId)
-  }, [flowProjectData.documents, handleCreateDocument, templateRequest])
+  }, [activeDocumentId, flowProjectData.documents, handleCreateDocument, templateRequest])
 
   const handleLaunchInstalledFactory = useCallback(async (documentOverride = null, launchOptions = {}) => {
     const factoryDocument = documentOverride || informationDocument
@@ -3716,6 +4226,109 @@ export default function FlowAIWorkspace({ onOpenWorkflowSetup, onOpenSettings, o
     }
   }, [appendProcessConsole, currentProjectHandle])
 
+  const createCharacterReferenceFromAssets = useCallback(async ({ assetIds = [], documentSnapshot = activeDocument } = {}) => {
+    if (!currentProjectHandle || isCreatingCharacterReference) return null
+    const currentAssets = useAssetsStore.getState().assets || []
+    const currentAssetById = new Map(currentAssets.map((asset) => [asset.id, asset]))
+    const imageAssets = [...new Set(assetIds)]
+      .map((assetId) => currentAssetById.get(assetId))
+      .filter((asset) => asset?.type === 'image')
+      .slice(0, 8)
+    if (imageAssets.length < 2) {
+      const message = t('canvas.recipe.characterReferenceNeedsViews')
+      setCharacterReferenceError(message)
+      setRunNotice(message)
+      return null
+    }
+
+    setIsCreatingCharacterReference(true)
+    setCharacterReferenceError('')
+    appendProcessConsole({ source: 'Character reference', message: `Combining ${imageAssets.length} views into one reference image…` })
+    try {
+      const resolveAssetUrl = async (asset) => {
+        if (asset?.url) return asset.url
+        const recordedPath = getRecordedAbsolutePath(asset)
+        if (recordedPath && isAbsoluteRecordedPath(recordedPath)) return getAbsoluteFileUrl(recordedPath)
+        if (recordedPath) return getProjectFileUrl(currentProjectHandle, recordedPath)
+        return null
+      }
+      const loadImage = (src) => new Promise((resolve, reject) => {
+        const image = new Image()
+        image.onload = () => resolve(image)
+        image.onerror = () => reject(new Error(t('canvas.recipe.characterReferenceLoadFailed')))
+        image.src = src
+      })
+      const urls = (await Promise.all(imageAssets.map(resolveAssetUrl))).filter(Boolean)
+      if (urls.length < 2) throw new Error(t('canvas.recipe.characterReferenceLoadFailed'))
+      const images = await Promise.all(urls.map(loadImage))
+      const layout = getCharacterReferenceSheetLayout(images.length)
+      const canvas = window.document.createElement('canvas')
+      canvas.width = layout.width
+      canvas.height = layout.height
+      const context = canvas.getContext('2d')
+      if (!context) throw new Error(t('canvas.recipe.characterReferenceCanvasFailed'))
+      context.fillStyle = '#f3f2ef'
+      context.fillRect(0, 0, canvas.width, canvas.height)
+      context.strokeStyle = 'rgba(24, 24, 27, 0.14)'
+      context.lineWidth = 2
+      images.forEach((image, index) => {
+        const column = index % layout.columns
+        const row = Math.floor(index / layout.columns)
+        const cellX = column * layout.cellSize
+        const cellY = row * layout.cellSize
+        const rect = getContainedImageRect(image.naturalWidth || image.width, image.naturalHeight || image.height, cellX, cellY, layout.cellSize)
+        context.drawImage(image, rect.x, rect.y, rect.width, rect.height)
+        context.strokeRect(cellX + 1, cellY + 1, layout.cellSize - 2, layout.cellSize - 2)
+      })
+      const blob = await new Promise((resolve, reject) => {
+        canvas.toBlob((value) => value ? resolve(value) : reject(new Error(t('canvas.recipe.characterReferenceCanvasFailed'))), 'image/png')
+      })
+      const factoryToken = documentSnapshot?.templateId === 'sdxl-lora-dataset' ? 'sdxl' : 'anima'
+      const stamp = new Date().toISOString().replace(/[:.]/g, '-')
+      const fileName = `${factoryToken}_character_reference_${stamp}.png`
+      const file = new File([blob], fileName, { type: 'image/png' })
+      const assetInfo = await importAsset(currentProjectHandle, file, 'images')
+      const newAsset = addAsset({
+        name: fileName,
+        type: 'image',
+        path: assetInfo.path,
+        url: URL.createObjectURL(file),
+        width: layout.width,
+        height: layout.height,
+        metadata: {
+          kind: 'character-reference-sheet',
+          sourceAssetIds: imageAssets.map((asset) => asset.id),
+          factoryType: factoryToken,
+        },
+      })
+      if (!newAsset) throw new Error(t('canvas.recipe.characterReferenceSaveFailed'))
+      const angleNode = (documentSnapshot?.nodes || nodes).find((node) => node?.data?.workflowId === 'multi-angles')
+      if (angleNode) updateNodeData(angleNode.id, { characterReferenceAssetId: newAsset.id }, { recordHistory: false })
+      await saveProject?.()
+      if (!characterOnly) setPreview(newAsset)
+      setRunNotice(t('canvas.recipe.characterReferenceReady'))
+      appendProcessConsole({ source: 'Character reference', level: 'success', message: `Created ${fileName} from ${images.length} views.` })
+      return newAsset
+    } catch (error) {
+      const message = error?.message || t('canvas.recipe.characterReferenceSaveFailed')
+      setCharacterReferenceError(message)
+      appendProcessConsole({ source: 'Character reference', level: 'error', message })
+      return null
+    } finally {
+      setIsCreatingCharacterReference(false)
+    }
+  }, [activeDocument, addAsset, appendProcessConsole, currentProjectHandle, isCreatingCharacterReference, nodes, saveProject, setPreview, t, updateNodeData])
+
+  const handleCreateCharacterReference = useCallback(async () => {
+    const angleNode = nodes.find((node) => node?.data?.workflowId === 'multi-angles')
+    const outputNode = nodes.find((node) => node.type === FLOW_AI_NODE_TYPES.output)
+    const assetIds = [
+      ...(Array.isArray(angleNode?.data?.outputAssetIds) ? angleNode.data.outputAssetIds : []),
+      ...(Array.isArray(outputNode?.data?.resolvedAssetIds) ? outputNode.data.resolvedAssetIds : []),
+    ]
+    await createCharacterReferenceFromAssets({ assetIds, documentSnapshot: { ...activeDocument, nodes } })
+  }, [activeDocument, createCharacterReferenceFromAssets, nodes])
+
   const handleExportLoraDataset = useCallback(async () => {
     if (!informationDocument || !informationDetails?.datasetExport || isExportingDataset) return
     const electron = window?.electronAPI
@@ -3785,6 +4398,8 @@ export default function FlowAIWorkspace({ onOpenWorkflowSetup, onOpenSettings, o
     setRunNotice('')
     setCompletionNotice(null)
     setIsProcessConsoleOpen(true)
+    const abortController = new AbortController()
+    activeFlowAbortControllerRef.current = abortController
     lastNodeConsoleStatusRef.current.clear()
     appendProcessConsole({
       source: 'CANVAS',
@@ -3801,6 +4416,7 @@ export default function FlowAIWorkspace({ onOpenWorkflowSetup, onOpenSettings, o
         documentId: activeDocument.id,
         targetNodeId: options.targetNodeId || null,
         forceRunAll: Boolean(options.forceRunAll),
+        signal: abortController.signal,
         onNodePatch: (nodeId, patch) => {
           updateNodeData(nodeId, patch, { recordHistory: false })
           const statusMessage = String(patch?.statusMessage || patch?.error || '').trim()
@@ -3869,6 +4485,10 @@ export default function FlowAIWorkspace({ onOpenWorkflowSetup, onOpenSettings, o
         setInformationDocumentId(activeDocument.id)
       }
       if (automaticExportResult?.success) {
+        await createCharacterReferenceFromAssets({
+          assetIds: result.importedAssetIds.slice(-8),
+          documentSnapshot: snapshot,
+        })
         await handleLaunchInstalledFactory(snapshot, {
           datasetPath: automaticExportResult.destination,
           datasetStatus: 'ready',
@@ -3881,18 +4501,14 @@ export default function FlowAIWorkspace({ onOpenWorkflowSetup, onOpenSettings, o
       setRunNotice(interrupted ? 'CANVAS interrupted.' : message)
       appendProcessConsole({ source: 'CANVAS', level: interrupted ? 'warning' : 'error', message: interrupted ? 'CANVAS interrupted.' : message })
       setCompletionNotice(null)
-      if (selectedNodeId && !interrupted) {
-        updateNodeData(selectedNodeId, {
-          status: 'error',
-          error: message,
-          statusMessage: '',
-        }, { recordHistory: false })
-      }
     } finally {
+      if (activeFlowAbortControllerRef.current === abortController) {
+        activeFlowAbortControllerRef.current = null
+      }
       setIsStopping(false)
       setIsRunning(false)
     }
-  }, [activeDocument, activeDocumentCreatesLoraDataset, appendProcessConsole, edges, exportLoraAssetsToDirectory, handleLaunchInstalledFactory, isRunning, loraDatasetExportPath, nodes, selectedNodeId, setPreview, updateNodeData, viewport])
+  }, [activeDocument, activeDocumentCreatesLoraDataset, appendProcessConsole, createCharacterReferenceFromAssets, edges, exportLoraAssetsToDirectory, handleLaunchInstalledFactory, isRunning, loraDatasetExportPath, nodes, selectedNodeId, setPreview, updateNodeData, viewport])
   const handleRunNodeFromContextMenu = useCallback(() => {
     if (!nodeContextMenuTarget || !nodeContextMenuRunnable) return
     setNodeContextMenu(null)
@@ -3902,6 +4518,7 @@ export default function FlowAIWorkspace({ onOpenWorkflowSetup, onOpenSettings, o
   const handleStopFlow = useCallback(async () => {
     if (!isRunning || isStopping) return
     setIsStopping(true)
+    activeFlowAbortControllerRef.current?.abort()
     setRunNotice(t('canvas.status.interruptRequested'))
     appendProcessConsole({ source: 'CANVAS', level: 'warning', message: t('canvas.status.interruptRequested') })
     setCompletionNotice(null)
@@ -3917,6 +4534,7 @@ export default function FlowAIWorkspace({ onOpenWorkflowSetup, onOpenSettings, o
         : node
     )))
     try {
+      if (cancelOrtenzyaGeneration()) return
       await comfyui.interrupt()
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error || 'Failed to interrupt CANVAS.')
@@ -3926,13 +4544,58 @@ export default function FlowAIWorkspace({ onOpenWorkflowSetup, onOpenSettings, o
   }, [appendProcessConsole, isRunning, isStopping, setNodes])
 
   const handleSaveNow = useCallback(async () => {
-    setFlowAiData({
-      ...flowProjectData,
-      activeDocumentId,
-    })
-    await saveProject()
-    setRunNotice(t('canvas.status.saved'))
-  }, [activeDocumentId, flowProjectData, saveProject, setFlowAiData])
+    if (isSavingFlow || !activeDocument) return
+    setIsSavingFlow(true)
+    try {
+      const projectHandle = useProjectStore.getState().currentProjectHandle
+      if (!projectHandle) throw new Error('プロジェクトを開いてください。')
+      const document = { ...activeDocument, nodes, edges, viewport }
+      const archive = createCanvasArchive(document)
+      const file = new File([JSON.stringify(archive, null, 2)], archive.filename, { type: 'application/json' })
+      const info = await importAsset(projectHandle, file, 'workflows')
+      const history = useGenerationHistoryStore.getState()
+      const isNsfw = isNsfwWorkflow({ templateId: activeDocument.templateId })
+        || nodes.some((node) => isNsfwWorkflow(node?.data))
+      const record = history.createRecord({
+        title: isNsfw ? ensureNsfwPrefix(archive.filename) : archive.filename,
+        nsfw: isNsfw,
+      })
+      history.appendVersion(record.id, {
+        workflowId: 'canvas-flow',
+        workflowLabel: isNsfw ? ensureNsfwPrefix('CANVAS専用フロー') : 'CANVAS専用フロー',
+        nsfw: isNsfw,
+        canvasWorkflow: archive,
+        artifactPath: info.path,
+      })
+      setFlowAiData({ ...flowProjectData, activeDocumentId, documents: flowProjectData.documents.map((entry) => entry.id === activeDocumentId ? document : entry) })
+      if (!await saveProject()) throw new Error('フローファイルは保存しましたが、生成履歴のプロジェクト保存に失敗しました。再度プロジェクトを保存してください。')
+      setRunNotice(`CANVASフローを生成履歴に保存しました: ${archive.filename}`)
+    } catch (error) {
+      setRunNotice(error.message || 'フローの保存に失敗しました。')
+    } finally { setIsSavingFlow(false) }
+  }, [activeDocument, activeDocumentId, edges, nodes, viewport, isSavingFlow, flowProjectData, saveProject, setFlowAiData])
+
+  const restoreCanvasFlow = useCallback((archive) => {
+    if (isRunning) { setRunNotice('実行終了後にフローを読み込んでください。'); return }
+    try {
+      const document = readCanvasArchive(archive)
+      document.id = crypto.randomUUID()
+      document.name = `${document.name || 'CANVAS'} (復元)`
+      setNodes(document.nodes)
+      setEdges(document.edges)
+      setViewport(document.viewport || { x: 0, y: 0, zoom: 0.9 })
+      setFlowProjectState((current) => ({ ...current, activeDocumentId: document.id, documents: [...current.documents, document] }))
+      setActiveDocumentId(document.id)
+      setRunNotice('CANVASフローを新しいフローとして復元しました。素材ファイルは元のプロジェクトの素材を参照します。')
+    } catch (error) { setRunNotice(error.message) }
+  }, [isRunning])
+
+  useEffect(() => {
+    if (!canvasRestoreRequest || consumedCanvasRestoreRef.current === canvasRestoreRequest.id) return
+    consumedCanvasRestoreRef.current = canvasRestoreRequest.id
+    restoreCanvasFlow(canvasRestoreRequest.archive)
+    onCanvasRestoreConsumed?.()
+  }, [canvasRestoreRequest, restoreCanvasFlow, onCanvasRestoreConsumed])
 
   const handleReloadWorkspace = useCallback(() => {
     // Flush the live graph before App remounts ReactFlow. The normal project
@@ -4072,9 +4735,17 @@ export default function FlowAIWorkspace({ onOpenWorkflowSetup, onOpenSettings, o
   const selectedImageVariantCount = selectedNode?.type === FLOW_AI_NODE_TYPES.imageGen
     ? normalizeFlowImageVariantCount(selectedNode?.data?.variantCount, selectedNode?.data?.workflowId)
     : 1
-  const selectedNodeResolvedText = selectedNode?.type === FLOW_AI_NODE_TYPES.textViewer
+  const selectedNodeResolvedText = [FLOW_AI_NODE_TYPES.textViewer, FLOW_AI_NODE_TYPES.textInput, FLOW_AI_NODE_TYPES.textOutput].includes(selectedNode?.type)
     ? resolveFlowNodeText(flowTextDocument, selectedNode)
     : ''
+  const selectedNodeHasConnectedPrompt = Boolean(selectedNode && edges.some(edge => (
+    edge.target === selectedNode.id && edge.targetHandle === 'in:text'
+  )))
+  const selectedNodeHasConnectedNegativePrompt = Boolean(selectedNode && edges.some(edge => (
+    edge.target === selectedNode.id && edge.targetHandle === 'in:negative-text'
+  )))
+  const selectedNodeSupportsNegativePrompt = FLOW_NEGATIVE_PROMPT_WORKFLOW_IDS.has(String(selectedNode?.data?.workflowId || ''))
+  const selectedNodeUsesFixedFps = FLOW_FIXED_FPS_WORKFLOW_IDS.has(String(selectedNode?.data?.workflowId || ''))
 
   const runnableSelection = Boolean(
     selectedNode
@@ -4086,14 +4757,20 @@ export default function FlowAIWorkspace({ onOpenWorkflowSetup, onOpenSettings, o
 
   const nodeTypes = useMemo(() => ({
     [FLOW_AI_NODE_TYPES.promptAssist]: FlowCanvasNode,
+    [FLOW_AI_NODE_TYPES.h3Optimizer]: FlowCanvasNode,
     [FLOW_AI_NODE_TYPES.textViewer]: FlowCanvasNode,
+    [FLOW_AI_NODE_TYPES.textInput]: FlowCanvasNode,
+    [FLOW_AI_NODE_TYPES.textOutput]: FlowCanvasNode,
     [FLOW_AI_NODE_TYPES.prompt]: FlowCanvasNode,
     [FLOW_AI_NODE_TYPES.imageInput]: FlowCanvasNode,
     [FLOW_AI_NODE_TYPES.styleReference]: FlowCanvasNode,
+    [FLOW_AI_NODE_TYPES.characterInput]: FlowCanvasNode,
+    [FLOW_AI_NODE_TYPES.characterBuilder]: FlowCanvasNode,
     [FLOW_AI_NODE_TYPES.imageGen]: FlowCanvasNode,
     [FLOW_AI_NODE_TYPES.videoGen]: FlowCanvasNode,
     [FLOW_AI_NODE_TYPES.videoUpscale]: FlowCanvasNode,
     [FLOW_AI_NODE_TYPES.musicGen]: FlowCanvasNode,
+    [FLOW_AI_NODE_TYPES.workflowControl]: FlowCanvasNode,
     [FLOW_AI_NODE_TYPES.output]: FlowCanvasNode,
   }), [])
   const edgeTypes = useMemo(() => ({
@@ -4111,6 +4788,7 @@ export default function FlowAIWorkspace({ onOpenWorkflowSetup, onOpenSettings, o
       case FLOW_AI_NODE_TYPES.videoGen: return 'rgba(34, 211, 238, 0.42)'
       case FLOW_AI_NODE_TYPES.videoUpscale: return 'rgba(251, 191, 36, 0.42)'
       case FLOW_AI_NODE_TYPES.musicGen: return 'rgba(251, 191, 36, 0.42)'
+      case FLOW_AI_NODE_TYPES.workflowControl: return 'rgba(244, 114, 182, 0.42)'
       case FLOW_AI_NODE_TYPES.output: return 'rgba(148, 163, 184, 0.5)'
       default: return 'rgba(148, 163, 184, 0.42)'
     }
@@ -4119,12 +4797,11 @@ export default function FlowAIWorkspace({ onOpenWorkflowSetup, onOpenSettings, o
 
   return (
     <div ref={workspaceLayoutRef} className="flex h-full min-h-0 overflow-hidden bg-sf-dark-950">
+      {paintRequest && <LayerPaintDialog {...paintRequest} onClose={() => setPaintRequest(null)} onSaved={asset => {
+        updateNodeData(paintRequest.nodeId, { assetId: asset.id, assetLabel: asset.name, status: 'idle', error: '' })
+    if (asset.type !== 'character') setPreview(asset)
+      }} />}
       <style>{`
-        @keyframes flow-ai-preview-drift {
-          0% { transform: scale(1.02) translate3d(-1.5%, -1%, 0); }
-          50% { transform: scale(1.06) translate3d(1.5%, 0.75%, 0); }
-          100% { transform: scale(1.02) translate3d(-0.75%, 1%, 0); }
-        }
         @keyframes flow-ai-preview-sheen {
           0% { transform: translate3d(-18%, 0, 0); }
           100% { transform: translate3d(180%, 0, 0); }
@@ -4132,10 +4809,6 @@ export default function FlowAIWorkspace({ onOpenWorkflowSetup, onOpenSettings, o
         @keyframes flow-ai-audio-scan {
           0% { transform: translate3d(0, 0, 0); }
           100% { transform: translate3d(440%, 0, 0); }
-        }
-        .flow-ai-preview-drift {
-          animation: flow-ai-preview-drift 8.5s ease-in-out infinite alternate;
-          will-change: transform;
         }
         .flow-ai-canvas .react-flow__node-output {
           background: transparent !important;
@@ -4206,14 +4879,20 @@ export default function FlowAIWorkspace({ onOpenWorkflowSetup, onOpenSettings, o
               onChange={(event) => setSelectedTemplateId(event.target.value)}
               className="w-full rounded-lg border border-sf-dark-700 bg-sf-dark-900 px-3 py-2 text-sm text-sf-text-primary outline-none"
             >
-              <optgroup label={t('canvas.advancedFlows')}>
-                {FLOW_ADVANCED_TEMPLATES.map((template) => (
-                  <option key={template.id} value={template.id}>{t(`canvas.templates.${template.id}.label`, {}, template.label)}</option>
-                ))}
-              </optgroup>
+              {FLOW_TEMPLATE_CATEGORIES.map((category) => {
+                const templates = visiblePresetTemplates.filter((template) => template.category === category.id)
+                if (templates.length === 0) return null
+                return (
+                  <optgroup key={category.id} label={t(category.labelKey)}>
+                    {templates.map((template) => (
+                      <option key={template.id} value={template.id}>{t(`canvas.templates.${template.id}.label`, {}, template.label)}</option>
+                    ))}
+                  </optgroup>
+                )
+              })}
             </select>
             <div className="mt-3 space-y-2">
-              {flowProjectData.documents.map((document) => {
+              {visibleFlowDocuments.map((document) => {
                 const documentInfo = FLOW_AI_TEMPLATE_INFO[document.templateId]
                 return (
                   <div
@@ -4282,7 +4961,7 @@ export default function FlowAIWorkspace({ onOpenWorkflowSetup, onOpenSettings, o
               {t('canvas.nodePalette')}
             </div>
             <div className="space-y-2">
-              {FLOW_AI_NODE_LIBRARY.map((entry) => {
+              {FLOW_AI_NODE_LIBRARY.filter((entry) => !entry.hiddenFromPalette).map((entry) => {
                 const Icon = getNodeIcon(entry.type)
                 return (
                   <button
@@ -4407,11 +5086,26 @@ export default function FlowAIWorkspace({ onOpenWorkflowSetup, onOpenSettings, o
           <button
             type="button"
             onClick={handleSaveNow}
+            disabled={isSavingFlow}
             className="inline-flex items-center gap-2 rounded-lg border border-sf-dark-700 bg-sf-dark-900 px-3 py-2 text-sm text-sf-text-primary"
           >
             <Save className="h-4 w-4" />
             {t('canvas.actions.save')}
           </button>
+          <select aria-label="保存したCANVASフローを読み込む" value="" disabled={isRunning} onChange={(event) => {
+            const version = savedFlowRecords.flatMap((record) => record.versions).find((entry) => entry.id === event.target.value)
+            if (version?.canvasWorkflow) restoreCanvasFlow(version.canvasWorkflow)
+          }} className="max-w-56 rounded-lg border border-sf-dark-700 bg-sf-dark-900 px-2 py-2 text-sm">
+            <option value="">CANVAS履歴から読み込み…</option>
+            {savedFlowRecords.flatMap((record) => record.versions.filter((version) => version.canvasWorkflow).map((version) => <option key={version.id} value={version.id}>{version.canvasWorkflow.filename || record.title}</option>))}
+          </select>
+          <button type="button" disabled={isRunning} onClick={() => flowFileInputRef.current?.click()} className="rounded-lg border border-sf-dark-700 px-3 py-2 text-sm">CANVASファイルを読み込み</button>
+          <input ref={flowFileInputRef} type="file" accept=".json" hidden onChange={async (event) => {
+            const file = event.target.files?.[0]
+            event.target.value = ''
+            if (!file) return
+            try { restoreCanvasFlow(await file.text()) } catch (error) { setRunNotice(error.message) }
+          }} />
           <button
             type="button"
             onClick={handleReloadWorkspace}
@@ -4469,6 +5163,10 @@ export default function FlowAIWorkspace({ onOpenWorkflowSetup, onOpenSettings, o
               onChooseDatasetOutput={() => { void handleChooseLoraDatasetOutput(activeDocument) }}
               onChooseExistingDataset={() => { void handleChooseExistingLoraDataset(activeDocument) }}
               onLaunchFactory={() => { void handleLaunchInstalledFactory(activeDocument) }}
+              referenceAsset={assetById.get(nodes.find((node) => node?.data?.workflowId === 'multi-angles')?.data?.characterReferenceAssetId) || null}
+              isCreatingReference={isCreatingCharacterReference}
+              referenceError={characterReferenceError}
+              onCreateReference={() => { void handleCreateCharacterReference() }}
               onOpenFactorySettings={() => onOpenSettings?.(
                 loraFactoryLaunchError?.settingsSection || 'paths',
                 { focusTarget: loraFactoryLaunchError?.focusTarget || 'lora-factories' }
@@ -4615,8 +5313,8 @@ export default function FlowAIWorkspace({ onOpenWorkflowSetup, onOpenSettings, o
       </div>
 
       <div
-        className="flex h-full min-h-0 flex-shrink-0 flex-col border-l border-sf-dark-800 bg-sf-dark-950/80"
-        style={{ width: effectiveInspectorWidth, minWidth: FLOW_AI_INSPECTOR_MIN_WIDTH }}
+        className="h-full min-h-0 flex-shrink-0 overflow-y-auto overflow-x-hidden overscroll-contain border-l border-sf-dark-800 bg-sf-dark-950/80"
+        style={{ width: effectiveInspectorWidth, minWidth: FLOW_AI_INSPECTOR_MIN_WIDTH, scrollbarGutter: 'stable' }}
       >
         <div className="flex-shrink-0 border-b border-sf-dark-800 px-4 py-4">
           <div className="text-xs font-semibold uppercase tracking-[0.2em] text-sf-text-muted">
@@ -4631,7 +5329,7 @@ export default function FlowAIWorkspace({ onOpenWorkflowSetup, onOpenSettings, o
           </div>
         </div>
 
-        <div className="min-h-0 flex-1 space-y-4 overflow-y-auto overscroll-contain px-4 py-4">
+        <div className="space-y-4 px-4 py-4">
           <section className="overflow-hidden rounded-xl border border-sf-dark-700 bg-sf-dark-900/70">
             <div className="flex items-center px-3 py-2.5">
               <button
@@ -4742,14 +5440,14 @@ export default function FlowAIWorkspace({ onOpenWorkflowSetup, onOpenSettings, o
                       {assetBrowserAssets.map((asset) => {
                         const canAssignToSelectedNode = doesFlowAssetInputAcceptAsset(assetBrowserTargetNode, asset)
                         const posterUrl = asset.type === 'image' || asset.type === 'mask' ? asset.url : asset.poster?.url
-                        const AssetIcon = asset.type === 'video' ? Film : asset.type === 'audio' ? Music : ImageIcon
+                        const AssetIcon = asset.type === 'text' ? Type : asset.type === 'video' ? Film : asset.type === 'audio' ? Music : ImageIcon
                         const isPreviewing = currentPreviewAsset?.id === asset.id
                         const isAssigned = assetBrowserTargetNode?.data?.assetId === asset.id
                         return (
                           <div
                             key={asset.id}
                             onContextMenu={(event) => void handleRevealAssetInFileManager(event, asset)}
-                            className={`overflow-hidden rounded-lg border bg-sf-dark-950/80 ${
+                            className={`relative overflow-hidden rounded-lg border bg-sf-dark-950/80 ${
                               isPreviewing ? 'border-sf-accent ring-1 ring-sf-accent/30' : 'border-sf-dark-700'
                             }`}
                           >
@@ -4768,7 +5466,13 @@ export default function FlowAIWorkspace({ onOpenWorkflowSetup, onOpenSettings, o
                                 : `Preview ${asset.name || asset.id}. Right-click to reveal in File Explorer.`}
                             >
                               <div className="relative flex aspect-video items-center justify-center overflow-hidden bg-sf-dark-800">
-                                {posterUrl ? (
+                                {asset.type === 'text' ? (
+                                  <div className="line-clamp-4 w-full whitespace-pre-wrap px-3 pt-5 text-[10px] text-sf-text-secondary">{asset.textContent || 'Text'}</div>
+                                ) : asset.type === 'video' && asset.sprite?.url ? (
+                                  <div className="w-full"><FlowPreviewTile item={createFlowPreviewItem(asset)} active={false} previewStep={0} compact /></div>
+                                ) : asset.type === 'video' && getFlowPreviewAssetUrl(asset) ? (
+                                  <video src={getFlowPreviewAssetUrl(asset)} preload="metadata" muted playsInline className="h-full w-full object-contain" />
+                                ) : posterUrl ? (
                                   <img src={posterUrl} alt="" className="h-full w-full object-contain" />
                                 ) : (
                                   <AssetIcon className="h-5 w-5 text-sf-text-muted" />
@@ -4780,6 +5484,21 @@ export default function FlowAIWorkspace({ onOpenWorkflowSetup, onOpenSettings, o
                               <div className="truncate px-2 py-1.5 text-[10px] text-sf-text-primary">
                                 {asset.name || asset.path || asset.id}
                               </div>
+                            </button>
+                            <button
+                              type="button"
+                              onPointerDown={(event) => {
+                                event.stopPropagation()
+                              }}
+                              onClick={(event) => {
+                                event.stopPropagation()
+                                setAssetPendingDeletion(asset)
+                              }}
+                              title="素材を削除"
+                              aria-label={`素材を削除: ${asset.name || asset.id}`}
+                              className="absolute right-1 top-1 z-10 rounded bg-black/75 p-1.5 text-white/80 hover:bg-red-950 hover:text-red-300 focus-visible:outline focus-visible:outline-2 focus-visible:outline-sf-accent"
+                            >
+                              <Trash2 className="h-3.5 w-3.5" />
                             </button>
                             {canAssignToSelectedNode && (
                               <button
@@ -4802,6 +5521,26 @@ export default function FlowAIWorkspace({ onOpenWorkflowSetup, onOpenSettings, o
                   {assetBrowserFolders.length === 0 && assetBrowserAssets.length === 0 && (
                     <div className="rounded-lg border border-dashed border-sf-dark-700 px-3 py-5 text-center text-[11px] text-sf-text-muted">
                       {assetBrowserSearch.trim() ? t('canvas.assets.noSearchResults') : t('canvas.assets.folderEmpty')}
+                    </div>
+                  )}
+                  {currentPreviewAsset?.type === 'text' && (
+                    <div className="mt-3 rounded-lg border border-sf-dark-700 p-3">
+                      <div className="mb-2 truncate text-xs text-sf-text-primary">{currentPreviewAsset.name}</div>
+                      <textarea readOnly value={currentPreviewAsset.textContent || ''} rows={10} className="w-full bg-sf-dark-950 p-2 text-xs text-sf-text-primary" />
+                      <button type="button" onClick={() => navigator.clipboard?.writeText(currentPreviewAsset.textContent || '')} className="mt-2 text-xs text-sky-200">テキストをコピー</button>
+                    </div>
+                  )}
+                  {currentPreviewAsset?.type === 'video' && getFlowPreviewAssetUrl(currentPreviewAsset) && (
+                    <div className="mt-3 overflow-hidden rounded-lg border border-sf-dark-700 bg-black">
+                      <video
+                        key={currentPreviewAsset.id}
+                        src={getFlowPreviewAssetUrl(currentPreviewAsset)}
+                        controls
+                        playsInline
+                        preload="metadata"
+                        className="w-full"
+                      />
+                      <div className="truncate px-2 py-1.5 text-[10px] text-sf-text-primary">{currentPreviewAsset.name}</div>
                     </div>
                   )}
                 </div>
@@ -4930,18 +5669,44 @@ export default function FlowAIWorkspace({ onOpenWorkflowSetup, onOpenSettings, o
 
               {selectedNode.type === FLOW_AI_NODE_TYPES.prompt && (
                 <>
-                  <InspectorRow label={t('canvas.fields.promptText')}>
+                  <InspectorRow label={selectedNode.data.basePrompt ? t('canvas.fields.creativePrompt') : t('canvas.fields.promptText')}>
                     <textarea
-                      rows={7}
+                      rows={12}
                       value={selectedNode.data.promptText || ''}
+                      placeholder={selectedNode.data.promptPlaceholderKey
+                        ? t(selectedNode.data.promptPlaceholderKey, {}, selectedNode.data.promptPlaceholder || '')
+                        : selectedNode.data.promptPlaceholder || ''}
                       onChange={(event) => updateNodeData(selectedNode.id, { promptText: event.target.value })}
-                      className="w-full rounded-lg border border-sf-dark-700 bg-sf-dark-900 px-3 py-2 text-sm text-sf-text-primary outline-none"
+                      className="min-h-64 max-h-[70vh] w-full resize-y rounded-lg border border-sf-dark-700 bg-sf-dark-900 px-3 py-2 text-sm leading-6 text-sf-text-primary outline-none focus:border-sf-accent/60"
                     />
                   </InspectorRow>
+                  {selectedNode.data.basePrompt && (
+                    <p className="-mt-2 text-xs leading-5 text-sf-text-muted">{t('canvas.fields.basePromptHelp')}</p>
+                  )}
                 </>
               )}
 
-              {selectedNode.type === FLOW_AI_NODE_TYPES.textViewer && (
+              {selectedNode.type === FLOW_AI_NODE_TYPES.textInput && (
+                <InspectorRow label="テキスト素材">
+                  <select value={selectedNode.data.assetId || ''} onChange={event => {
+                    if (!event.target.value) updateNodeData(selectedNode.id, { assetId: '', assetLabel: '' })
+                    else handleChooseNodeProjectAsset(selectedNode.id, event.target.value)
+                  }} className="w-full rounded-lg bg-sf-dark-900 px-3 py-2 text-sm">
+                    <option value="">素材ブラウザからテキストを選択</option>
+                    {assets.filter(asset => asset.type === 'text').map(asset => <option key={asset.id} value={asset.id}>{asset.name}</option>)}
+                  </select>
+                </InspectorRow>
+              )}
+              {selectedNode.type === FLOW_AI_NODE_TYPES.textOutput && <>
+                <InspectorRow label="ファイル名（.txt）">
+                  <input value={selectedNode.data.filename || ''} onChange={event => updateNodeData(selectedNode.id, { filename: event.target.value })} className="w-full rounded-lg bg-sf-dark-900 px-3 py-2 text-sm" />
+                </InspectorRow>
+                <InspectorRow label="素材フォルダ（CANVAS内）">
+                  <input value={selectedNode.data.folderName || ''} onChange={event => updateNodeData(selectedNode.id, { folderName: event.target.value })} className="w-full rounded-lg bg-sf-dark-900 px-3 py-2 text-sm" />
+                </InspectorRow>
+                <p className="text-xs text-sf-text-secondary">このノードを実行すると文章を素材に保存します。同名ファイルは連番で保存されます。</p>
+              </>}
+              {[FLOW_AI_NODE_TYPES.textViewer, FLOW_AI_NODE_TYPES.textInput, FLOW_AI_NODE_TYPES.textOutput].includes(selectedNode.type) && (
                 <>
                   <div className="rounded-xl border border-sf-dark-800 bg-sf-dark-900/70 p-3 text-sm text-sf-text-secondary">
                     {t('canvas.inspector.textViewerHelp')}
@@ -4970,8 +5735,39 @@ export default function FlowAIWorkspace({ onOpenWorkflowSetup, onOpenSettings, o
                 </>
               )}
 
+              {selectedNode.type === FLOW_AI_NODE_TYPES.characterBuilder && <>
+                <InspectorRow label="Character name">
+                  <input value={selectedNode.data.characterName || ''} onChange={event => updateNodeData(selectedNode.id, { characterName: event.target.value })} className="w-full rounded-lg border border-sf-dark-700 bg-sf-dark-900 px-3 py-2 text-sm" />
+                </InspectorRow>
+                <p className="text-xs text-sf-text-secondary">顔を1枚以上、必要に応じて全身・衣装を接続して実行します。OmniChar互換の .char を Assets / CANVAS / Characters に保存します。</p>
+              </>}
+
+              {selectedNode.type === FLOW_AI_NODE_TYPES.characterInput && (
+                <>
+                  <InspectorRow label="Character file">
+                    <select value={selectedNode.data.assetId || ''} onChange={event => event.target.value ? handleChooseNodeProjectAsset(selectedNode.id, event.target.value) : handleClearNodeProjectAsset(selectedNode.id)} className="w-full rounded-lg border border-sf-dark-700 bg-sf-dark-900 px-3 py-2 text-sm text-sf-text-primary">
+                      <option value="">Select a .char actor</option>
+                      {characterAssets.map(entry => <option key={entry.id} value={entry.id}>{entry.label}</option>)}
+                    </select>
+                  </InspectorRow>
+                  <button type="button" onClick={() => { void handlePickNodeImage(selectedNode.id) }} className="inline-flex w-full items-center justify-center gap-2 rounded-lg border border-lime-500/35 bg-lime-500/10 px-3 py-2 text-sm font-medium text-lime-200">
+                    <FolderOpen className="h-4 w-4" /> Import OmniChar .char
+                  </button>
+                </>
+              )}
+
               {(selectedNode.type === FLOW_AI_NODE_TYPES.imageInput || selectedNode.type === FLOW_AI_NODE_TYPES.styleReference) && (
                 <>
+                  {doesFlowAssetInputAcceptAsset(selectedNode, { type: 'image' }) && <button
+                    disabled={!currentProjectHandle}
+                    className="w-full rounded-lg bg-sf-dark-700 px-3 py-2 text-sm hover:bg-sf-dark-600"
+                    onClick={() => setPaintRequest({ nodeId: selectedNode.id, projectHandle: currentProjectHandle,
+                      sourceAsset: assetById.get(selectedNode.data.assetId)?.type === 'image' ? assetById.get(selectedNode.data.assetId) : null,
+                      firstAsset: selectedNode.data.assetRole === 'fluid-keyframe' && nodes.find(n => n.data?.assetRole === 'fluid-keyframe')?.id !== selectedNode.id ? assetById.get(nodes.find(n => n.data?.assetRole === 'fluid-keyframe')?.data?.assetId) : null,
+                      defaultSize: selectedNode.data.assetRole === 'fluid-keyframe' ? 512 : 1024,
+                      background: ['fluid-keyframe', 'mask'].includes(selectedNode.data.assetRole) ? '#000000' : null })}>
+                    {t('paint.open')}
+                  </button>}
                   <InspectorRow label={t('canvas.fields.projectAsset')}>
                     <select
                       value={selectedNode.data.assetId || ''}
@@ -4989,7 +5785,7 @@ export default function FlowAIWorkspace({ onOpenWorkflowSetup, onOpenSettings, o
                         ? styleAssets
                         : selectedNode.data.assetRole === 'mask'
                           ? maskAssets
-                          : imageInputAssets).map((entry) => (
+                          : selectedNode.data.assetRole === 'reference-audio' ? audioInputAssets : imageInputAssets).filter((entry) => doesFlowAssetInputAcceptAsset(selectedNode, entry)).map((entry) => (
                         <option key={entry.id} value={entry.id}>
                           {entry.label}
                         </option>
@@ -5002,7 +5798,7 @@ export default function FlowAIWorkspace({ onOpenWorkflowSetup, onOpenSettings, o
                     className="inline-flex w-full items-center justify-center gap-2 rounded-lg border border-emerald-500/35 bg-emerald-500/10 px-3 py-2 text-sm font-medium text-emerald-200 transition-colors hover:border-emerald-400/60 hover:bg-emerald-500/15"
                   >
                     <FolderOpen className="h-4 w-4" />
-                    {selectedNode.data.assetId ? t('canvas.assets.replaceFromFile') : t('canvas.assets.loadFromFile')}
+                    {selectedNode.data.assetRole === 'reference-audio' ? t('canvas.fastH3.chooseAudio') : selectedNode.data.assetRole === 'reference-video' ? t('canvas.h3Reference.chooseVideo') : selectedNode.data.assetId ? t('canvas.assets.replaceFromFile') : t('canvas.assets.loadFromFile')}
                   </button>
                   {selectedNode.data.assetId && (
                     <button
@@ -5014,7 +5810,7 @@ export default function FlowAIWorkspace({ onOpenWorkflowSetup, onOpenSettings, o
                       {t('canvas.assets.clearAssigned')}
                     </button>
                   )}
-                  {selectedNode.type === FLOW_AI_NODE_TYPES.imageInput && (
+                  {selectedNode.type === FLOW_AI_NODE_TYPES.imageInput && !['reference-video', 'endpoint-video', 'reference-audio', 'fluid-keyframe'].includes(selectedNode.data.assetRole) && (
                     <InspectorRow label={t('canvas.fields.videoFrameTime')}>
                       <input
                         type="number"
@@ -5029,7 +5825,24 @@ export default function FlowAIWorkspace({ onOpenWorkflowSetup, onOpenSettings, o
                 </>
               )}
 
-              {getFlowNodeSupportsExecution(selectedNode.type) && (
+              {selectedNode.type === FLOW_AI_NODE_TYPES.h3Optimizer && <>
+                <p className="text-xs text-sf-text-secondary">ローカルLLMで説明文を英語化し、台詞・画面文字は原文を保持します。モード・尺・参照番号を接続先のH3フローに合わせてください。参照画像そのものは解析しません。</p>
+                <a href={H3_PROMPT_GUIDE} target="_blank" rel="noreferrer" className="text-xs text-sky-300 underline">H3公式構文ガイド</a>
+                <InspectorRow label="H3入力モード">
+                  <select value={selectedNode.data.h3Mode || 'T2VA'} onChange={event => updateNodeData(selectedNode.id, { h3Mode: event.target.value })} className="w-full rounded-lg bg-sf-dark-900 px-3 py-2 text-sm">
+                    {H3_PROMPT_MODES.map(mode => <option key={mode} value={mode}>{mode}</option>)}
+                  </select>
+                </InspectorRow>
+                <InspectorRow label="動画尺（秒）"><input type="number" min="0.1" max="60" step="0.1" value={selectedNode.data.duration || 5} onChange={event => updateNodeData(selectedNode.id, { duration: Number(event.target.value) })} className="w-full rounded-lg bg-sf-dark-900 px-3 py-2 text-sm" /></InspectorRow>
+                <InspectorRow label="通常のプロンプト（接続したテキスト優先）"><textarea rows={6} value={selectedNode.data.inlinePrompt || ''} onChange={event => updateNodeData(selectedNode.id, { inlinePrompt: event.target.value })} className="w-full rounded-lg bg-sf-dark-900 px-3 py-2 text-sm" /></InspectorRow>
+                <InspectorRow label="参照素材の番号と役割（Ref2VAでは必須）"><textarea rows={3} placeholder="<Picture 1>: 主人公の外見、<Video 1>: カメラの動き" value={selectedNode.data.referenceNotes || ''} onChange={event => updateNodeData(selectedNode.id, { referenceNotes: event.target.value })} className="w-full rounded-lg bg-sf-dark-900 px-3 py-2 text-sm" /></InspectorRow>
+                <InspectorRow label="ローカルLLM接続先"><input value={selectedNode.data.localLlmEndpoint || 'http://localhost:1234'} onChange={event => updateNodeData(selectedNode.id, { localLlmEndpoint: event.target.value })} className="w-full rounded-lg bg-sf-dark-900 px-3 py-2 text-sm" /></InspectorRow>
+                <InspectorRow label="モデルID（公開モデルが1件なら空欄可）"><input value={selectedNode.data.localLlmModel || ''} onChange={event => updateNodeData(selectedNode.id, { localLlmModel: event.target.value })} className="w-full rounded-lg bg-sf-dark-900 px-3 py-2 text-sm" /></InspectorRow>
+                <InspectorRow label="最大出力トークン"><input type="number" min="256" max="16384" value={selectedNode.data.maxTokens || 4096} onChange={event => updateNodeData(selectedNode.id, { maxTokens: Number(event.target.value) })} className="w-full rounded-lg bg-sf-dark-900 px-3 py-2 text-sm" /></InspectorRow>
+                <InspectorRow label="H3整形結果（編集可能）"><textarea rows={14} value={selectedNode.data.outputText || ''} onChange={event => updateNodeData(selectedNode.id, { outputText: event.target.value })} className="w-full rounded-lg bg-sf-dark-900 px-3 py-2 text-sm" /></InspectorRow>
+                <button type="button" onClick={() => navigator.clipboard?.writeText(selectedNode.data.outputText || '')} className="text-sm text-sky-300">結果をコピー</button>
+              </>}
+              {getFlowNodeSupportsExecution(selectedNode.type) && ![FLOW_AI_NODE_TYPES.textOutput, FLOW_AI_NODE_TYPES.h3Optimizer].includes(selectedNode.type) && (
                 <>
                   {selectedNode.data.optionalStage === 'inpaint' && (
                     <div className={`rounded-xl border p-3 ${
@@ -5072,13 +5885,22 @@ export default function FlowAIWorkspace({ onOpenWorkflowSetup, onOpenSettings, o
                         ...(selectedNode.type === FLOW_AI_NODE_TYPES.imageGen
                           ? { variantCount: normalizeFlowImageVariantCount(selectedNode.data.variantCount, event.target.value) }
                           : {}),
-                        ...(selectedNode.type === FLOW_AI_NODE_TYPES.videoGen && event.target.value === 'minimax-h3-gguf-i2v'
+                        ...(selectedNode.type === FLOW_AI_NODE_TYPES.imageGen && event.target.value === 'dark-beast-krea2-i2i'
+                          ? { steps: 16, cfg: 1, denoise: 0.55, samplerName: 'euler', scheduler: 'simple' }
+                          : {}),
+                        ...(selectedNode.type === FLOW_AI_NODE_TYPES.videoGen && event.target.value === 'ainvfx-fluid'
+                          ? { width: 512, height: 512, duration: 121 / 25, fps: 25, fluidStrength: 1, requiresLastFrame: true, negativePrompt: 'blurry, low quality, distorted, watermark' } : {}),
+                        ...(selectedNode.type === FLOW_AI_NODE_TYPES.videoGen && event.target.value === 'fast-minimax-h3-t2va'
+                          ? { width: 864, height: 480, duration: 5, fps: 24, fastH3Steps: 4 } : {}),
+                        ...(selectedNode.type === FLOW_AI_NODE_TYPES.videoGen && ['minimax-h3-gguf-i2v', 'minimax-h3-gguf-r2v', 'minimax-h3-character-swap', 'minimax-h3-pink-reference', 'minimax-h3-aftermidnight-r2v', 'minimax-h3-aftermidnight-3ref', 'vdn-h3-t2va'].includes(event.target.value)
                           ? { width: 608, height: 352, duration: 5, fps: 24 }
                           : {}),
                       })}
                       className="w-full rounded-lg border border-sf-dark-700 bg-sf-dark-900 px-3 py-2 text-sm text-sf-text-primary outline-none"
                     >
-                      {renderWorkflowOptions(selectedNode.type).map((workflow) => (
+                      {renderWorkflowOptions(selectedNode.type)
+                        .filter((workflow) => showNsfwWorkflows || !isNsfwWorkflow(workflow))
+                        .map((workflow) => (
                         <option key={workflow.id} value={workflow.id}>
                           {workflow.label}
                         </option>
@@ -5103,7 +5925,7 @@ export default function FlowAIWorkspace({ onOpenWorkflowSetup, onOpenSettings, o
                     </div>
                   )}
 
-                  {selectedNodeDependency && (
+                  {selectedNodeDependency && selectedNode.data.muted !== true && (
                     <div className={`rounded-xl border px-3 py-3 text-sm ${
                       selectedNodeDependency.hasBlockingIssues
                         ? 'border-amber-500/30 bg-amber-500/10 text-amber-100'
@@ -5137,7 +5959,24 @@ export default function FlowAIWorkspace({ onOpenWorkflowSetup, onOpenSettings, o
 
                   {selectedNode.type === FLOW_AI_NODE_TYPES.promptAssist && (
                     <>
-                      <InspectorRow label={selectedNode.data.workflowId === 'minimax-h3-media-promptor' ? t('canvas.fields.creativeDirection') : t('canvas.fields.inlineBrief')}>
+                      {selectedNode.data.workflowId === ORTENZYA_WORKFLOW_ID && <>
+                        <div className="rounded-lg border border-sf-dark-700 p-3 text-xs text-sf-text-secondary">
+                          LM Studio / llama.cppでOrtenzya 31BのGGUFを読み込み、ローカルサーバーを起動してください。
+                          <a href={ORTENZYA_MODEL_URL} target="_blank" rel="noreferrer" className="ml-1 text-sky-300 underline">モデル配布ページ</a>
+                          <p className="mt-2">シナリオノードを実行 → 下の出力を編集 → 下書きノードを選んで実行。全体実行では両方を再生成します。</p>
+                        </div>
+                        <InspectorRow label="ローカルLLM接続先">
+                          <input value={selectedNode.data.localLlmEndpoint || 'http://localhost:1234'} onChange={event => updateNodeData(selectedNode.id, { localLlmEndpoint: event.target.value })} className="w-full rounded-lg bg-sf-dark-900 px-3 py-2 text-sm" />
+                        </InspectorRow>
+                        <InspectorRow label="モデルID（空欄でOrtenzya 31Bを検出）">
+                          <input value={selectedNode.data.localLlmModel || ''} onChange={event => updateNodeData(selectedNode.id, { localLlmModel: event.target.value })} className="w-full rounded-lg bg-sf-dark-900 px-3 py-2 text-sm" />
+                        </InspectorRow>
+                        <InspectorRow label="最大出力トークン">
+                          <input type="number" min="256" max="16384" value={selectedNode.data.maxTokens || 4096} onChange={event => updateNodeData(selectedNode.id, { maxTokens: Number(event.target.value) })} className="w-full rounded-lg bg-sf-dark-900 px-3 py-2 text-sm" />
+                        </InspectorRow>
+                        {selectedNode.data.outputTruncated && <p className="text-xs text-amber-200">出力上限に達しました。必要なら上限を増やして再実行してください。</p>}
+                      </>}
+                      {selectedNode.data.workflowId !== 'jp-tag-assistant' && <InspectorRow label={selectedNode.data.workflowId === 'minimax-h3-media-promptor' ? t('canvas.fields.creativeDirection') : t('canvas.fields.inlineBrief')}>
                         <textarea
                           rows={5}
                           value={selectedNode.data.inlinePrompt || ''}
@@ -5147,17 +5986,32 @@ export default function FlowAIWorkspace({ onOpenWorkflowSetup, onOpenSettings, o
                             : t('canvas.placeholders.connectedPrompt')}
                           className="w-full rounded-lg border border-sf-dark-700 bg-sf-dark-900 px-3 py-2 text-sm text-sf-text-primary outline-none"
                         />
-                      </InspectorRow>
-                      {selectedNode.data.workflowId !== 'minimax-h3-media-promptor' && <InspectorRow label={t('canvas.fields.systemPromptOverride')}>
+                      </InspectorRow>}
+                      {!['minimax-h3-media-promptor', 'jp-tag-assistant'].includes(selectedNode.data.workflowId) && <InspectorRow label={t('canvas.fields.systemPromptOverride')}>
                         <textarea
                           rows={5}
                           value={selectedNode.data.systemPrompt || ''}
                           onChange={(event) => updateNodeData(selectedNode.id, { systemPrompt: event.target.value })}
-                          placeholder={t('canvas.placeholders.geminiDefault')}
+                          placeholder={selectedNode.data.workflowId === ORTENZYA_WORKFLOW_ID ? '文章生成の方針' : t('canvas.placeholders.geminiDefault')}
                           className="w-full rounded-lg border border-sf-dark-700 bg-sf-dark-900 px-3 py-2 text-sm text-sf-text-primary outline-none"
                         />
                       </InspectorRow>}
-                      {selectedNode.data.workflowId === 'minimax-h3-media-promptor' ? (
+                      {selectedNode.data.workflowId === 'jp-tag-assistant' ? (
+                        <div className="space-y-3">
+                          <div className="rounded-xl border border-rose-500/30 bg-rose-500/10 p-3 text-xs leading-5 text-rose-100">
+                            日本語または英語の検索語を左のPromptノードへ入力します。同梱辞書をLumeweft内で検索し、英語のDanbooruタグとして次のノードへ渡します。
+                            <span className="mt-1 block text-rose-200/80">Searches the bundled dictionaries locally. ComfyUI and external custom nodes are not required.</span>
+                          </div>
+                          <InspectorRow label="候補数 / Results">
+                            <input type="number" min="1" max="100" value={selectedNode.data.jpTagLimit ?? 12}
+                              onChange={event => updateNodeData(selectedNode.id, { jpTagLimit: Math.max(1, Math.min(100, Number(event.target.value) || 12)) })}
+                              className="w-full rounded-lg border border-sf-dark-700 bg-sf-dark-900 px-3 py-2 text-sm" />
+                          </InspectorRow>
+                          <label className="flex items-center gap-2 text-xs"><input type="checkbox" checked={selectedNode.data.jpTagUseMachineLabels !== false} onChange={event => updateNodeData(selectedNode.id, { jpTagUseMachineLabels: event.target.checked })} />機械翻訳ラベルも検索 / Search machine labels</label>
+                          <label className="flex items-center gap-2 text-xs"><input type="checkbox" checked={selectedNode.data.jpTagExcludeLicensed !== false} onChange={event => updateNodeData(selectedNode.id, { jpTagExcludeLicensed: event.target.checked })} />版権・キャラタグを除外 / Exclude copyright & character</label>
+                          <label className="flex items-center gap-2 text-xs"><input type="checkbox" checked={Boolean(selectedNode.data.jpTagInsertSpaces)} onChange={event => updateNodeData(selectedNode.id, { jpTagInsertSpaces: event.target.checked })} />タグ間に空白を挿入 / Insert spaces</label>
+                        </div>
+                      ) : selectedNode.data.workflowId === 'minimax-h3-media-promptor' ? (
                         <>
                           <InspectorRow label={t('canvas.fields.targetDuration')}>
                             <input
@@ -5229,13 +6083,16 @@ export default function FlowAIWorkspace({ onOpenWorkflowSetup, onOpenSettings, o
                       <div className="rounded-xl border border-sf-dark-800 bg-sf-dark-900/70 p-3 text-sm text-sf-text-secondary">
                         {selectedNode.data.workflowId === 'minimax-h3-media-promptor'
                           ? t('canvas.inspector.mediaPromptorHelp')
+                          : selectedNode.data.workflowId === 'jp-tag-assistant' ? '検索用の4つのCSVだけを同梱しています。30MBの関連タグ共起データと上流の実装コードは含みません。 / Bundles only four lookup CSVs; related-tag data and upstream code are excluded.'
+                          : selectedNode.data.workflowId === ORTENZYA_WORKFLOW_ID ? '出力は編集可能です。編集した本文が次のノードへ渡されます。下書きは対象モデルに合わせて調整してから利用してください。'
                           : t('canvas.inspector.promptAssistHelp')}
                       </div>
                       <InspectorRow label={t('canvas.fields.latestOutput')}>
                         <textarea
                           rows={8}
-                          readOnly
+                          readOnly={selectedNode.data.workflowId !== ORTENZYA_WORKFLOW_ID}
                           value={selectedNode.data.outputText || ''}
+                          onChange={event => updateNodeData(selectedNode.id, { outputText: event.target.value })}
                           placeholder={t('canvas.placeholders.runForText')}
                           className="w-full rounded-lg border border-sf-dark-700 bg-sf-dark-900 px-3 py-2 text-sm text-sf-text-secondary outline-none"
                         />
@@ -5245,7 +6102,7 @@ export default function FlowAIWorkspace({ onOpenWorkflowSetup, onOpenSettings, o
 
                   {(selectedNode.type === FLOW_AI_NODE_TYPES.imageGen || selectedNode.type === FLOW_AI_NODE_TYPES.videoGen) && (
                     <>
-                      <InspectorRow label={t('canvas.fields.inlinePromptOverride')}>
+                      {!selectedNodeHasConnectedPrompt && <InspectorRow label={t('canvas.fields.inlinePromptOverride')}>
                         <textarea
                           rows={4}
                           value={selectedNode.data.inlinePrompt || ''}
@@ -5253,17 +6110,17 @@ export default function FlowAIWorkspace({ onOpenWorkflowSetup, onOpenSettings, o
                           placeholder={t('canvas.placeholders.connectedPrompt')}
                           className="w-full rounded-lg border border-sf-dark-700 bg-sf-dark-900 px-3 py-2 text-sm text-sf-text-primary outline-none"
                         />
-                      </InspectorRow>
-                      <InspectorRow label={t('canvas.fields.negativePrompt')}>
+                      </InspectorRow>}
+                      {selectedNodeSupportsNegativePrompt && !selectedNodeHasConnectedNegativePrompt && <InspectorRow label={t('canvas.fields.negativePrompt')}>
                         <textarea
                           rows={3}
                           value={selectedNode.data.negativePrompt || ''}
                           onChange={(event) => updateNodeData(selectedNode.id, { negativePrompt: event.target.value })}
                           className="w-full rounded-lg border border-sf-dark-700 bg-sf-dark-900 px-3 py-2 text-sm text-sf-text-primary outline-none"
                         />
-                      </InspectorRow>
-                      {!selectedNode.data.preserveInputResolution && (
-                      <div className="grid grid-cols-2 gap-3">
+                      </InspectorRow>}
+                      {selectedNode.data.workflowId !== 'anima-lora-upscale' && !selectedNode.data.preserveInputResolution && (
+                      <div className={`grid gap-3 ${selectedNodeUsesFixedFps ? 'grid-cols-1' : 'grid-cols-2'}`}>
                         <InspectorRow label={t('canvas.fields.width')}>
                           <input
                             type="number"
@@ -5332,34 +6189,222 @@ export default function FlowAIWorkspace({ onOpenWorkflowSetup, onOpenSettings, o
                           Four-panel MiniMax H3 Ref2VA GGUF workflow. Connect one primary character and up to two optional references through the Style ports. The 480 x 864 default reduces resolution while retaining H3's supported 124-frame duration, and only the assembled sheet is saved. It reuses the H3 GGUF encoder, mmproj, and VAEs; the additional Ref2VA Q4 model is about 11.4 GB. Model weights use the MiniMax H3 Community License. Adapted from the H3 Character Sheet Generator workflow.
                         </div>
                       )}
+                      {selectedNode.type === FLOW_AI_NODE_TYPES.imageGen && selectedNode.data.workflowId === 'dark-beast-krea2-i2i' && (
+                        <div className="space-y-3 rounded-xl border border-rose-500/30 bg-rose-500/10 p-3 text-sm text-rose-100">
+                          <p>Version 3078453 is Dark Beast KREA 2 FP8, despite the parent page's H3 name. With no source it runs T2I; an optional source switches it to conventional latent I2I.</p>
+                          <div className="grid grid-cols-2 gap-3">
+                            <InspectorRow label="T2I Width">
+                              <input type="number" min="256" max="4096" step="32" value={selectedNode.data.width ?? 960} onChange={(event) => updateNodeData(selectedNode.id, { width: Math.max(256, Math.min(4096, Number(event.target.value) || 960)) })} className="w-full rounded-lg border border-sf-dark-700 bg-sf-dark-900 px-3 py-2 text-sm text-sf-text-primary" />
+                            </InspectorRow>
+                            <InspectorRow label="T2I Height">
+                              <input type="number" min="256" max="4096" step="32" value={selectedNode.data.height ?? 1440} onChange={(event) => updateNodeData(selectedNode.id, { height: Math.max(256, Math.min(4096, Number(event.target.value) || 1440)) })} className="w-full rounded-lg border border-sf-dark-700 bg-sf-dark-900 px-3 py-2 text-sm text-sf-text-primary" />
+                            </InspectorRow>
+                          </div>
+                          <InspectorRow label="Steps">
+                            <input type="number" min="1" max="100" value={selectedNode.data.steps ?? 16} onChange={(event) => updateNodeData(selectedNode.id, { steps: Math.max(1, Math.min(100, Number(event.target.value) || 16)) })} className="w-full rounded-lg border border-sf-dark-700 bg-sf-dark-900 px-3 py-2 text-sm text-sf-text-primary" />
+                          </InspectorRow>
+                          <InspectorRow label="CFG">
+                            <input type="number" min="0" max="100" step="0.1" value={selectedNode.data.cfg ?? 1} onChange={(event) => updateNodeData(selectedNode.id, { cfg: Math.max(0, Math.min(100, Number(event.target.value))) })} className="w-full rounded-lg border border-sf-dark-700 bg-sf-dark-900 px-3 py-2 text-sm text-sf-text-primary" />
+                          </InspectorRow>
+                          <InspectorRow label="I2I Denoise / edit strength">
+                            <input type="number" min="0" max="1" step="0.01" value={selectedNode.data.denoise ?? 0.55} onChange={(event) => updateNodeData(selectedNode.id, { denoise: Math.max(0, Math.min(1, Number(event.target.value))) })} className="w-full rounded-lg border border-sf-dark-700 bg-sf-dark-900 px-3 py-2 text-sm text-sf-text-primary" />
+                          </InspectorRow>
+                        </div>
+                      )}
+                      {selectedNode.type === FLOW_AI_NODE_TYPES.imageGen && selectedNode.data.workflowId === 'anima-lora-upscale' && selectedNode.data.showLegacyAnimaInspector === true && (
+                        <div className="space-y-3 rounded-xl border border-fuchsia-500/30 bg-fuchsia-500/10 p-3 text-sm text-fuchsia-100">
+                          <p>Power LoRA Loader compatibility is built into Lumeweft: enabled slots expand into standard ComfyUI LoraLoader nodes. RES4LYF is retained for the source workflow's exponential/res_2s sampler.</p>
+                          <div className="flex items-center justify-between gap-2 text-xs text-fuchsia-200">
+                            <span>{animaChoices.loading ? 'Reading choices from ComfyUI…' : 'Choices come directly from the connected ComfyUI instance.'}</span>
+                            <button type="button" onClick={() => void refreshAnimaChoices()} disabled={animaChoices.loading}
+                              className="rounded-lg border border-fuchsia-400/30 px-2 py-1 disabled:opacity-50">Refresh</button>
+                          </div>
+                          {animaChoices.error && <div className="rounded-lg border border-red-500/30 bg-red-500/10 p-2 text-xs text-red-200">{animaChoices.error}</div>}
+                          <InspectorRow label="ANIMA checkpoint">
+                            <select
+                              value={selectedNode.data.checkpointName || ''}
+                              onChange={(event) => updateNodeData(selectedNode.id, { checkpointName: event.target.value })}
+                              className="w-full rounded-lg border border-sf-dark-700 bg-sf-dark-900 px-3 py-2 text-sm text-sf-text-primary outline-none"
+                            >
+                              <option value="">Select an installed checkpoint…</option>
+                              {includeCurrentChoice(animaChoices.checkpoints, selectedNode.data.checkpointName).map((name) => <option key={name} value={name}>{name}</option>)}
+                            </select>
+                          </InspectorRow>
+                          <div className="grid grid-cols-2 gap-3">
+                            <InspectorRow label="Steps">
+                              <input type="number" min="1" max="100" value={selectedNode.data.steps ?? 15}
+                                onChange={(event) => updateNodeData(selectedNode.id, { steps: Math.max(1, Math.min(100, Number(event.target.value) || 15)) })}
+                                className="w-full rounded-lg border border-sf-dark-700 bg-sf-dark-900 px-3 py-2 text-sm text-sf-text-primary" />
+                            </InspectorRow>
+                            <InspectorRow label="CFG">
+                              <input type="number" min="0" max="100" step="0.1" value={selectedNode.data.cfg ?? 5}
+                                onChange={(event) => updateNodeData(selectedNode.id, { cfg: Math.max(0, Math.min(100, Number(event.target.value))) })}
+                                className="w-full rounded-lg border border-sf-dark-700 bg-sf-dark-900 px-3 py-2 text-sm text-sf-text-primary" />
+                            </InspectorRow>
+                          </div>
+                          <div className="grid grid-cols-2 gap-3">
+                            <InspectorRow label="ETA">
+                              <input type="number" min="-100" max="100" step="0.01" value={selectedNode.data.eta ?? 0.5}
+                                onChange={(event) => updateNodeData(selectedNode.id, { eta: Number(event.target.value) })}
+                                className="w-full rounded-lg border border-sf-dark-700 bg-sf-dark-900 px-3 py-2 text-sm text-sf-text-primary" />
+                            </InspectorRow>
+                            <InspectorRow label="Denoise">
+                              <input type="number" min="0" max="1" step="0.01" value={selectedNode.data.denoise ?? 1}
+                                onChange={(event) => updateNodeData(selectedNode.id, { denoise: Math.max(0, Math.min(1, Number(event.target.value))) })}
+                                className="w-full rounded-lg border border-sf-dark-700 bg-sf-dark-900 px-3 py-2 text-sm text-sf-text-primary" />
+                            </InspectorRow>
+                          </div>
+                          <InspectorRow label="RES4LYF sampler">
+                            <select value={selectedNode.data.samplerName || 'exponential/res_2s'} onChange={(event) => updateNodeData(selectedNode.id, { samplerName: event.target.value })}
+                              className="w-full rounded-lg border border-sf-dark-700 bg-sf-dark-900 px-3 py-2 text-sm text-sf-text-primary">
+                              {includeCurrentChoice(animaChoices.samplers, selectedNode.data.samplerName || 'exponential/res_2s').map((name) => <option key={name} value={name}>{name}</option>)}
+                            </select>
+                          </InspectorRow>
+                          <InspectorRow label="Scheduler">
+                            <select value={selectedNode.data.scheduler || 'karras'} onChange={(event) => updateNodeData(selectedNode.id, { scheduler: event.target.value })}
+                              className="w-full rounded-lg border border-sf-dark-700 bg-sf-dark-900 px-3 py-2 text-sm text-sf-text-primary">
+                              {includeCurrentChoice(animaChoices.schedulers, selectedNode.data.scheduler || 'karras').map((name) => <option key={name} value={name}>{name}</option>)}
+                            </select>
+                          </InspectorRow>
+                          <label className="flex items-center gap-2"><input type="checkbox" checked={selectedNode.data.bongmath !== false}
+                            onChange={(event) => updateNodeData(selectedNode.id, { bongmath: event.target.checked })} />RES4LYF bongmath</label>
+                          <div className="space-y-2">
+                            <div className="text-xs font-semibold uppercase tracking-wide text-fuchsia-200">LoRA stack (up to 5)</div>
+                            {Array.from({ length: 5 }, (_, index) => {
+                              const loras = Array.isArray(selectedNode.data.loras) ? selectedNode.data.loras : []
+                              const slot = loras[index] || { enabled: false, name: '', strength: 1 }
+                              const patchLora = (patch) => {
+                                const next = Array.from({ length: 5 }, (__, slotIndex) => ({
+                                  enabled: false, name: '', strength: 1, ...(loras[slotIndex] || {}),
+                                }))
+                                next[index] = { ...next[index], ...patch }
+                                updateNodeData(selectedNode.id, { loras: next })
+                              }
+                              return (
+                                <div key={index} className="grid grid-cols-[auto_1fr_5rem] items-center gap-2">
+                                  <input type="checkbox" checked={Boolean(slot.enabled)} onChange={(event) => patchLora({ enabled: event.target.checked })} aria-label={`Enable LoRA ${index + 1}`} />
+                                  <select value={slot.name || ''} onChange={(event) => patchLora({ name: event.target.value })}
+                                    className="min-w-0 rounded-lg border border-sf-dark-700 bg-sf-dark-900 px-2 py-1.5 text-xs text-sf-text-primary">
+                                    <option value="">LoRA {index + 1}…</option>
+                                    {includeCurrentChoice(animaChoices.loras, slot.name).map((name) => <option key={name} value={name}>{name}</option>)}
+                                  </select>
+                                  <input type="number" min="-100" max="100" step="0.05" value={slot.strength ?? 1} onChange={(event) => patchLora({ strength: Number(event.target.value) || 0 })}
+                                    aria-label={`LoRA ${index + 1} strength`} className="rounded-lg border border-sf-dark-700 bg-sf-dark-900 px-2 py-1.5 text-xs text-sf-text-primary" />
+                                </div>
+                              )
+                            })}
+                          </div>
+                          <label className="flex items-center gap-2">
+                            <input type="checkbox" checked={Boolean(selectedNode.data.upscaleEnabled)} onChange={(event) => updateNodeData(selectedNode.id, { upscaleEnabled: event.target.checked })} />
+                            Enable model upscale after VAE decode
+                          </label>
+                          {selectedNode.data.upscaleEnabled && (
+                            <InspectorRow label="Upscale model">
+                              <select value={selectedNode.data.upscaleModel || ''} onChange={(event) => updateNodeData(selectedNode.id, { upscaleModel: event.target.value })}
+                                className="w-full rounded-lg border border-sf-dark-700 bg-sf-dark-900 px-3 py-2 text-sm text-sf-text-primary">
+                                <option value="">Select an installed upscaler…</option>
+                                {includeCurrentChoice(animaChoices.upscalers, selectedNode.data.upscaleModel).map((name) => <option key={name} value={name}>{name}</option>)}
+                              </select>
+                            </InspectorRow>
+                          )}
+                        </div>
+                      )}
                     </>
                   )}
 
                   {selectedNode.type === FLOW_AI_NODE_TYPES.videoGen && (
                     <>
+                      {selectedNode.data.workflowId === 'vdn-h3-t2va' && (
+                        <div className="space-y-2 rounded-lg border border-sky-400/20 bg-sky-400/5 p-3 text-sm">
+                          <p>{t('canvas.vdnH3.help')}</p>
+                          <p className="text-xs text-sf-text-secondary">{t('canvas.vdnH3.settings')}</p>
+                        </div>
+                      )}
+                      {selectedNode.data.workflowId === 'fast-minimax-h3-t2va' && (
+                        <div className="space-y-3 rounded-lg border border-sky-400/20 bg-sky-400/5 p-3 text-sm">
+                          <p>{t('canvas.fastH3.help')}</p>
+                          <InspectorRow label={t('canvas.fastH3.steps')}>
+                            <select value={selectedNode.data.fastH3Steps || 4}
+                              onChange={event => updateNodeData(selectedNode.id, { fastH3Steps: Number(event.target.value) })}
+                              className="w-full rounded-lg border border-sf-dark-700 bg-sf-dark-900 px-3 py-2">
+                              {[4, 6, 8].map(steps => <option key={steps} value={steps}>{steps}</option>)}
+                            </select>
+                          </InspectorRow>
+                          <p className="text-xs text-sf-text-secondary">{t('canvas.fastH3.acceleration')}</p>
+                        </div>
+                      )}
+                      {selectedNode.data.workflowId === 'ainvfx-fluid' && (
+                        <div className="space-y-3 rounded-xl border border-cyan-500/30 bg-cyan-500/5 p-3">
+                          <p className="text-xs text-sf-text-secondary">{t('canvas.fluid.help')}</p>
+                          <InspectorRow label={t('canvas.fluid.strength')}>
+                            <input type="number" min="0" max="2" step="0.05" value={selectedNode.data.fluidStrength ?? 1}
+                              onChange={event => updateNodeData(selectedNode.id, { fluidStrength: Number(event.target.value) })}
+                              className="w-full rounded-lg border border-sf-dark-700 bg-sf-dark-900 px-3 py-2 text-sm" />
+                          </InspectorRow>
+                          <p className="text-xs text-sf-text-secondary">{t('canvas.fluid.setupHelp')}</p>
+                        </div>
+                      )}
+                      {['minimax-h3-gguf-r2v', 'minimax-h3-character-swap', 'minimax-h3-pink-reference', 'minimax-h3-aftermidnight-r2v'].includes(selectedNode.data.workflowId) && (
+                        <div className="space-y-3 rounded-xl border border-cyan-500/30 bg-cyan-500/10 p-3 text-sm text-cyan-100">
+                          <p>{t('canvas.h3Reference.help')}</p>
+                          {selectedNode.data.workflowId !== 'minimax-h3-character-swap' && <label className="flex items-center gap-2">
+                            <input type="checkbox" checked={selectedNode.data.useSageAttention !== false}
+                              onChange={(event) => updateNodeData(selectedNode.id, { useSageAttention: event.target.checked })} />
+                            {t('canvas.h3Reference.speedBoost')}
+                          </label>}
+                          {selectedNode.data.workflowId !== 'minimax-h3-character-swap' && <p className="text-xs text-sf-text-secondary">{t('canvas.h3Reference.speedBoostHelp')}</p>}
+                          <div className="grid grid-cols-2 gap-3">
+                            <InspectorRow label={t('canvas.h3Reference.start')}>
+                              <input type="number" min="0" step="0.1" value={selectedNode.data.referenceStart ?? 0}
+                                onChange={(event) => updateNodeData(selectedNode.id, { referenceStart: Math.max(0, Number(event.target.value) || 0) })}
+                                className="w-full rounded-lg border border-sf-dark-700 bg-sf-dark-900 px-3 py-2 text-sm text-sf-text-primary" />
+                            </InspectorRow>
+                            <InspectorRow label={t('canvas.h3Reference.length')}>
+                              <input type="number" min={selectedNode.data.workflowId === 'minimax-h3-character-swap' ? 4 : 2} max={selectedNode.data.workflowId === 'minimax-h3-character-swap' ? 5 : 15} step="1" value={selectedNode.data.referenceDuration ?? 5}
+                                onChange={(event) => updateNodeData(selectedNode.id, { referenceDuration: selectedNode.data.workflowId === 'minimax-h3-character-swap' ? Math.max(4, Math.min(5, Math.round(Number(event.target.value) || 5))) : Math.max(2, Math.min(15, Number(event.target.value) || 5)) })}
+                                className="w-full rounded-lg border border-sf-dark-700 bg-sf-dark-900 px-3 py-2 text-sm text-sf-text-primary" />
+                            </InspectorRow>
+                          </div>
+                          {selectedNode.data.workflowId !== 'minimax-h3-character-swap' && <label className="flex items-center gap-2">
+                            <input type="checkbox" checked={Boolean(selectedNode.data.useReferenceAudio)}
+                              onChange={(event) => updateNodeData(selectedNode.id, { useReferenceAudio: event.target.checked })} />
+                            {t('canvas.h3Reference.useAudio')}
+                          </label>}
+                        </div>
+                      )}
                       <div className="grid grid-cols-2 gap-3">
                         <InspectorRow label={t('canvas.fields.duration')}>
                           <input
                             type="number"
-                            min="1"
+                            min={selectedNode.data.workflowId === 'minimax-h3-character-swap' ? 4 : ['minimax-h3-gguf-r2v', 'minimax-h3-pink-reference', 'minimax-h3-aftermidnight-r2v', 'minimax-h3-aftermidnight-3ref', 'fast-minimax-h3-t2va', 'vdn-h3-t2va'].includes(selectedNode.data.workflowId) ? 5 : 1}
+                            max={selectedNode.data.workflowId === 'minimax-h3-character-swap' ? 5 : ['minimax-h3-gguf-r2v', 'minimax-h3-pink-reference', 'minimax-h3-aftermidnight-r2v', 'minimax-h3-aftermidnight-3ref', 'fast-minimax-h3-t2va', 'vdn-h3-t2va'].includes(selectedNode.data.workflowId) ? 15 : undefined}
                             step="1"
-                            value={selectedNode.data.duration ?? 5}
-                            onChange={(event) => updateNodeData(selectedNode.id, { duration: Number(event.target.value) || 5 })}
+                            value={selectedNode.data.workflowId === 'ainvfx-fluid' ? Number((121 / (selectedNode.data.fps || 25)).toFixed(3)) : selectedNode.data.duration ?? 5}
+                            disabled={selectedNode.data.workflowId === 'ainvfx-fluid'}
+                            onChange={(event) => updateNodeData(selectedNode.id, {
+                              duration: selectedNode.data.workflowId === 'minimax-h3-character-swap'
+                                ? Math.max(4, Math.min(5, Math.round(Number(event.target.value) || 5)))
+                                : ['minimax-h3-gguf-r2v', 'minimax-h3-pink-reference', 'minimax-h3-aftermidnight-r2v', 'minimax-h3-aftermidnight-3ref', 'fast-minimax-h3-t2va', 'vdn-h3-t2va'].includes(selectedNode.data.workflowId)
+                                ? Math.max(5, Math.min(15, Number(event.target.value) || 5))
+                                : Number(event.target.value) || 5,
+                            })}
                             className="w-full rounded-lg border border-sf-dark-700 bg-sf-dark-900 px-3 py-2 text-sm text-sf-text-primary outline-none"
                           />
                         </InspectorRow>
-                        <InspectorRow label={t('canvas.fields.fps')}>
+                        {!selectedNodeUsesFixedFps && <InspectorRow label={t('canvas.fields.fps')}>
                           <select
                             value={selectedNode.data.fps ?? 24}
-                            onChange={(event) => updateNodeData(selectedNode.id, { fps: Number(event.target.value) || 24 })}
-                            disabled={selectedNode.data.workflowId === 'minimax-h3-gguf-i2v'}
+                            onChange={(event) => updateNodeData(selectedNode.id, { fps: Number(event.target.value) || 24, ...(selectedNode.data.workflowId === 'ainvfx-fluid' ? { duration: 121 / Number(event.target.value) } : {}) })}
+                            disabled={['minimax-h3-gguf-i2v', 'minimax-h3-gguf-r2v', 'minimax-h3-character-swap', 'minimax-h3-pink-reference', 'minimax-h3-aftermidnight-r2v', 'minimax-h3-aftermidnight-3ref', 'fast-minimax-h3-t2va', 'vdn-h3-t2va'].includes(selectedNode.data.workflowId)}
                             className="w-full rounded-lg border border-sf-dark-700 bg-sf-dark-900 px-3 py-2 text-sm text-sf-text-primary outline-none"
                           >
-                            <option value={16}>16 fps</option>
+                            {selectedNode.data.workflowId !== 'ainvfx-fluid' && <option value={16}>16 fps</option>}
+                            {selectedNode.data.workflowId === 'ainvfx-fluid' && <option value={25}>25 fps</option>}
+                            {selectedNode.data.workflowId === 'ainvfx-fluid' && <option value={50}>50 fps</option>}
                             <option value={24}>24 fps</option>
-                            <option value={30}>30 fps</option>
+                            {selectedNode.data.workflowId !== 'ainvfx-fluid' && <option value={30}>30 fps</option>}
                           </select>
-                        </InspectorRow>
+                        </InspectorRow>}
                       </div>
                       {selectedNode.data.workflowId === 'wan22-i2v' && (
                         <InspectorRow label={t('canvas.fields.wanQuality')}>
@@ -5378,9 +6423,6 @@ export default function FlowAIWorkspace({ onOpenWorkflowSetup, onOpenSettings, o
                           MiniMax H3 is fixed at 24 fps. Connect the optional Last Frame port to constrain the ending image. The 608 x 352, 5-second default is a low-resource first test; raise resolution only after it runs successfully. The model weights use the MiniMax H3 Community License.
                         </div>
                       )}
-                      <div className="rounded-xl border border-sf-dark-800 bg-sf-dark-900/70 p-3 text-sm text-sf-text-secondary">
-                        Video Gen currently outputs one final video per run. Multi-video bundles can come later.
-                      </div>
                     </>
                   )}
 
@@ -5469,7 +6511,17 @@ export default function FlowAIWorkspace({ onOpenWorkflowSetup, onOpenSettings, o
 
                   {selectedNode.type === FLOW_AI_NODE_TYPES.musicGen && (
                     <>
-                      <InspectorRow label={t('canvas.fields.musicTags')}>
+                      {selectedNode.data.workflowId === 'irodori-tts' ? (
+                        <InspectorRow label={t('canvas.fields.dialogueText')}>
+                          <textarea
+                            rows={5}
+                            value={selectedNode.data.lyrics || ''}
+                            onChange={(event) => updateNodeData(selectedNode.id, { lyrics: event.target.value })}
+                            placeholder={t('canvas.placeholders.connectedPrompt')}
+                            className="w-full rounded-lg border border-sf-dark-700 bg-sf-dark-900 px-3 py-2 text-sm text-sf-text-primary outline-none"
+                          />
+                        </InspectorRow>
+                      ) : <><InspectorRow label={t('canvas.fields.musicTags')}>
                         <textarea
                           rows={3}
                           value={selectedNode.data.tags || ''}
@@ -5515,6 +6567,7 @@ export default function FlowAIWorkspace({ onOpenWorkflowSetup, onOpenSettings, o
                           className="w-full rounded-lg border border-sf-dark-700 bg-sf-dark-900 px-3 py-2 text-sm text-sf-text-primary outline-none"
                         />
                       </InspectorRow>
+                      </>}
                       <InspectorRow label={t('canvas.fields.seed')}>
                         <div className="flex gap-2">
                           <input
@@ -5533,6 +6586,33 @@ export default function FlowAIWorkspace({ onOpenWorkflowSetup, onOpenSettings, o
                         </div>
                       </InspectorRow>
                     </>
+                  )}
+
+                  {selectedNode.type === FLOW_AI_NODE_TYPES.videoGen && selectedNode.data.workflowId === 'ltx23-latentsync' && (
+                    <div className="grid grid-cols-2 gap-3">
+                      <InspectorRow label={t('canvas.fields.lipsExpression')}>
+                        <input
+                          type="number"
+                          min="1"
+                          max="3"
+                          step="0.1"
+                          value={selectedNode.data.lipsExpression ?? 1.5}
+                          onChange={(event) => updateNodeData(selectedNode.id, { lipsExpression: Number(event.target.value) || 1.5 })}
+                          className="w-full rounded-lg border border-sf-dark-700 bg-sf-dark-900 px-3 py-2 text-sm text-sf-text-primary outline-none"
+                        />
+                      </InspectorRow>
+                      <InspectorRow label={t('canvas.fields.lipSyncSteps')}>
+                        <input
+                          type="number"
+                          min="1"
+                          max="50"
+                          step="1"
+                          value={selectedNode.data.lipSyncSteps ?? 20}
+                          onChange={(event) => updateNodeData(selectedNode.id, { lipSyncSteps: Number(event.target.value) || 20 })}
+                          className="w-full rounded-lg border border-sf-dark-700 bg-sf-dark-900 px-3 py-2 text-sm text-sf-text-primary outline-none"
+                        />
+                      </InspectorRow>
+                    </div>
                   )}
 
                   <div className="flex gap-2">
@@ -5815,6 +6895,15 @@ export default function FlowAIWorkspace({ onOpenWorkflowSetup, onOpenSettings, o
         </div>
       )}
 
+      <ConfirmDialog
+        isOpen={Boolean(assetPendingDeletion)}
+        title="素材を削除しますか？"
+        message={`「${assetPendingDeletion?.name || ''}」をプロジェクトの素材から削除します。\nCANVASノードの参照も解除されます。元ファイルはディスクに残ります。`}
+        confirmLabel="素材を削除"
+        cancelLabel="キャンセル"
+        onConfirm={handleDeleteBrowserAsset}
+        onCancel={() => setAssetPendingDeletion(null)}
+      />
       {(originalImageAsset?.type === 'image' || originalImageAsset?.type === 'mask') && originalImageAsset.url && (
         <div
           className="fixed inset-0 z-[60] flex items-center justify-center bg-black/85 p-6 backdrop-blur-sm"
@@ -5854,4 +6943,3 @@ export default function FlowAIWorkspace({ onOpenWorkflowSetup, onOpenSettings, o
     </div>
   )
 }
-

@@ -21,6 +21,119 @@ const EDITABLE_SHOT_STEPS = [
   { id: 'keyframes', label: 'Keyframes' },
   { id: 'videos', label: 'Videos + Timeline' },
 ]
+const GEMINI_STEPS = [
+  { id: 'setup', label: '企画' },
+  { id: 'references', label: '参照素材' },
+  { id: 'script', label: '台本' },
+  { id: 'keyframes', label: 'キーフレーム' },
+  { id: 'videos', label: 'Veo動画＋タイムライン' },
+]
+
+const SCRIPT_REVIEW_JA_TERMS = Object.freeze({
+  'Box tap and open': '箱をタップして開封',
+  'Bring in solution': '解決策の提示',
+  'Closer proof': '証拠をさらに接写',
+  'Creator reaction': '演者のリアクション',
+  'Daily use hook': '日常使いのフック',
+  Decision: '決め手',
+  'Detail check': '詳細確認',
+  'Detail close-up': 'ディテールの接写',
+  'Direct hook': '直接的なフック',
+  'Extras and layout': '付属品と配置',
+  'Feature touch': '機能を試す',
+  'Final display': '最終表示',
+  'Final recommendation': '最後のおすすめ',
+  'Final verdict': '最終評価',
+  'First impression': '第一印象',
+  'First reveal': '最初の商品紹介',
+  'Fit check': 'フィット感の確認',
+  'Full look': '全体確認',
+  'Getting ready hook': '準備シーンのフック',
+  'Honest reaction': '正直なリアクション',
+  'Honest verdict': '正直な評価',
+  'In-hand reveal': '手持ちで商品紹介',
+  'Lifestyle proof': '日常使用での証明',
+  'Movement check': '動きの確認',
+  'Problem hook': '悩みを提示するフック',
+  'Proof close-up': '証拠の接写',
+  'Proof detail': '証拠の詳細',
+  'Put it on': '装着',
+  'Quick demo': '簡単な実演',
+  'Result proof': '結果の証明',
+  'Result reaction': '結果へのリアクション',
+  'Satisfying action': '気持ちよい動き',
+  'Seal close-up': '封を接写',
+  'Second use': '2回目の使用',
+  'Selfie hook': '自撮りフック',
+  'Simple CTA': 'シンプルなCTA',
+  'Soft CTA': '自然なCTA',
+  'Sound detail': '音のディテール',
+  'Texture check': '質感確認',
+  'Texture moment': '質感を見せる',
+  'That is the review': 'レビューまとめ',
+  'Tiny reaction': '小さなリアクション',
+  'Try it': '試用',
+  'Use it for real': '実際に使う',
+  'Wait look at this': '「これを見て」のフック',
+  'Why it stuck': '印象に残った理由',
+  benefit: 'メリット',
+  CTA: '行動喚起',
+  demo: '実演',
+  detail: '詳細',
+  hook: 'フック',
+  lifestyle: '日常使用',
+  problem: '悩み',
+  'product reveal': '商品紹介',
+  proof: '証拠',
+  reaction: 'リアクション',
+  testimonial: '体験談',
+  accessories: '付属品',
+  'beauty display': '美しい商品表示',
+  context: '使用場面',
+  'feature detail': '機能の詳細',
+  hero: '商品メイン',
+  'in-hand': '手持ち',
+  'in-use': '使用中',
+  'macro detail': 'マクロ詳細',
+  'motion detail': '動きの詳細',
+  'packaging detail': 'パッケージ詳細',
+  'packaging reveal': 'パッケージ紹介',
+  result: '結果',
+  'try-on': '試着・装着',
+  creator: '演者',
+  'creator hands': '演者の手元',
+  'hands only': '手元のみ',
+  'back camera close-up': '背面カメラの接写',
+  'close-up': '接写',
+  'close-up insert': '差し込み接写',
+  'close-up result': '結果の接写',
+  'extreme close-up': '超接写',
+  'fuller body shot': '全身寄りのショット',
+  'handheld medium shot': '手持ちのミディアムショット',
+  'locked beauty shot': '固定の商品美観ショット',
+  'macro close-up': 'マクロ接写',
+  'medium close-up': 'ミディアム接写',
+  'medium demo shot': 'ミディアム実演ショット',
+  'medium handheld': '手持ちのミディアムショット',
+  'medium shot': 'ミディアムショット',
+  'medium try-on shot': 'ミディアム試着ショット',
+  'mirror-free selfie': '鏡を使わない自撮り',
+  'overhead close-up': '真上からの接写',
+  'overhead layout': '真上からの配置ショット',
+  'overhead top-down': '真上からの俯瞰',
+  'phone propped up': 'スマートフォンを固定',
+  'selfie close-up': '自撮り接写',
+  'selfie final hold': '自撮りで最後の商品提示',
+  'selfie medium close-up': '自撮りのミディアム接写',
+  'selfie product hold': '自撮りで商品を提示',
+  'selfie product reveal': '自撮りで商品紹介',
+  'selfie reaction': '自撮りリアクション',
+})
+
+function localizeScriptReviewTerm(value) {
+  const text = String(value || '').trim()
+  return SCRIPT_REVIEW_JA_TERMS[text] || text
+}
 
 // Ready-made ElevenLabs voices (must match the alias list in
 // normalizeElevenLabsVoiceName in services/comfyui.js). One pinned voice drives
@@ -118,13 +231,23 @@ const TONE_OPTIONS = [
 ]
 
 const VIDEO_MODEL_OPTIONS = [
-  { id: UGC_EXACT_LIPSYNC_WORKFLOW_ID, label: 'Exact Audio (recommended)', helper: 'LTX 2.3 motion + LatentSync 1.6. Keeps the finished Irodori/ElevenLabs audio and corrects the mouth to it.' },
+  { id: 'google-veo-3-1-lite', label: 'Google Veo 3.1 Lite', helper: 'Official Gemini API video generation with native dialogue and sound.' },
+  { id: UGC_EXACT_LIPSYNC_WORKFLOW_ID, label: 'Exact Audio (recommended)', helper: 'Native LTX 2.3 audio-driven motion. Keeps the finished Irodori/ElevenLabs waveform unchanged.' },
   { id: 'ltx23-i2v', label: 'LTX TalkVid', helper: 'Lighter fallback. Uses the voice clip as a reference, then regenerates speech and mouth motion together.' },
   { id: 'wan22-i2v', label: 'WAN 2.2', helper: 'Good alternate for product motion and physical demo shots.' },
   { id: SEEDANCE_UGC_VIDEO_WORKFLOW_ID, label: 'Seedance 2.0', helper: 'Cloud UGC pass. Generates spoken dialogue from the shot prompt.' },
 ]
 
 const KEYFRAME_MODEL_OPTIONS = [
+  {
+    id: 'google-nano-banana-lite',
+    workflowId: 'google-nano-banana-lite',
+    label: 'Google Nano Banana 2 Lite',
+    runtimeLabel: 'Gemini API',
+    source: 'cloud',
+    tier: 'google',
+    helper: 'Official Gemini API image generation using creator, product, or environment references.',
+  },
   {
     id: 'nano-banana-2',
     workflowId: 'nano-banana-2',
@@ -1068,15 +1191,15 @@ function getShotHint(length) {
   const seconds = normalizeDraftRangeNumber(length, DEFAULT_UGC_AD_DRAFT.commercialLength, MIN_UGC_LENGTH_SECONDS, MAX_UGC_LENGTH_SECONDS)
   const suggestedCount = getSuggestedShotCount(seconds)
   const recommendation = seconds < RECOMMENDED_UGC_LENGTH_MIN || seconds > RECOMMENDED_UGC_LENGTH_MAX
-    ? `UGC usually lands best around ${RECOMMENDED_UGC_LENGTH_MIN}-${RECOMMENDED_UGC_LENGTH_MAX}s.`
-    : 'This is in the sweet spot for UGC.'
-  return `${recommendation} Suggested: about ${suggestedCount} shots at roughly ${getShotDuration(suggestedCount, seconds)}s each.`
+    ? `UGC広告は通常${RECOMMENDED_UGC_LENGTH_MIN}〜${RECOMMENDED_UGC_LENGTH_MAX}秒程度が効果的です。`
+    : 'UGC広告に適した長さです。'
+  return `${recommendation}目安は約${suggestedCount}ショット、1ショット約${getShotDuration(suggestedCount, seconds)}秒です。`
 }
 
 function formatShotTime(index, count, totalSeconds) {
   const start = Math.round((index * totalSeconds) / count)
   const end = Math.round(((index + 1) * totalSeconds) / count)
-  return `${start}-${Math.max(end, start + 1)}s`
+  return `${start}〜${Math.max(end, start + 1)}秒`
 }
 
 function getShotDuration(count, totalSeconds) {
@@ -1945,6 +2068,7 @@ function extractFirstKeyframePrompt(script = '') {
 }
 
 export default function UGCAdCreator({
+  runtimePreset = '',
   assets,
   yoloUgcVoiceAssetMap,
   generationQueue,
@@ -1993,6 +2117,7 @@ export default function UGCAdCreator({
   handleQueueUgcOneShot,
   voicePreviews,
   handleImportUgcReferenceImage,
+  handleQueueUgcGeminiReference,
   ugcReferenceImageImporting,
   handleOpenYoloAdCustomKeyframeWorkflowInComfyUi,
   handleImportYoloAdCustomKeyframeWorkflow,
@@ -2005,7 +2130,13 @@ export default function UGCAdCreator({
   handleAssembleAdTimeline,
 }) {
   const { t } = useI18n()
-  const initialDraft = useMemo(() => loadUgcAdDraft(), [])
+  const initialDraft = useMemo(() => {
+    const draft = loadUgcAdDraft()
+    return runtimePreset === 'google-gemini'
+      ? { ...draft, productionMode: 'google-gemini', keyframeWorkflowId: 'google-nano-banana-lite', videoWorkflowId: 'google-veo-3-1-lite' }
+      : draft
+  }, [runtimePreset])
+  const isGeminiRuntime = runtimePreset === 'google-gemini'
   const [step, setStep] = useState('setup')
   const [businessName, setBusinessName] = useState(initialDraft.businessName)
   const [productService, setProductService] = useState(initialDraft.productService)
@@ -2045,6 +2176,8 @@ export default function UGCAdCreator({
   const [productAssetId, setProductAssetId] = useState(initialDraft.productAssetId)
   const [talentAssetId, setTalentAssetId] = useState(initialDraft.talentAssetId)
   const [environmentAssetId, setEnvironmentAssetId] = useState(initialDraft.environmentAssetId)
+  const [referenceGenerationJobs, setReferenceGenerationJobs] = useState({})
+  const [referencePromptOverrides, setReferencePromptOverrides] = useState({})
   const [noVisibleTalent, setNoVisibleTalent] = useState(initialDraft.noVisibleTalent)
   const [directorScript, setDirectorScript] = useState(initialDraft.directorScript || yoloScript || '')
   const [scriptViewMode, setScriptViewMode] = useState('full')
@@ -2172,6 +2305,42 @@ export default function UGCAdCreator({
     if (referenceType === 'creator') setTalentAssetId(importedAsset.id)
     if (referenceType === 'room') setEnvironmentAssetId(importedAsset.id)
   }
+  const buildGeminiReferencePrompt = (referenceType) => {
+    const prompts = {
+      product: `Create a clean photorealistic UGC reference image of ${productService || 'the product'}. Show the complete product and packaging clearly in natural soft light, accurate materials and proportions, plain uncluttered background, no person, no hands, no captions, no watermark, no extra products.`,
+      creator: `Create a photorealistic casting reference portrait for a UGC advertisement. Performer direction: ${talentDirection || 'natural approachable adult performer'}. Show one adult performer from waist up, neutral natural expression, simple wardrobe suitable for ${productService || 'the product'}, realistic skin and phone-camera lighting, plain background, no product, no captions, no watermark.`,
+      room: `Create a photorealistic empty filming-location reference for a UGC advertisement about ${productService || 'the product'}. Location: ${location || 'a believable everyday room'}. Natural phone-camera perspective, realistic surfaces and practical light, no people, no product, no captions, no watermark.`,
+    }
+    return prompts[referenceType] || ''
+  }
+  const getGeminiReferencePrompt = (referenceType) => (
+    Object.prototype.hasOwnProperty.call(referencePromptOverrides, referenceType)
+      ? referencePromptOverrides[referenceType]
+      : buildGeminiReferencePrompt(referenceType)
+  )
+  const generateGeminiReference = async (referenceType) => {
+    if (!isGeminiRuntime || typeof handleQueueUgcGeminiReference !== 'function') return
+    const prompt = getGeminiReferencePrompt(referenceType).trim()
+    if (!prompt) return
+    const result = await handleQueueUgcGeminiReference({
+      referenceType,
+      prompt,
+      width: outputResolution.width,
+      height: outputResolution.height,
+    })
+    if (result?.jobId) setReferenceGenerationJobs((current) => ({ ...current, [referenceType]: result.jobId }))
+  }
+  useEffect(() => {
+    if (!isGeminiRuntime) return
+    for (const [referenceType, jobId] of Object.entries(referenceGenerationJobs)) {
+      const job = (generationQueue || []).find((entry) => entry?.id === jobId)
+      if (job?.status !== 'done' || !job?.resultAssetIds?.[0]) continue
+      const assetId = job.resultAssetIds[0]
+      if (referenceType === 'product') setProductAssetId(assetId)
+      if (referenceType === 'creator') setTalentAssetId(assetId)
+      if (referenceType === 'room') setEnvironmentAssetId(assetId)
+    }
+  }, [generationQueue, isGeminiRuntime, referenceGenerationJobs])
   const videoAssetMap = useMemo(() => {
     const map = new Map()
     for (const asset of assets || []) {
@@ -2497,9 +2666,9 @@ export default function UGCAdCreator({
     setLlmCopyStatus('')
     try {
       await navigator.clipboard.writeText(externalLlmPrompt)
-      setLlmCopyStatus('Copied prompt')
+      setLlmCopyStatus('コピーしました')
     } catch (_) {
-      setLlmCopyStatus('Select and copy manually')
+      setLlmCopyStatus('選択して手動でコピーしてください')
     }
   }
 
@@ -2531,7 +2700,7 @@ export default function UGCAdCreator({
       setSelectedVideoIndex(0)
       setKeyframeStatus('Plan ready. Choose a keyframe model, then create keyframes.')
       setVideoStatus('Plan ready. Generate keyframes before creating videos.')
-      setStep(isEditableShotsMode ? 'voiceover' : 'keyframes')
+      setStep(isGeminiRuntime ? 'keyframes' : isEditableShotsMode ? 'voiceover' : 'keyframes')
     } else {
       setKeyframeStatus('Could not build the plan. Check the script format and try again.')
     }
@@ -2927,8 +3096,8 @@ export default function UGCAdCreator({
     }
   }
 
-  const isEditableShotsMode = productionMode === 'local_ja'
-  const steps = isEditableShotsMode ? EDITABLE_SHOT_STEPS : ONE_SHOT_STEPS
+  const isEditableShotsMode = productionMode === 'local_ja' || isGeminiRuntime
+  const steps = isGeminiRuntime ? GEMINI_STEPS : isEditableShotsMode ? EDITABLE_SHOT_STEPS : ONE_SHOT_STEPS
   const stepIndex = steps.findIndex((item) => item.id === step)
 
   const handleDialogueLanguageChange = (nextLanguage) => {
@@ -3261,7 +3430,7 @@ export default function UGCAdCreator({
           <h1 className="ugc-top-title">UGC Creator <span>{t('generate.director.ugc.header.tagline', {}, '- social ads that still feel human')}</span></h1>
         </div>
         <div className="flex flex-wrap gap-2">
-          <span className="ugc-pill"><span className="ugc-dot" />{t('generate.director.ugc.header.connected', {}, 'ComfyUI connected')}</span>
+          <span className="ugc-pill"><span className="ugc-dot" />{isGeminiRuntime ? 'Google Gemini API' : t('generate.director.ugc.header.connected', {}, 'ComfyUI connected')}</span>
           <span className="ugc-pill hot">{t('generate.director.ugc.header.beta', {}, 'Beta workflow')}</span>
         </div>
       </div>
@@ -3280,6 +3449,12 @@ export default function UGCAdCreator({
           </div>
 
           <div className="ugc-card-block">
+            {isGeminiRuntime ? (
+              <div className="rounded-lg border border-fuchsia-400/30 bg-fuchsia-400/10 px-3 py-3">
+                <div className="text-xs font-semibold text-fuchsia-100">Gemini API専用フロー</div>
+                <div className="mt-1 text-[11px] leading-relaxed text-fuchsia-100/80">Nano Banana 2 Liteで参照素材とキーフレームを生成し、Veo 3.1 Liteで台詞・環境音付きのショットを作ります。Seedance、LTX、外部TTSは使用しません。</div>
+              </div>
+            ) : (<>
             <div className="ugc-card-title">{t('generate.director.ugc.productionMode.title', {}, 'Production mode')}</div>
             <div className="ugc-card-copy">{t('generate.director.ugc.productionMode.description', {}, 'Choose a fast one-shot render or a fully editable shot workflow with selectable dialogue language and TTS.')}</div>
             <div className="mt-3 grid grid-cols-1 gap-2 md:grid-cols-2">
@@ -3321,6 +3496,7 @@ export default function UGCAdCreator({
                 </div>
               </div>
             )}
+            </>)}
           </div>
 
           <div className="ugc-card-block">
@@ -3372,7 +3548,7 @@ export default function UGCAdCreator({
             </div>
 
             <div className="ugc-card-block">
-              <div className="ugc-card-title">{t('generate.director.ugc.setup.energyTitle', {}, 'Creator energy')}</div>
+              <div className="ugc-card-title">{isGeminiRuntime ? '演者の雰囲気' : t('generate.director.ugc.setup.energyTitle', {}, 'Creator energy')}</div>
               <div className="ugc-card-copy">{t('generate.director.ugc.setup.energyDescription', {}, 'How does the person on camera feel?')}</div>
               <div className="ugc-chip-row">
                 {TONE_OPTIONS.map((option) => (
@@ -3448,8 +3624,8 @@ export default function UGCAdCreator({
               </div>
               <div className="ugc-field-label mt-4">{t('generate.director.ugc.setup.frameRate', {}, 'Frame rate')}</div>
               <div className="ugc-tag-row">
-                <span className="ugc-tag cyan">{FIXED_UGC_FPS} fps</span>
-                <span className="text-[11px] text-[#95927f]">{t('generate.director.ugc.setup.frameRateHelp', {}, "Locked to 25 fps — LTX 2.3's native rate for clean motion and lip-sync.")}</span>
+                <span className="ugc-tag cyan">{isGeminiRuntime ? 'Veo自動' : `${FIXED_UGC_FPS} fps`}</span>
+                <span className="text-[11px] text-[#95927f]">{isGeminiRuntime ? 'Veo 3.1 Liteの出力仕様に合わせて自動設定されます。' : t('generate.director.ugc.setup.frameRateHelp', {}, "Locked to 25 fps — LTX 2.3's native rate for clean motion and lip-sync.")}</span>
               </div>
             </div>
           </div>
@@ -3513,8 +3689,8 @@ export default function UGCAdCreator({
         <div className="ugc-card-block space-y-4">
           <div>
             <div className="ugc-kicker">{t('generate.director.ugc.references.kicker', {}, 'Drop-ins')}</div>
-            <h2 className="ugc-section-title">{t('generate.director.ugc.references.title', {}, 'Anchor the product, creator, and room.')}</h2>
-            <p className="ugc-section-copy">{t('generate.director.ugc.references.description', {}, 'These are optional, but UGC gets more believable when the AI has real references for the product, person, and phone-camera environment.')}</p>
+            <h2 className="ugc-section-title">商品、演者、撮影場所を用意します。</h2>
+            <p className="ugc-section-copy">画像を選ぶか、各カードの生成ボタンからNano Banana 2 Liteで新しく作成できます。生成結果は素材へ登録され、このスロットへ自動設定されます。</p>
           </div>
           <div className="grid grid-cols-1 gap-3 md:grid-cols-3">
             <div className="ugc-card-block">
@@ -3540,20 +3716,29 @@ export default function UGCAdCreator({
                 {ugcReferenceImageImporting === 'product' ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Upload className="h-3.5 w-3.5" />}
                 {productAsset ? t('generate.director.ugc.references.replaceImage', {}, 'Replace image') : t('generate.director.ugc.references.uploadImage', {}, 'Upload image')}
               </button>
+              {isGeminiRuntime && (
+                <>
+                  <label className="mt-3 block text-[10px] font-semibold text-[#b9b5a8]">
+                    生成プロンプト
+                    <textarea value={getGeminiReferencePrompt('product')} onChange={(event) => setReferencePromptOverrides((current) => ({ ...current, product: event.target.value }))} rows={5} className="ugc-input mt-1 w-full resize-y rounded-lg border px-3 py-2 text-[11px] leading-4" />
+                  </label>
+                  <button type="button" onClick={() => { void generateGeminiReference('product') }} disabled={!getGeminiReferencePrompt('product').trim() || Boolean(referenceGenerationJobs.product && (generationQueue || []).find((job) => job.id === referenceGenerationJobs.product && !['done', 'error', 'cancelled'].includes(job.status)))} className="mt-2 inline-flex w-full items-center justify-center gap-2 rounded-lg bg-fuchsia-500/20 px-3 py-2 text-xs font-semibold text-fuchsia-100 hover:bg-fuchsia-500/30 disabled:cursor-wait disabled:opacity-50"><ImageIcon className="h-3.5 w-3.5" />Geminiで商品を生成</button>
+                </>
+              )}
             </div>
             <div className="ugc-card-block">
               <div className="text-2xl" aria-hidden="true">🤳</div>
               <div className="flex items-center justify-between gap-2">
-                <div className="mt-2 text-sm font-semibold text-[#f1efe8]">{t('generate.director.ugc.references.creator', {}, 'The Creator')}</div>
+                <div className="mt-2 text-sm font-semibold text-[#f1efe8]">演者</div>
                 <label className="flex items-center gap-1.5 text-[10px] text-sf-text-muted">
                   <input type="checkbox" checked={noVisibleTalent} onChange={(e) => setNoVisibleTalent(e.target.checked)} />
                   {t('generate.director.ugc.references.handsOnly', {}, 'Hands only / no face')}
                 </label>
               </div>
-              <p className="mt-1 text-[11px] leading-4 text-[#95927f]">{t('generate.director.ugc.references.creatorHelp', {}, 'Creator or avatar image with outfit, expressions, social-camera personality.')}</p>
+              <p className="mt-1 text-[11px] leading-4 text-[#95927f]">広告に出演する人物の顔、服装、雰囲気を固定する参照画像です。</p>
               <div className={`relative mt-3 aspect-[4/3] overflow-hidden rounded-lg border border-[#353229] bg-[#100f0d] ${noVisibleTalent ? 'opacity-40' : ''}`}>
                 {talentAsset?.url && !noVisibleTalent ? (
-                  <img src={talentAsset.url} alt={talentAsset.name || t('generate.director.ugc.references.creator', {}, 'Creator')} className="h-full w-full object-cover" />
+                  <img src={talentAsset.url} alt={talentAsset.name || (isGeminiRuntime ? '演者' : t('generate.director.ugc.references.creator', {}, 'Creator'))} className="h-full w-full object-cover" />
                 ) : (
                   <div className="flex h-full flex-col items-center justify-center gap-2 text-[#6f6c60]">
                     <ImageIcon className="h-7 w-7" />
@@ -3563,21 +3748,30 @@ export default function UGCAdCreator({
                 {talentAsset && !noVisibleTalent && <div className="absolute inset-x-0 bottom-0 truncate bg-black/65 px-2 py-1.5 text-[10px] text-white">{talentAsset.name}</div>}
               </div>
               <select disabled={noVisibleTalent} value={talentAssetId} onChange={(e) => setTalentAssetId(e.target.value)} className="mt-3 w-full rounded-lg border border-sf-dark-600 bg-sf-dark-900 px-3 py-2 text-xs text-sf-text-primary focus:border-sf-accent focus:outline-none disabled:opacity-50">
-                <option value="">{t('generate.director.ugc.references.noCreator', {}, 'No creator asset selected')}</option>
+                <option value="">{isGeminiRuntime ? '演者素材を選択していません' : t('generate.director.ugc.references.noCreator', {}, 'No creator asset selected')}</option>
                 {imageAssets.map((asset) => <option key={`easy-creator-${asset.id}`} value={asset.id}>{asset.name}</option>)}
               </select>
               <button type="button" onClick={() => { void uploadReferenceImage('creator') }} disabled={noVisibleTalent || Boolean(ugcReferenceImageImporting)} className="mt-2 inline-flex w-full items-center justify-center gap-2 rounded-lg border border-dashed border-[#4a463b] bg-[#1b1a16] px-3 py-2 text-xs font-semibold text-[#d9d5c8] transition hover:border-[#ff4b2e] hover:text-white disabled:cursor-not-allowed disabled:opacity-50">
                 {ugcReferenceImageImporting === 'creator' ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Upload className="h-3.5 w-3.5" />}
                 {talentAsset ? t('generate.director.ugc.references.replaceImage', {}, 'Replace image') : t('generate.director.ugc.references.uploadImage', {}, 'Upload image')}
               </button>
+              {isGeminiRuntime && (
+                <>
+                  <label className="mt-3 block text-[10px] font-semibold text-[#b9b5a8]">
+                    生成プロンプト
+                    <textarea disabled={noVisibleTalent} value={getGeminiReferencePrompt('creator')} onChange={(event) => setReferencePromptOverrides((current) => ({ ...current, creator: event.target.value }))} rows={5} className="ugc-input mt-1 w-full resize-y rounded-lg border px-3 py-2 text-[11px] leading-4 disabled:opacity-50" />
+                  </label>
+                  <button type="button" onClick={() => { void generateGeminiReference('creator') }} disabled={noVisibleTalent || !getGeminiReferencePrompt('creator').trim() || Boolean(referenceGenerationJobs.creator && (generationQueue || []).find((job) => job.id === referenceGenerationJobs.creator && !['done', 'error', 'cancelled'].includes(job.status)))} className="mt-2 inline-flex w-full items-center justify-center gap-2 rounded-lg bg-fuchsia-500/20 px-3 py-2 text-xs font-semibold text-fuchsia-100 hover:bg-fuchsia-500/30 disabled:cursor-wait disabled:opacity-50"><ImageIcon className="h-3.5 w-3.5" />Geminiで演者を生成</button>
+                </>
+              )}
             </div>
             <div className="ugc-card-block">
               <div className="text-2xl" aria-hidden="true">🛁</div>
-              <div className="mt-2 text-sm font-semibold text-[#f1efe8]">{t('generate.director.ugc.references.room', {}, 'The Room')}</div>
-              <p className="mt-1 text-[11px] leading-4 text-[#95927f]">{t('generate.director.ugc.references.roomHelp', {}, 'Bathroom, kitchen, desk, gym - the world the phone lives in.')}</p>
+              <div className="mt-2 text-sm font-semibold text-[#f1efe8]">撮影場所</div>
+              <p className="mt-1 text-[11px] leading-4 text-[#95927f]">浴室、キッチン、デスク、ジムなど、広告を撮影する場所の参照画像です。</p>
               <div className="relative mt-3 aspect-[4/3] overflow-hidden rounded-lg border border-[#353229] bg-[#100f0d]">
                 {environmentAsset?.url ? (
-                  <img src={environmentAsset.url} alt={environmentAsset.name || t('generate.director.ugc.references.room', {}, 'Room')} className="h-full w-full object-cover" />
+                  <img src={environmentAsset.url} alt={environmentAsset.name || (isGeminiRuntime ? '撮影場所' : t('generate.director.ugc.references.room', {}, 'Room'))} className="h-full w-full object-cover" />
                 ) : (
                   <div className="flex h-full flex-col items-center justify-center gap-2 text-[#6f6c60]">
                     <ImageIcon className="h-7 w-7" />
@@ -3587,19 +3781,28 @@ export default function UGCAdCreator({
                 {environmentAsset && <div className="absolute inset-x-0 bottom-0 truncate bg-black/65 px-2 py-1.5 text-[10px] text-white">{environmentAsset.name}</div>}
               </div>
               <select value={environmentAssetId} onChange={(e) => setEnvironmentAssetId(e.target.value)} className="mt-3 w-full rounded-lg border border-sf-dark-600 bg-sf-dark-900 px-3 py-2 text-xs text-sf-text-primary focus:border-sf-accent focus:outline-none">
-                <option value="">{t('generate.director.ugc.references.noRoom', {}, 'No room asset selected')}</option>
+                <option value="">{isGeminiRuntime ? '撮影場所の素材を選択していません' : t('generate.director.ugc.references.noRoom', {}, 'No room asset selected')}</option>
                 {imageAssets.map((asset) => <option key={`easy-environment-${asset.id}`} value={asset.id}>{asset.name}</option>)}
               </select>
               <button type="button" onClick={() => { void uploadReferenceImage('room') }} disabled={Boolean(ugcReferenceImageImporting)} className="mt-2 inline-flex w-full items-center justify-center gap-2 rounded-lg border border-dashed border-[#4a463b] bg-[#1b1a16] px-3 py-2 text-xs font-semibold text-[#d9d5c8] transition hover:border-[#ff4b2e] hover:text-white disabled:cursor-wait disabled:opacity-50">
                 {ugcReferenceImageImporting === 'room' ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Upload className="h-3.5 w-3.5" />}
                 {environmentAsset ? t('generate.director.ugc.references.replaceImage', {}, 'Replace image') : t('generate.director.ugc.references.uploadImage', {}, 'Upload image')}
               </button>
+              {isGeminiRuntime && (
+                <>
+                  <label className="mt-3 block text-[10px] font-semibold text-[#b9b5a8]">
+                    生成プロンプト
+                    <textarea value={getGeminiReferencePrompt('room')} onChange={(event) => setReferencePromptOverrides((current) => ({ ...current, room: event.target.value }))} rows={5} className="ugc-input mt-1 w-full resize-y rounded-lg border px-3 py-2 text-[11px] leading-4" />
+                  </label>
+                  <button type="button" onClick={() => { void generateGeminiReference('room') }} disabled={!getGeminiReferencePrompt('room').trim() || Boolean(referenceGenerationJobs.room && (generationQueue || []).find((job) => job.id === referenceGenerationJobs.room && !['done', 'error', 'cancelled'].includes(job.status)))} className="mt-2 inline-flex w-full items-center justify-center gap-2 rounded-lg bg-fuchsia-500/20 px-3 py-2 text-xs font-semibold text-fuchsia-100 hover:bg-fuchsia-500/30 disabled:cursor-wait disabled:opacity-50"><ImageIcon className="h-3.5 w-3.5" />Geminiで撮影場所を生成</button>
+                </>
+              )}
             </div>
           </div>
           <div className="rounded-lg border border-[#e3a94f]/30 bg-[#e3a94f]/10 px-3 py-2">
             <div className="text-[11px] font-bold text-[#e3a94f]">{t('generate.director.ugc.references.tipTitle', {}, 'Pro move')}</div>
             <div className="mt-1 text-[11px] leading-5 text-[#c9c6ba]">
-              {t('generate.director.ugc.references.tip', {}, 'A creator reference plus a room reference keeps the same person in the same place across shots. That continuity is what makes UGC ads feel real instead of stitched together.')}
+              {isGeminiRuntime ? '演者と撮影場所の参照を揃えると、Nano Bananaがショット間の人物・衣装・背景を維持しやすくなります。' : t('generate.director.ugc.references.tip', {}, 'A creator reference plus a room reference keeps the same person in the same place across shots. That continuity is what makes UGC ads feel real instead of stitched together.')}
             </div>
           </div>
           {renderActions(
@@ -3615,33 +3818,33 @@ export default function UGCAdCreator({
       {step === 'script' && (
         <div className="ugc-panel space-y-4 rounded-2xl border p-4">
           <div>
-            <div className="ugc-kicker">Script Review</div>
-            <h2 className="ugc-section-title">Your shot list.</h2>
+            <div className="ugc-kicker">台本確認</div>
+            <h2 className="ugc-section-title">ショット構成を確認・編集します。</h2>
             <p className="ugc-section-copy">
-              Each card is one shot. The line the creator says is the headline; the camera and on-screen action sit underneath. Flip to <b>Just the lines</b> for a quick read-through. Shot 1 is your hook from Step 1, and any shot can be a silent product moment. The full director script stays in sync below.
+              1枚のカードが1ショットです。演者のセリフを中心に、商品の動きとカメラ演出を確認できます。「セリフのみ」に切り替えると、セリフだけを続けて確認できます。ショット1には企画で設定したフックが入り、必要なショットはセリフなしの商品カットにも変更できます。下部のディレクター用全台本にも編集内容が自動で反映されます。
             </p>
           </div>
           <div className="grid grid-cols-1 gap-3 md:grid-cols-3">
             <div className="ugc-card rounded-lg border px-3 py-2">
-              <div className="ugc-card-title">Shot plan</div>
-              <div className="ugc-card-copy">Length sets the suggested number of shots. Adjust it and the shot list updates.</div>
+              <div className="ugc-card-title">ショット構成</div>
+              <div className="ugc-card-copy">広告の長さから推奨ショット数を算出します。ショット数を変更すると、台本も更新されます。</div>
             </div>
             <label className="text-xs text-[#c9c6ba]">
-              <span className="font-mono text-[10px] uppercase tracking-wider text-[#95927f]">How many shots? ({commercialLength}s ad)</span>
+              <span className="font-mono text-[10px] tracking-wider text-[#95927f]">ショット数（広告尺：{commercialLength}秒）</span>
               <select value={shotCount} onChange={(e) => updateShotCount(e.target.value)} className="ugc-input mt-1 w-full rounded-lg border px-3 py-2 text-xs">
-                {SHOT_COUNT_OPTIONS.map((count) => <option key={count} value={count}>{count} shots</option>)}
+                {SHOT_COUNT_OPTIONS.map((count) => <option key={count} value={count}>{count}ショット</option>)}
               </select>
               <span className="mt-1 block text-[10px] text-[#95927f]">{getShotHint(commercialLength)}</span>
             </label>
             <div className="ugc-card rounded-lg border px-3 py-2">
-              <div className="font-mono text-[10px] uppercase tracking-wider text-[#95927f]">Model route</div>
-              <div className="mt-1 text-xs text-[#f1efe8]">{selectedKeyframeWorkflow.label} keyframes + {selectedVideoWorkflow.label} video</div>
+              <div className="font-mono text-[10px] tracking-wider text-[#95927f]">生成モデル</div>
+              <div className="mt-1 text-xs text-[#f1efe8]">{selectedKeyframeWorkflow.label}のキーフレーム＋{selectedVideoWorkflow.label}の動画</div>
             </div>
           </div>
 
           <div className="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-[#2e2c26] bg-[#100f0d] p-2">
             <div className="text-xs text-[#c9c6ba]">
-              {scriptReviewShots.length} editable creator beats. Each shot is about {getShotDuration(shotCount, commercialLength)} seconds.
+              {scriptReviewShots.length}件の演者パートを編集できます。1ショットは約{getShotDuration(shotCount, commercialLength)}秒です。
             </div>
             <div className="flex rounded-md border border-[#2e2c26] bg-[#161512] p-1">
               <button
@@ -3649,14 +3852,14 @@ export default function UGCAdCreator({
                 onClick={() => setScriptViewMode('full')}
                 className={`rounded px-3 py-1.5 text-[11px] font-semibold ${scriptViewMode === 'full' ? 'bg-[#ff4b2e] text-white' : 'text-[#95927f] hover:text-[#f1efe8]'}`}
               >
-                Full shot
+                詳細表示
               </button>
               <button
                 type="button"
                 onClick={() => setScriptViewMode('lines')}
                 className={`rounded px-3 py-1.5 text-[11px] font-semibold ${scriptViewMode === 'lines' ? 'bg-[#ff4b2e] text-white' : 'text-[#95927f] hover:text-[#f1efe8]'}`}
               >
-                Just the lines
+                セリフのみ
               </button>
             </div>
           </div>
@@ -3669,10 +3872,10 @@ export default function UGCAdCreator({
                   <div className="flex flex-wrap items-start justify-between gap-3">
                     <div>
                       <div className="font-mono text-[10px] uppercase tracking-[0.14em] text-[#ffb4a3]">
-                        Shot {index + 1} / {formatShotTime(index, scriptReviewShots.length, Number(commercialLength) || 15)}
+                        ショット {index + 1} / {formatShotTime(index, scriptReviewShots.length, Number(commercialLength) || 15)}
                       </div>
-                      <div className="mt-1 text-sm font-semibold text-[#f1efe8]">{shot.title}</div>
-                      <div className="mt-1 text-[11px] text-[#95927f]">{shot.adBeat} / {shot.productMode} / {shot.shotType}</div>
+                      <div className="mt-1 text-sm font-semibold text-[#f1efe8]">{localizeScriptReviewTerm(shot.title)}</div>
+                      <div className="mt-1 text-[11px] text-[#95927f]">{localizeScriptReviewTerm(shot.adBeat)} / {localizeScriptReviewTerm(shot.productMode)} / {localizeScriptReviewTerm(shot.shotType)}</div>
                     </div>
                     <label className="flex items-center gap-2 rounded border border-[#2e2c26] bg-[#100f0d] px-2 py-1 text-[10px] text-[#c9c6ba]">
                       <input
@@ -3680,25 +3883,25 @@ export default function UGCAdCreator({
                         checked={noLine}
                         onChange={(event) => toggleScriptShotNoLine(index, event.target.checked)}
                       />
-                      No line - product moment
+                      セリフなし（商品カット）
                     </label>
                   </div>
                   <div className={`mt-3 grid gap-3 ${scriptViewMode === 'full' ? 'lg:grid-cols-[1fr_1fr]' : ''}`}>
                     <label className="text-xs text-[#c9c6ba]">
-                      <span className="font-mono text-[10px] uppercase tracking-wider text-[#95927f]">Creator line</span>
+                      <span className="font-mono text-[10px] tracking-wider text-[#95927f]">演者のセリフ</span>
                       <textarea
                         value={noLine ? '' : stripDialogueQuotes(shot.dialogue)}
                         onChange={(event) => updateScriptShotOverride(index, 'dialogue', event.target.value)}
                         disabled={noLine}
                         rows={scriptViewMode === 'lines' ? 2 : 3}
-                        placeholder="What does the creator say?"
+                        placeholder="演者が話す内容を入力"
                         className="ugc-input mt-1 w-full resize-y rounded-lg border px-3 py-2 text-xs disabled:cursor-not-allowed disabled:opacity-50"
                       />
                     </label>
                     {scriptViewMode === 'full' && (
                       <div className="grid gap-3">
                         <label className="text-xs text-[#c9c6ba]">
-                          <span className="font-mono text-[10px] uppercase tracking-wider text-[#95927f]">Product action</span>
+                          <span className="font-mono text-[10px] tracking-wider text-[#95927f]">商品の動き</span>
                           <textarea
                             value={shot.productAction || ''}
                             onChange={(event) => updateScriptShotOverride(index, 'productAction', event.target.value)}
@@ -3707,7 +3910,7 @@ export default function UGCAdCreator({
                           />
                         </label>
                         <label className="text-xs text-[#c9c6ba]">
-                          <span className="font-mono text-[10px] uppercase tracking-wider text-[#95927f]">Camera mode</span>
+                          <span className="font-mono text-[10px] tracking-wider text-[#95927f]">カメラ演出</span>
                           <input
                             value={shot.camera || ''}
                             onChange={(event) => updateScriptShotOverride(index, 'camera', event.target.value)}
@@ -3720,11 +3923,11 @@ export default function UGCAdCreator({
                   {scriptViewMode === 'full' && (
                     <div className="mt-3 grid gap-2 border-t border-[#2e2c26] pt-3 md:grid-cols-2">
                       <div className="rounded border border-[#2e2c26] bg-[#100f0d] p-2">
-                        <div className="font-mono text-[9px] uppercase tracking-wider text-[#95927f]">Keyframe prompt</div>
+                        <div className="font-mono text-[9px] tracking-wider text-[#95927f]">キーフレームプロンプト</div>
                         <div className="mt-1 line-clamp-3 text-[11px] leading-4 text-[#c9c6ba]">{shot.keyframe}</div>
                       </div>
                       <div className="rounded border border-[#2e2c26] bg-[#100f0d] p-2">
-                        <div className="font-mono text-[9px] uppercase tracking-wider text-[#95927f]">Motion prompt</div>
+                        <div className="font-mono text-[9px] tracking-wider text-[#95927f]">動画プロンプト</div>
                         <div className="mt-1 line-clamp-3 text-[11px] leading-4 text-[#c9c6ba]">{shot.motion}</div>
                       </div>
                     </div>
@@ -3736,15 +3939,15 @@ export default function UGCAdCreator({
 
           <details className="ugc-card rounded-xl border p-3">
             <summary className="cursor-pointer select-none text-sm font-semibold text-[#f1efe8]">
-              Advanced - raw director script
-              <span className="ml-2 font-mono text-[10px] font-normal uppercase tracking-wider text-[#95927f]">kept in sync</span>
+              詳細設定：ディレクター用の全台本
+              <span className="ml-2 font-mono text-[10px] font-normal tracking-wider text-[#95927f]">上の編集内容と同期</span>
             </summary>
             <div className="mt-3 rounded-xl border border-[#2e2c26] bg-[#100f0d] p-3">
               <div className="flex flex-wrap items-start justify-between gap-3">
                 <div>
-                  <div className="font-mono text-[10px] uppercase tracking-[0.14em] text-[#ffb4a3]">Optional: use your own LLM</div>
+                  <div className="font-mono text-[10px] tracking-[0.14em] text-[#ffb4a3]">任意：お好みのLLMで台本を調整</div>
                   <p className="mt-1 max-w-3xl text-[11px] leading-relaxed text-[#95927f]">
-                    Copy this prompt into ChatGPT, Claude, Gemini, or another LLM, then paste the result back into the editable Director Script below.
+                    このプロンプトをChatGPT、Claude、Geminiなどへ貼り付け、生成された結果を下の編集可能な全台本へ戻してください。
                   </p>
                 </div>
                 <div className="flex items-center gap-2">
@@ -3754,7 +3957,7 @@ export default function UGCAdCreator({
                     onClick={copyExternalLlmPrompt}
                     className="rounded-lg border border-[#4a473e] bg-[#1b1a17] px-3 py-2 text-xs text-[#ffb4a3] transition-colors hover:border-[#ff4b2e]"
                   >
-                    Copy LLM Prompt
+                    LLM用プロンプトをコピー
                   </button>
                 </div>
               </div>
@@ -3782,10 +3985,10 @@ export default function UGCAdCreator({
           </details>
 
           <div className="rounded-lg border border-[#e3a94f]/30 bg-[#e3a94f]/10 px-3 py-2 text-[11px] leading-relaxed text-[#f6d7a6]">
-            Read the creator lines out loud. If a line sounds like an ad, rewrite it like a text to a friend. Silent product moments are fine - real UGC isn't talking the whole way through.
+            演者のセリフを声に出して確認してください。広告らしすぎる表現は、友人に話すような自然な言葉へ直すのがおすすめです。実際のUGC動画は最初から最後まで話し続けるとは限らないため、セリフなしの商品カットがあっても問題ありません。
           </div>
           <div className="flex flex-wrap items-center justify-between gap-2">
-            <button type="button" onClick={() => setStep('references')} className="rounded-lg border border-[#2e2c26] px-3 py-2 text-xs text-[#c9c6ba] hover:border-[#4a473e] hover:text-[#f1efe8]">Back</button>
+            <button type="button" onClick={() => setStep('references')} className="rounded-lg border border-[#2e2c26] px-3 py-2 text-xs text-[#c9c6ba] hover:border-[#4a473e] hover:text-[#f1efe8]">戻る</button>
             <div className="flex flex-wrap justify-end gap-2">
               <button
                 type="button"
@@ -3798,12 +4001,14 @@ export default function UGCAdCreator({
                 }}
                 className="rounded-lg border border-[#2e2c26] px-3 py-2 text-xs text-[#c9c6ba] hover:border-[#4a473e] hover:text-[#f1efe8]"
               >
-                Rebuild from brief
+                企画内容から再構築
               </button>
               <button type="button" onClick={handleBuildPlan} disabled={isQueuingKeyframes || isQueuingVideos} className="ugc-primary rounded-lg px-3 py-2 text-xs font-semibold disabled:cursor-not-allowed disabled:opacity-50">
-                {isEditableShotsMode
-                  ? t('generate.director.ugc.actions.prepareVoice', {}, 'Prepare Voice')
-                  : 'Create keyframes'}
+                {isGeminiRuntime
+                  ? 'Geminiキーフレーム作成へ'
+                  : isEditableShotsMode
+                  ? t('generate.director.ugc.actions.prepareVoice', {}, '音声作成へ')
+                  : 'キーフレーム作成へ'}
               </button>
             </div>
           </div>
@@ -3816,7 +4021,7 @@ export default function UGCAdCreator({
             <div className="ugc-kicker">One Voice, Every Shot</div>
             <h2 className="mt-1 text-lg font-semibold text-sf-text-primary">Give the creator a single, consistent voice.</h2>
             <p className="mt-1 text-xs text-sf-text-muted">
-              Pick one TTS engine and generate the final audio for every spoken line. The recommended Exact Audio route keeps that clip unchanged and uses LatentSync 1.6 to correct the generated mouth motion. TalkVid remains available as a lighter fallback that regenerates the speech. Silent shots stay silent — add music or SFX yourself in the editor.
+              Pick one TTS engine and generate the final audio for every spoken line. The recommended Exact Audio route uses the clip as native LTX 2.3 audio conditioning and keeps its waveform unchanged. TalkVid remains available as a lighter fallback that regenerates the speech. Silent shots stay silent — add music or SFX yourself in the editor.
             </p>
           </div>
 

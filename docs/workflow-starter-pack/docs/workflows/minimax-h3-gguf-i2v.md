@@ -1,12 +1,12 @@
-# Image to Video (MiniMax H3 GGUF)
+# Image to Video (MiniMax H3 Fused SLA)
 
-Local MiniMax H3 GGUF image-to-video with native audio and an 8-step Turbo LoRA
+Fused Turbo/Mystic INT8 ConvRot with SLA attention, low-VRAM FFN chunking, native audio and four-step sampling
 
 - **Workflow ID:** `minimax-h3-gguf-i2v`
 - **Category:** `video`
 - **Tier:** `standard`
 - **Runtime:** `local`
-- **App Workflow JSON:** `/workflows/video_minimax_h3_gguf_i2v.json`
+- **App Workflow JSON:** `/workflows/video_minimax_h3_fused_sla_i2v.json`
 - **Starter Pack Setup Workflow:** `workflows/local/minimax-h3-gguf-i2v.comfyui.json`
 - **Setup Workflow Status:** `available`
 
@@ -22,24 +22,21 @@ Local MiniMax H3 GGUF image-to-video with native audio and an 8-step Turbo LoRA
 - `BasicScheduler` - Manual setup
   - No curated install recipe is available yet for this node class.
   - Docs: https://registry.comfy.org
-- `CLIPLoaderGGUF` - Auto-install supported
-  - Loads supported diffusion models and text encoders in GGUF format.
-  - Repo: https://github.com/city96/ComfyUI-GGUF
+- `CLIPLoader` - Built into newer ComfyUI builds
+  - Core text-encoder loader. Missing this usually means the ComfyUI install is incomplete or very outdated.
+  - Docs: https://registry.comfy.org
 - `CreateVideo` - Built into newer ComfyUI builds
   - CreateVideo is part of newer ComfyUI builds.
   - Docs: https://docs.comfy.org/built-in-nodes/CreateVideo
-- `H3ClipLoaderAny` - Auto-install supported
-  - Provides MiniMax H3 GGUF-aware model/encoder loaders and the in-memory architecture compatibility patch.
-  - Repo: https://github.com/jlucasmcrell/ComfyUI-H3-Multishot
-- `H3ModelLoaderAny` - Auto-install supported
-  - Provides MiniMax H3 GGUF-aware model/encoder loaders and the in-memory architecture compatibility patch.
-  - Repo: https://github.com/jlucasmcrell/ComfyUI-H3-Multishot
+- `H3SLAAttention` - Auto-install supported
+  - Provides the CUDA/Triton H3 SLA block-sparse attention node used by the default MiniMax H3 Fused workflow.
+  - Repo: https://github.com/ethanfel/ComfyUI-PlagueKind-Nodes-only-sparse
 - `KSamplerSelect` - Built into newer ComfyUI builds
   - Core sampler selection node used by advanced sampler graphs. Update ComfyUI if this is missing.
   - Docs: https://registry.comfy.org
-- `LoraLoaderModelOnly` - Built into newer ComfyUI builds
-  - Core LoRA loader. Missing this usually means the ComfyUI install is incomplete or very outdated.
-  - Docs: https://registry.comfy.org
+- `MiniMaxChunkFeedForward` - Auto-install supported
+  - Provides image helpers and PathchSageAttentionKJ for H3 acceleration. SageAttention also needs a working sageattention Python package matching the ComfyUI GPU/PyTorch environment; KJNodes requirements do not install it.
+  - Repo: https://github.com/kijai/ComfyUI-KJNodes
 - `MiniMaxH3ImageToVideo` - Built into newer ComfyUI builds
   - MiniMax H3 support requires ComfyUI 0.30.0 or newer. Update ComfyUI if this node is missing.
   - Docs: https://docs.comfy.org/built-in-nodes/MiniMaxH3ImageToVideo
@@ -55,9 +52,9 @@ Local MiniMax H3 GGUF image-to-video with native audio and an 8-step Turbo LoRA
 - `SaveVideo` - Built into newer ComfyUI builds
   - Core video output support ships with newer ComfyUI builds.
   - Docs: https://docs.comfy.org/built-in-nodes/CreateVideo
-- `UnetLoaderGGUF` - Auto-install supported
-  - Loads supported diffusion models and text encoders in GGUF format.
-  - Repo: https://github.com/city96/ComfyUI-GGUF
+- `UNETLoader` - Built into newer ComfyUI builds
+  - Core diffusion model loader. Missing this usually means the ComfyUI install is incomplete or very outdated.
+  - Docs: https://registry.comfy.org
 - `VAEDecode` - Manual setup
   - No curated install recipe is available yet for this node class.
   - Docs: https://registry.comfy.org
@@ -72,11 +69,9 @@ Local MiniMax H3 GGUF image-to-video with native audio and an 8-step Turbo LoRA
 | Filename | ComfyUI Folder | Loader | Input Key | Download |
 |---|---|---|---|---|
 | `minimax_h3_audio_vae_fp32.safetensors` | `models/vae` | `VAELoader` | `vae_name` | [Download](https://huggingface.co/Comfy-Org/MiniMax-H3/resolve/main/vae/minimax_h3_audio_vae_fp32.safetensors) |
-| `minimax_h3_fl2v_turbo_8step_v1.0_comfyui_bf16.safetensors` | `models/loras` | `LoraLoaderModelOnly` | `lora_name` | [Download](https://huggingface.co/Comfy-Org/MiniMax-H3/resolve/main/loras/minimax_h3_fl2v_turbo_8step_v1.0_comfyui_bf16.safetensors) |
-| `minimax_h3_fl2va_pruned_fp8_Q4_0.gguf` | `models/diffusion_models` | `H3ModelLoaderAny` | `model_name` | [Download](https://huggingface.co/molbal/MiniMax-H3-GGUF/resolve/main/minimax_h3_fl2va_pruned_fp8_Q4_0.gguf) |
-| `minimax_h3_video_vae_fp16.safetensors` | `models/vae` | `VAELoader` | `vae_name` | [Download](https://huggingface.co/Comfy-Org/MiniMax-H3/resolve/main/vae/minimax_h3_video_vae_fp16.safetensors) |
-| `MiniMax-H3-encoder-mmproj-F16.gguf` | `models/text_encoders` | `H3ClipLoaderAny` | `mmproj_name` | [Download](https://huggingface.co/joeygambino/MiniMax-H3-encoder-GGUF/resolve/main/MiniMax-H3-encoder-mmproj-F16.gguf) |
-| `MiniMax-H3-encoder-Q4_K_M.gguf` | `models/text_encoders` | `H3ClipLoaderAny` | `clip_name` | [Download](https://huggingface.co/joeygambino/MiniMax-H3-encoder-GGUF/resolve/main/MiniMax-H3-encoder-Q4_K_M.gguf) |
+| `minimax_h3_fused_refdelta_r1024_turbo8_mystic07_int8_convrot.safetensors` | `models/diffusion_models` | `UNETLoader` | `unet_name` | [Download](https://huggingface.co/MATLOWAI/minimax-h3-fused-turbo-int8-convrot/resolve/main/diffusion_models/minimax_h3_fused_refdelta_r1024_turbo8_mystic07_int8_convrot.safetensors) |
+| `minimax_h3_video_vae_int8_convrot.safetensors` | `models/vae` | `VAELoader` | `vae_name` | [Download](https://huggingface.co/Kijai/MiniMax-H3-experimental/resolve/main/minimax_h3_video_vae_int8_convrot.safetensors) |
+| `qwen3vl_32b_minimax_h3_nvfp4_awq.safetensors` | `models/text_encoders` | `CLIPLoader` | `clip_name` | [Download](https://huggingface.co/Comfy-Org/MiniMax-H3/resolve/main/text_encoders/qwen3vl_32b_minimax_h3_nvfp4_awq.safetensors) |
 
 ## API Key
 - Not required for this workflow.

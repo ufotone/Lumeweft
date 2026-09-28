@@ -20,6 +20,8 @@ const {
   resolveHardwareExportFfmpeg,
   resolveHardwareExportRoute,
 } = require('./hardwareExportFfmpeg')
+const { checkWorkflowBundleFile } = require('./workflowBundleFiles')
+const { shouldRestartComfyAfterWorkflowSetup } = require('./workflowSetupRestartPolicy')
 const { inspectIsoBmffLayout } = require('./exportSourcePreparation')
 const {
   appendVp9AlphaArgs,
@@ -328,7 +330,7 @@ async function probeVideoInfo(filePath) {
   return await new Promise((resolve) => {
     const args = [
       '-v', 'error',
-      '-show_entries', 'stream=codec_type,codec_name,profile,pix_fmt,avg_frame_rate,r_frame_rate:stream_tags=alpha_mode',
+      '-show_entries', 'stream=codec_type,codec_name,profile,pix_fmt,width,height,avg_frame_rate,r_frame_rate:stream_tags=alpha_mode',
       '-of', 'json',
       filePath
     ]
@@ -360,6 +362,8 @@ async function probeVideoInfo(filePath) {
         resolve({
           success: true,
           hasVideo: Boolean(videoStream),
+          width: Number(videoStream?.width) || null,
+          height: Number(videoStream?.height) || null,
           fps: fps || null,
           hasAudio: streams.some((stream) => stream?.codec_type === 'audio'),
           videoCodec: videoStream?.codec_name || null,
@@ -1552,7 +1556,13 @@ async function downloadFileWithProgress(task, targetPath, progressMeta = {}) {
 
   if (!response.ok) {
     if (response.status === 401 || response.status === 403) {
-      throw new Error(`Download authorization failed for ${task.filename}. Add a Civitai API key for login-only files.`)
+      let provider = 'The model host'
+      try {
+        const hostname = new URL(task.downloadUrl).hostname.toLowerCase()
+        if (hostname === 'huggingface.co' || hostname.endsWith('.huggingface.co')) provider = 'Hugging Face'
+        else if (hostname === 'civitai.com' || hostname.endsWith('.civitai.com') || hostname === 'civitai.red' || hostname.endsWith('.civitai.red')) provider = 'Civitai'
+      } catch { /* retain the generic provider label */ }
+      throw new Error(`${provider} denied access to ${task.filename} (${response.status}). Open its source page, accept any required terms, and download it with your authorized account.`)
     }
     throw new Error(`Download failed for ${task.filename} (${response.status} ${response.statusText})`)
   }
@@ -4759,6 +4769,111 @@ ipcMain.handle('media:trimAudioSegment', async (event, options = {}) => {
   })
 })
 
+ipcMain.handle('media:renderReferenceCuts', async (event, options = {}) => {
+  const unavailable = getFfmpegUnavailableError()
+  if (unavailable) return { success: false, error: unavailable }
+
+  const inputPath = resolveMediaInputPath(String(options?.inputPath || ''))
+  const outputDir = String(options?.outputDir || '').trim()
+  const requestedSegments = Array.isArray(options?.segments) ? options.segments : []
+  if (!inputPath || !outputDir || requestedSegments.length === 0) {
+    return { success: false, error: 'Missing reference-cut input, output folder, or segments.' }
+  }
+  if (requestedSegments.length > 30) {
+    return { success: false, error: 'A maximum of 30 reference cuts can be rendered at once.' }
+  }
+
+  try {
+    const stat = await fs.stat(inputPath)
+    if (!stat.isFile()) throw new Error('Input is not a file.')
+    await fs.mkdir(outputDir, { recursive: true })
+  } catch (err) {
+    return { success: false, error: `Reference-cut path is unavailable: ${err.message}` }
+  }
+
+  const width = Number(options?.width)
+  const height = Number(options?.height)
+  const hasTargetSize = Number.isFinite(width) && width >= 256 && Number.isFinite(height) && height >= 256
+  const fit = options?.fit === 'contain' ? 'contain' : 'cover'
+  const safeBaseName = String(options?.baseName || path.basename(inputPath, path.extname(inputPath)) || 'reference')
+    .replace(/[<>:"/\\|?*\x00-\x1F]/g, '_')
+    .replace(/\s+/g, '_')
+    .replace(/_+/g, '_')
+    .replace(/^_+|_+$/g, '')
+    .slice(0, 80) || 'reference'
+  const batchToken = `${Date.now()}_${Math.random().toString(36).slice(2, 7)}`
+  const outputs = []
+
+  const runCut = (args) => new Promise((resolve) => {
+    const proc = spawn(ffmpegPath, args, { windowsHide: true })
+    let stderr = ''
+    let settled = false
+    const finish = (result) => {
+      if (settled) return
+      settled = true
+      resolve(result)
+    }
+    proc.stderr.on('data', (data) => { stderr = appendLimitedStderr(stderr, data) })
+    proc.on('error', (err) => finish({ success: false, error: err.message }))
+    proc.on('close', (code) => finish(code === 0
+      ? { success: true }
+      : { success: false, error: stderr || `FFmpeg exited with code ${code}` }))
+  })
+
+  for (let index = 0; index < requestedSegments.length; index += 1) {
+    const requested = requestedSegments[index] || {}
+    const start = Math.max(0, Number(requested.start) || 0)
+    const duration = Math.max(0, Number(requested.duration) || (Number(requested.end) - start))
+    if (!(duration > 0.01) || duration > 15.001) {
+      return { success: false, error: `Reference cut ${index + 1} must be longer than 0 and no longer than 15 seconds.` }
+    }
+
+    const outputName = `${safeBaseName}_ref_${String(index + 1).padStart(2, '0')}_${batchToken}.mp4`
+    const outputPath = path.join(outputDir, outputName)
+    const filters = hasTargetSize
+      ? (fit === 'contain'
+        ? `scale=${Math.round(width)}:${Math.round(height)}:force_original_aspect_ratio=decrease,pad=${Math.round(width)}:${Math.round(height)}:(ow-iw)/2:(oh-ih)/2:black,setsar=1`
+        : `scale=${Math.round(width)}:${Math.round(height)}:force_original_aspect_ratio=increase,crop=${Math.round(width)}:${Math.round(height)},setsar=1`)
+      : 'scale=trunc(iw/2)*2:trunc(ih/2)*2,setsar=1'
+    const args = [
+      '-y', '-v', 'error',
+      '-ss', String(start),
+      '-i', inputPath,
+      '-t', String(duration),
+      '-map', '0:v:0', '-map', '0:a:0?',
+      '-vf', filters,
+      '-c:v', 'libx264', '-preset', 'fast', '-crf', '20', '-pix_fmt', 'yuv420p',
+      '-c:a', 'aac', '-b:a', '160k', '-ar', '48000',
+      '-movflags', '+faststart',
+      outputPath,
+    ]
+    const result = await runCut(args)
+    if (!result.success) {
+      try { await fs.unlink(outputPath) } catch (_) { /* ignore */ }
+      await Promise.all(outputs.map(async (output) => {
+        try { await fs.unlink(output.outputPath) } catch (_) { /* ignore */ }
+      }))
+      return { success: false, error: `Reference cut ${index + 1} failed: ${result.error}`, outputs }
+    }
+
+    const outputStat = await fs.stat(outputPath)
+    const probe = await probeVideoInfo(outputPath)
+    outputs.push({
+      outputPath,
+      outputName,
+      start,
+      duration,
+      size: outputStat.size,
+      width: hasTargetSize ? Math.round(width) : (probe?.width || null),
+      height: hasTargetSize ? Math.round(height) : (probe?.height || null),
+      fps: probe?.success ? (probe.fps || null) : null,
+      hasAudio: probe?.success ? probe.hasAudio !== false : true,
+    })
+  }
+
+  return { success: true, outputs }
+})
+
 ipcMain.handle('media:extractVideoPoster', async (event, inputPath, outputPath, options = {}) => {
   if (!ffmpegPath) {
     return { success: false, error: 'FFmpeg binary not available.' }
@@ -4774,7 +4889,7 @@ ipcMain.handle('media:extractVideoPoster', async (event, inputPath, outputPath, 
     return { success: false, error: `Video file not found: ${err.message}` }
   }
 
-  const seekSeconds = Math.max(0, Math.min(10, Number(options?.seekSeconds) || 0.1))
+  const seekSeconds = Math.max(0, Math.min(86400, Number(options?.seekSeconds) || 0.1))
   const posterWidth = Math.max(240, Math.min(1280, Math.round(Number(options?.width) || 640)))
   const quality = Math.max(2, Math.min(31, Math.round(Number(options?.quality) || 3)))
 
@@ -5193,6 +5308,39 @@ ipcMain.handle('cloudRuntime:testCredential', async (_event, payload = {}) => {
 })
 
 for (const [channel, method, resultKey] of [
+  ['cloudRuntime:generateImage', 'generateImage', 'media'],
+  ['cloudRuntime:createVideo', 'createVideo', 'operation'],
+  ['cloudRuntime:getVideoOperation', 'getVideoOperation', 'operation'],
+  ['cloudRuntime:downloadMedia', 'downloadMedia', 'media'],
+]) {
+  ipcMain.handle(channel, async (_event, payload = {}) => {
+    const providerId = String(payload.providerId || 'google-gemini').trim()
+    try {
+      const client = await createConfiguredCloudRuntimeClient(providerId)
+      let result
+      if (method === 'generateImage') {
+        result = await client.generateImage({
+          ...payload,
+          image: payload?.image?.bytes ? { ...payload.image, bytes: Buffer.from(payload.image.bytes) } : null,
+          images: (Array.isArray(payload?.images) ? payload.images : [])
+            .filter((item) => item?.bytes)
+            .map((item) => ({ ...item, bytes: Buffer.from(item.bytes) })),
+        })
+      } else if (method === 'createVideo') {
+        result = await client.createVideo({
+          ...payload,
+          image: payload?.image?.bytes ? { ...payload.image, bytes: Buffer.from(payload.image.bytes) } : null,
+        })
+      } else if (method === 'getVideoOperation') result = await client.getVideoOperation(payload.operationName)
+      else result = await client.downloadMedia(payload.uri)
+      return { success: true, [resultKey]: result }
+    } catch (error) {
+      return serializeCloudRuntimeError(error, providerId)
+    }
+  })
+}
+
+for (const [channel, method, resultKey] of [
   ['cloudRuntime:testConnection', 'testConnection', null],
   ['cloudRuntime:getBalance', 'getBalance', 'balance'],
   ['cloudRuntime:createRun', 'createRun', 'run'],
@@ -5259,6 +5407,112 @@ ipcMain.handle('civitai:getModel', async (_event, modelId) => {
   } finally {
     clearTimeout(timer)
   }
+})
+
+function normalizeModelSearchFilename(value = '') {
+  return path.basename(String(value || '')).toLowerCase().replace(/\.(?:safetensors|ckpt|pt|pth|bin|gguf|onnx|engine|tflite)$/i, '')
+}
+
+function buildModelSourceQueries(filename = '') {
+  const stem = normalizeModelSearchFilename(filename)
+  const words = stem.split(/[^a-z0-9]+/).filter(Boolean)
+  const quantizationPattern = /^(?:q\d+(?:_\d+)?(?:_[a-z0-9]+)*|iq\d+(?:_[a-z0-9]+)*|fp\d+|bf16|f\d+|int\d+|nvfp\d+|gguf|safetensors)$/i
+  const sizePattern = /^\d+(?:\.\d+)?[bmk]$/i
+  const semanticWords = words.filter((word) => word.length > 1 && !quantizationPattern.test(word) && !sizePattern.test(word) && !/^(?:model|weights?|pruned|scaled)$/.test(word))
+  const familyStart = semanticWords.findIndex((word) => /^(?:minimax|wan|flux|qwen|anima|ltx|sdxl|sd\d)/.test(word))
+  const familyWords = familyStart >= 0 ? semanticWords.slice(familyStart) : semanticWords
+  const minimaxStart = semanticWords.findIndex((word) => word === 'minimax')
+  const productWords = minimaxStart >= 0 ? semanticWords.slice(minimaxStart) : familyWords
+  const extensionHint = path.extname(filename).toLowerCase() === '.gguf' ? 'gguf' : ''
+  return Array.from(new Set([
+    stem.replace(/[_\-.]+/g, ' '),
+    [...semanticWords, extensionHint].filter(Boolean).join(' '),
+    [...familyWords, extensionHint].filter(Boolean).join(' '),
+    [...productWords, extensionHint].filter(Boolean).join(' '),
+  ].map((value) => value.trim()).filter(Boolean))).slice(0, 4)
+}
+
+function scoreModelSourceCandidate(requestedFilename, candidateFilename, title = '') {
+  const requestedFull = path.basename(String(requestedFilename || '')).toLowerCase()
+  const candidateFull = path.basename(String(candidateFilename || '')).toLowerCase()
+  const requested = normalizeModelSearchFilename(requestedFilename)
+  const candidate = normalizeModelSearchFilename(candidateFilename)
+  const normalizedTitle = String(title || '').toLowerCase()
+  if (requestedFull && candidateFull === requestedFull) return 100
+  if (requested && candidate === requested) return 95
+  if (requested && candidate && (candidate.includes(requested) || requested.includes(candidate))) return 75
+  const tokens = requested.split(/[^a-z0-9]+/).filter((token) => token.length > 2)
+  const matched = tokens.filter((token) => candidate.includes(token) || normalizedTitle.includes(token)).length
+  return tokens.length ? Math.round((matched / tokens.length) * 60) : 0
+}
+
+ipcMain.handle('comfyStorage:searchModelSources', async (_event, payload = {}) => {
+  const filename = path.basename(String(payload?.filename || '').trim())
+  if (!filename || filename.length > 260) return { success: false, error: 'Enter a valid model filename.' }
+  const queries = buildModelSourceQueries(filename)
+  const query = queries[0] || ''
+  if (!query) return { success: false, error: 'The filename did not contain a searchable model name.' }
+
+  const controller = new AbortController()
+  const timer = setTimeout(() => controller.abort(), 25_000)
+  const candidates = []
+  const errors = []
+  const headers = { Accept: 'application/json', 'User-Agent': `Lumeweft/${app.getVersion()}` }
+  try {
+    const settings = await readSettingsRaw().catch(() => ({}))
+    const civitaiApiKey = String(settings?.civitaiApiKey || '').trim()
+    const [huggingFaceResult, civitaiResult] = await Promise.allSettled([
+      Promise.all(queries.map(async (searchQuery) => {
+        const response = await fetch(`https://huggingface.co/api/models?search=${encodeURIComponent(searchQuery)}&limit=12&full=true`, { signal: controller.signal, headers })
+        if (!response.ok) throw new Error(`Hugging Face search failed (${response.status}).`)
+        return await response.json()
+      })).then(async (resultSets) => {
+        const models = Array.from(new Map(resultSets.flat().map((model) => [String(model?.modelId || model?.id || ''), model])).values())
+        for (const model of Array.isArray(models) ? models : []) {
+          const repoId = String(model?.modelId || model?.id || '').trim()
+          if (!repoId || !/^[\w.-]+\/[\w.-]+$/.test(repoId)) continue
+          const siblings = Array.isArray(model?.siblings) ? model.siblings : []
+          const matchingFiles = siblings
+            .map((entry) => String(entry?.rfilename || '').trim())
+            .filter((entry) => entry && scoreModelSourceCandidate(filename, entry, repoId) >= 50)
+          if (matchingFiles.length === 0) {
+            candidates.push({ provider: 'huggingface', title: repoId, filename: '', sourceUrl: `https://huggingface.co/${repoId}`, downloadUrl: '', score: scoreModelSourceCandidate(filename, '', repoId) })
+          } else {
+            for (const remoteFile of matchingFiles.slice(0, 4)) {
+              candidates.push({ provider: 'huggingface', title: repoId, filename: remoteFile, sourceUrl: `https://huggingface.co/${repoId}/blob/main/${remoteFile.split('/').map(encodeURIComponent).join('/')}`, downloadUrl: `https://huggingface.co/${repoId}/resolve/main/${remoteFile.split('/').map(encodeURIComponent).join('/')}`, score: scoreModelSourceCandidate(filename, remoteFile, repoId) })
+            }
+          }
+        }
+      }),
+      fetch(`https://civitai.com/api/v1/models?query=${encodeURIComponent(queries.at(-1) || query)}&limit=12&sort=Most%20Downloaded`, {
+        signal: controller.signal,
+        headers: { ...headers, ...(civitaiApiKey ? { Authorization: `Bearer ${civitaiApiKey}` } : {}) },
+      }).then(async (response) => {
+        if (!response.ok) throw new Error(`Civitai search failed (${response.status}).`)
+        const body = await response.json()
+        for (const model of Array.isArray(body?.items) ? body.items : []) {
+          const modelId = Number(model?.id)
+          if (!modelId) continue
+          for (const version of Array.isArray(model?.modelVersions) ? model.modelVersions : []) {
+            for (const file of Array.isArray(version?.files) ? version.files : []) {
+              const remoteFile = String(file?.name || '').trim()
+              const score = scoreModelSourceCandidate(filename, remoteFile, model?.name)
+              if (!remoteFile || score < 35) continue
+              candidates.push({ provider: 'civitai', title: `${model.name} · ${version.name || 'version'}`, filename: remoteFile, sourceUrl: `https://civitai.com/models/${modelId}?modelVersionId=${Number(version?.id) || ''}`, downloadUrl: String(file?.downloadUrl || ''), score })
+            }
+          }
+        }
+      }),
+    ])
+    if (huggingFaceResult.status === 'rejected') errors.push(huggingFaceResult.reason?.message || 'Hugging Face search failed.')
+    if (civitaiResult.status === 'rejected') errors.push(civitaiResult.reason?.message || 'Civitai search failed.')
+    const unique = Array.from(new Map(candidates.map((candidate) => [`${candidate.provider}:${candidate.sourceUrl}`, candidate])).values())
+      .sort((a, b) => b.score - a.score || a.title.localeCompare(b.title))
+      .slice(0, 20)
+    return { success: true, query, queries, candidates: unique, errors }
+  } catch (error) {
+    return { success: false, error: error?.name === 'AbortError' ? 'Model source search timed out.' : (error?.message || 'Model source search failed.') }
+  } finally { clearTimeout(timer) }
 })
 
 ipcMain.handle('civitai:getImageGenerationData', async (_event, imageId) => {
@@ -5664,6 +5918,20 @@ ipcMain.on('mcp:actionResult', (event, response = {}) => {
 // ============================================
 // ComfyUI Launcher IPC
 // ============================================
+
+ipcMain.handle('generationMemory:stats', () => ({ ramFree: os.freemem(), ramTotal: os.totalmem() }))
+ipcMain.handle('generationMemory:sleep', async () => {
+  const before = comfyLauncher.getState()
+  if (before.ownership !== 'ours' || before.state !== 'running') return { success: false }
+  const port = await resolveLocalComfyPort()
+  if (before.httpBase && before.httpBase.replace(/\/$/, '') !== `http://127.0.0.1:${port}`) return { success: false }
+  const result = await requestLocalComfyJson(port, '/queue', 4000)
+  const queue = result.json
+  if (!result.ok || !Array.isArray(queue?.queue_running) || !Array.isArray(queue?.queue_pending) || queue.queue_running.length || queue.queue_pending.length) return { success: false }
+  const current = comfyLauncher.getState()
+  if (current.pid !== before.pid || current.ownership !== 'ours' || current.state !== 'running') return { success: false }
+  return comfyLauncher.stop()
+})
 
 ipcMain.handle('comfyLauncher:getState', async () => {
   return comfyLauncher.getState()
@@ -6089,6 +6357,19 @@ ipcMain.handle('workflowSetup:checkFiles', async (_event, payload = {}) => {
         continue
       }
 
+      if (file.exactPath) {
+        const modelFolder = targetSubdir.replace(/\\/g, '/').split('/')[0]
+        const extraRoots = [...(extraModelPaths.pathsByKey.get(normalizeModelSearchKey(modelFolder)) || [])]
+        // VDN derives its search folders from the parent of each LoRA directory.
+        if (modelFolder === 'vdn') {
+          for (const loraRoot of extraModelPaths.pathsByKey.get('loras') || []) {
+            extraRoots.push(path.join(path.dirname(loraRoot), 'vdn'))
+          }
+        }
+        const result = await checkWorkflowBundleFile(modelsPath, file, extraRoots)
+        results.push({ filename, targetSubdir, ...result })
+        continue
+      }
       const candidateSearchKeys = getModelSearchKeys(targetSubdir)
       const candidateDirs = []
       const seenCandidateDirs = new Set()
@@ -6689,7 +6970,10 @@ ipcMain.handle('workflowSetup:install', async (event, payload = {}) => {
       nodePacks: nodePackResults,
       models: modelResults,
       errors,
-      restartRecommended: nodePackResults.some((entry) => !entry?.skipped),
+      restartRecommended: shouldRestartComfyAfterWorkflowSetup({
+        nodePacks: nodePackResults,
+        models: modelResults,
+      }),
     }
   } finally {
     if (activeWorkflowSetupInstall === installToken) activeWorkflowSetupInstall = null

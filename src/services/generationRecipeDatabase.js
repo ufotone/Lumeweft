@@ -1,6 +1,6 @@
 const DATABASE_DIRECTORY = 'generation-recipes'
 const DATABASE_FILENAME = 'generation-recipes.db.json'
-const DATABASE_VERSION = 1
+const DATABASE_VERSION = 2
 
 let writeQueue = Promise.resolve()
 
@@ -60,4 +60,3 @@ export async function loadGenerationRecipeDatabase(legacyEntries = []) {
   await saveGenerationRecipeDatabase(migrated)
   return migrated
 }
-

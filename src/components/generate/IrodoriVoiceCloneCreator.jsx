@@ -121,7 +121,7 @@ export default function IrodoriVoiceCloneCreator({
   const resultAssets = useMemo(() => {
     const rows = assets.filter((asset) => {
       const meta = asset?.yolo || asset?.settings?.yolo
-      return asset?.type === 'audio' && (meta?.stage === 'irodori-voice-clone' || meta?.stage === 'irodori-voice-design' || meta?.stage === 'irodori-voice-standard')
+      return asset?.type === 'audio' && (meta?.stage === 'irodori-voice-clone' || meta?.stage === 'irodori-voice-design' || meta?.stage === 'irodori-voice-standard' || meta?.stage === 'irodori-voice-anime')
     })
     return rows.sort((a, b) => new Date(b?.createdAt || 0).getTime() - new Date(a?.createdAt || 0).getTime())
   }, [assets])
@@ -131,10 +131,11 @@ export default function IrodoriVoiceCloneCreator({
   }, [resultSignature])
   const selectedResult = resultAssets.find((asset) => asset?.id === selectedResultId) || resultAssets[0] || null
   const selectedResultUrl = getAssetUrl(selectedResult)
-  const activeJob = [...generationQueue].reverse().find((job) => (job?.yolo?.stage === 'irodori-voice-clone' || job?.yolo?.stage === 'irodori-voice-design' || job?.yolo?.stage === 'irodori-voice-standard') && BUSY_JOB_STATUSES.has(job?.status))
+  const activeJob = [...generationQueue].reverse().find((job) => (job?.yolo?.stage === 'irodori-voice-clone' || job?.yolo?.stage === 'irodori-voice-design' || job?.yolo?.stage === 'irodori-voice-standard' || job?.yolo?.stage === 'irodori-voice-anime') && BUSY_JOB_STATUSES.has(job?.status))
   const isBusy = Boolean(activeJob)
   const isVoiceCloneMode = Boolean(referenceAsset)
   const isVoiceDesignMode = !isVoiceCloneMode && voiceMode === 'design'
+  const isAnimeVoiceMode = voiceMode === 'anime'
 
   const changeVoiceMode = (nextMode) => {
     setVoiceMode(nextMode)
@@ -189,7 +190,7 @@ export default function IrodoriVoiceCloneCreator({
       const result = await onQueue?.({
         text: cleanText,
         referenceAudioAssetId: referenceAsset?.id || '',
-        voiceMode: isVoiceDesignMode ? 'design' : 'standard',
+        voiceMode: isAnimeVoiceMode ? 'anime' : isVoiceDesignMode ? 'design' : 'standard',
         voiceDesignCaption: isVoiceDesignMode ? voiceDesignCaption.trim() : '',
         normalizeReference,
         maxReferenceSeconds,
@@ -262,26 +263,32 @@ export default function IrodoriVoiceCloneCreator({
                 </div>
                 <span className={`rounded-full px-2.5 py-1 text-[10px] font-semibold ${isVoiceDesignMode ? 'bg-fuchsia-500/15 text-fuchsia-200' : 'bg-sky-500/15 text-sky-200'}`}>
                   {isVoiceCloneMode
-                    ? t('generate.director.irodoriClone.voiceDesign.cloneMode', {}, '参照音声クローン')
+                    ? (isAnimeVoiceMode
+                      ? t('generate.director.irodoriClone.voiceDesign.animeCloneMode', {}, 'アニメ声・参照音声クローン')
+                      : t('generate.director.irodoriClone.voiceDesign.cloneMode', {}, '参照音声クローン'))
                     : isVoiceDesignMode
                       ? t('generate.director.irodoriClone.voiceDesign.designMode', {}, '声質デザイン')
-                      : t('generate.director.irodoriClone.voiceDesign.standardMode', {}, '参照なし・標準TTS')}
+                      : isAnimeVoiceMode
+                        ? t('generate.director.irodoriClone.voiceDesign.animeMode', {}, 'アニメ声')
+                        : t('generate.director.irodoriClone.voiceDesign.standardMode', {}, '参照なし・標準TTS')}
                 </span>
               </div>
-              {!isVoiceCloneMode && (
-                <div className="mt-3 grid gap-2 sm:grid-cols-2">
-                  <button type="button" onClick={() => changeVoiceMode('standard')} className={`rounded-lg border px-3 py-2 text-left text-[11px] transition-colors ${!isVoiceDesignMode ? 'border-sky-400 bg-sky-500/15 text-sky-100' : 'border-sf-dark-600 bg-sf-dark-950 text-sf-text-muted hover:border-sky-400/60'}`}>
+              <div className="mt-3 grid gap-2 sm:grid-cols-3">
+                  <button type="button" onClick={() => changeVoiceMode('standard')} className={`rounded-lg border px-3 py-2 text-left text-[11px] transition-colors ${voiceMode === 'standard' ? 'border-sky-400 bg-sky-500/15 text-sky-100' : 'border-sf-dark-600 bg-sf-dark-950 text-sf-text-muted hover:border-sky-400/60'}`}>
                     <span className="block font-semibold">{t('generate.director.irodoriClone.voiceDesign.enableStandard', {}, '標準音声')}</span>
                     <span className="mt-0.5 block text-[10px] opacity-75">{t('generate.director.irodoriClone.voiceDesign.standardHelp', {}, '既存のIrodori v3で、台詞をそのまま読み上げます。')}</span>
                   </button>
-                  <button type="button" onClick={() => changeVoiceMode('design')} className={`rounded-lg border px-3 py-2 text-left text-[11px] transition-colors ${isVoiceDesignMode ? 'border-fuchsia-400 bg-fuchsia-500/15 text-fuchsia-100' : 'border-sf-dark-600 bg-sf-dark-950 text-sf-text-muted hover:border-fuchsia-400/60'}`}>
+                  <button type="button" onClick={() => changeVoiceMode('anime')} className={`rounded-lg border px-3 py-2 text-left text-[11px] transition-colors ${isAnimeVoiceMode ? 'border-rose-400 bg-rose-500/15 text-rose-100' : 'border-sf-dark-600 bg-sf-dark-950 text-sf-text-muted hover:border-rose-400/60'}`}>
+                    <span className="block font-semibold">{t('generate.director.irodoriClone.voiceDesign.enableAnime', {}, 'アニメ声')}</span>
+                    <span className="mt-0.5 block text-[10px] opacity-75">{t('generate.director.irodoriClone.voiceDesign.animeHelp', {}, 'Irodori v4.1-Animeで、アニメ調の日本語音声を生成します。')}</span>
+                  </button>
+                  <button type="button" onClick={() => changeVoiceMode('design')} disabled={isVoiceCloneMode} className={`rounded-lg border px-3 py-2 text-left text-[11px] transition-colors disabled:cursor-not-allowed disabled:opacity-45 ${isVoiceDesignMode ? 'border-fuchsia-400 bg-fuchsia-500/15 text-fuchsia-100' : 'border-sf-dark-600 bg-sf-dark-950 text-sf-text-muted hover:border-fuchsia-400/60'}`}>
                     <span className="block font-semibold">{t('generate.director.irodoriClone.voiceDesign.enableDesign', {}, '声質をデザイン')}</span>
                     <span className="mt-0.5 block text-[10px] opacity-75">{t('generate.director.irodoriClone.voiceDesign.designHelp', {}, 'プリセットと声質パーツをVoiceDesignへ反映します。')}</span>
                   </button>
-                </div>
-              )}
-              {isVoiceCloneMode && <div className="mt-3 rounded-lg border border-sky-500/20 bg-sky-500/5 px-3 py-2 text-[10px] text-sky-200">{t('generate.director.irodoriClone.voiceDesign.disabledByReference', {}, '参照音声が選択されているため、声質は参照音声を優先します。参照なしに戻すとVoiceDesignが有効になります。')}</div>}
-              {!isVoiceCloneMode && !isVoiceDesignMode && <div className="mt-3 rounded-lg border border-sky-500/20 bg-sky-500/5 px-3 py-2 text-[10px] text-sky-200">{t('generate.director.irodoriClone.voiceDesign.disabledByStandard', {}, '現在は標準音声です。「声質をデザイン」を選ぶとVoiceDesignへ切り替わります。')}</div>}
+              </div>
+              {isVoiceCloneMode && <div className="mt-3 rounded-lg border border-sky-500/20 bg-sky-500/5 px-3 py-2 text-[10px] text-sky-200">{t('generate.director.irodoriClone.voiceDesign.disabledByReference', {}, '参照音声の話者性を使います。標準音声／アニメ声は選べますが、VoiceDesignは参照を外すと有効になります。')}</div>}
+              {!isVoiceCloneMode && !isVoiceDesignMode && <div className="mt-3 rounded-lg border border-sky-500/20 bg-sky-500/5 px-3 py-2 text-[10px] text-sky-200">{isAnimeVoiceMode ? t('generate.director.irodoriClone.voiceDesign.animeNotice', {}, 'アニメ声モデルでは、VoiceDesignや絵文字の効き方が標準モデルと異なる場合があります。') : t('generate.director.irodoriClone.voiceDesign.disabledByStandard', {}, '現在は標準音声です。「声質をデザイン」を選ぶとVoiceDesignへ切り替わります。')}</div>}
               <div className={`mt-3 space-y-3 ${!isVoiceDesignMode ? 'pointer-events-none opacity-45' : ''}`} aria-disabled={!isVoiceDesignMode}>
                 <div>
                   <div className="text-[10px] uppercase tracking-wider text-sf-text-muted">{t('generate.director.irodoriClone.voiceDesign.presets', {}, '声質プリセット')}</div>

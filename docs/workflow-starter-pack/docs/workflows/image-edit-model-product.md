@@ -26,7 +26,7 @@ Local image-edit workflow used by Director Mode for combined model and product k
   - Core masked image compositing node. Update ComfyUI if this is missing.
   - Docs: https://registry.comfy.org
 - `ImageResizeKJv2` - Auto-install supported
-  - Provides ImageResizeKJv2 and GetImagesFromBatchIndexed for bundled helper workflows.
+  - Provides image helpers and PathchSageAttentionKJ for H3 acceleration. SageAttention also needs a working sageattention Python package matching the ComfyUI GPU/PyTorch environment; KJNodes requirements do not install it.
   - Repo: https://github.com/kijai/ComfyUI-KJNodes
 - `ImageToMask` - Built into newer ComfyUI builds
   - Core mask conversion node. Missing this usually means the ComfyUI install is incomplete or very outdated.

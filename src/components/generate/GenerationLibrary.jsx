@@ -12,6 +12,8 @@ import { COLLAPSED_HISTORY_IDS_KEY, readCollapsedIds, writeCollapsedIds } from '
 import { useI18n } from '../../i18n/I18nContext'
 import { deleteProjectFile, isElectron } from '../../services/fileSystem'
 import { planGenerationHistoryDeletion } from '../../services/generationResultDeletion'
+import useNsfwWorkflowVisibility from '../../hooks/useNsfwWorkflowVisibility'
+import { isNsfwWorkflow } from '../../services/nsfwWorkflowVisibility.mjs'
 
 const AUDIO_HISTORY_THUMBNAIL_URL = '/generated-thumbnails/audio-eighth-note.webp'
 
@@ -22,6 +24,7 @@ function formatDate(value, language) {
 
 export default function GenerationLibrary({ onUseInQueue, onDeletedAssets }) {
   const { t, language } = useI18n()
+  const showNsfwWorkflows = useNsfwWorkflowVisibility()
   const [tab, setTab] = useState('history')
   const [message, setMessage] = useState('')
   const [openingVersionId, setOpeningVersionId] = useState('')
@@ -30,6 +33,9 @@ export default function GenerationLibrary({ onUseInQueue, onDeletedAssets }) {
   const [selectedRecordIds, setSelectedRecordIds] = useState(() => new Set())
   const [collapsedRecordIds, setCollapsedRecordIds] = useState(() => readCollapsedIds(globalThis.localStorage, COLLAPSED_HISTORY_IDS_KEY))
   const records = useGenerationHistoryStore((state) => state.records)
+  const visibleRecords = useMemo(() => (
+    records.filter((record) => showNsfwWorkflows || !isNsfwWorkflow(record))
+  ), [records, showNsfwWorkflows])
   const setActiveVersion = useGenerationHistoryStore((state) => state.setActiveVersion)
   const removeVersion = useGenerationHistoryStore((state) => state.removeVersion)
   const removeRecord = useGenerationHistoryStore((state) => state.removeRecord)
@@ -38,16 +44,16 @@ export default function GenerationLibrary({ onUseInQueue, onDeletedAssets }) {
   const currentProjectHandle = useProjectStore((state) => state.currentProjectHandle)
   const assetsById = useMemo(() => new Map((assets || []).map((asset) => [asset.id, asset])), [assets])
   const selectedCount = selectedRecordIds.size
-  const allRecordsSelected = records.length > 0 && selectedCount === records.length
+  const allRecordsSelected = visibleRecords.length > 0 && selectedCount === visibleRecords.length
 
   useEffect(() => {
-    const currentIds = new Set(records.map((record) => record.id))
+    const currentIds = new Set(visibleRecords.map((record) => record.id))
     setSelectedRecordIds((selected) => {
       const next = new Set([...selected].filter((id) => currentIds.has(id)))
       if (next.size === selected.size && [...next].every((id) => selected.has(id))) return selected
       return next
     })
-  }, [records])
+  }, [visibleRecords])
 
   const copyPrompt = async (text) => {
     try {
@@ -203,7 +209,7 @@ export default function GenerationLibrary({ onUseInQueue, onDeletedAssets }) {
   }
 
   const toggleSelectAllRecords = () => {
-    setSelectedRecordIds(allRecordsSelected ? new Set() : new Set(records.map((record) => record.id)))
+    setSelectedRecordIds(allRecordsSelected ? new Set() : new Set(visibleRecords.map((record) => record.id)))
   }
 
   const deleteSelectedRecords = async () => {
@@ -238,9 +244,9 @@ export default function GenerationLibrary({ onUseInQueue, onDeletedAssets }) {
   const exportVersion = async (record, version) => {
     try {
       const result = await exportGenerationArtifact({
-        kind: 'version',
+        kind: version.canvasWorkflow ? 'canvas' : 'version',
         title: `${record.title} v${version.number}`,
-        data: { recordId: record.id, recordTitle: record.title, version },
+        data: version.canvasWorkflow || { recordId: record.id, recordTitle: record.title, version },
       })
       if (!result.cancelled) setMessage(t('generate.history.messages.versionExported'))
     } catch (error) {
@@ -266,7 +272,7 @@ export default function GenerationLibrary({ onUseInQueue, onDeletedAssets }) {
               <h2 className="text-sm font-semibold text-sf-text-primary">{t('generate.history.title')}</h2>
               <p className="mt-1 text-[11px] text-sf-text-muted">{t('generate.history.description')}</p>
             </div>
-            {records.length > 0 && (
+            {visibleRecords.length > 0 && (
               <div className="flex flex-wrap items-center justify-end gap-2">
                 <label className="inline-flex cursor-pointer items-center gap-1.5 rounded border border-sf-dark-600 bg-sf-dark-800 px-2.5 py-1.5 text-[10px] text-sf-text-secondary hover:border-sf-dark-500 hover:text-sf-text-primary">
                   <input type="checkbox" checked={allRecordsSelected} onChange={toggleSelectAllRecords} className="h-3.5 w-3.5 accent-sf-accent" />
@@ -279,7 +285,7 @@ export default function GenerationLibrary({ onUseInQueue, onDeletedAssets }) {
             )}
           </div>
           {message && <div className="text-[11px] text-emerald-300">{message}</div>}
-          {[...records].reverse().map((record) => {
+          {[...visibleRecords].reverse().map((record) => {
             const collapsed = collapsedRecordIds.has(record.id)
             return (
             <section key={record.id} className="rounded-xl border border-sf-dark-700 bg-sf-dark-900 p-4">
@@ -329,6 +335,7 @@ export default function GenerationLibrary({ onUseInQueue, onDeletedAssets }) {
                           {[version.seed != null && `Seed ${version.seed}`, version.settings?.resolution?.width && `${version.settings.resolution.width}×${version.settings.resolution.height}`, version.settings?.duration && `${version.settings.duration}s`].filter(Boolean).join(' · ')}
                         </div>
                         <div className="mt-3 flex flex-wrap gap-1.5">
+                          {version.canvasWorkflow && <button type="button" onClick={() => window.dispatchEvent(new CustomEvent('lumeweft-restore-canvas', { detail: version.canvasWorkflow }))} className="rounded bg-emerald-500/15 px-2 py-1 text-[10px] text-emerald-300">CANVASでフローを復元</button>}
                           <button type="button" onClick={() => { void copyPrompt(version.prompt) }} className="inline-flex items-center gap-1 rounded bg-sf-dark-700 px-2 py-1 text-[10px] text-sf-text-secondary hover:text-sf-text-primary"><Clipboard className="h-3 w-3" /> {t('generate.history.copy')}</button>
                           <button type="button" onClick={() => onUseInQueue?.({ positive: version.prompt || '', negative: version.settings?.negativePrompt || '' })} className="rounded bg-sf-accent/15 px-2 py-1 text-[10px] text-sf-accent hover:bg-sf-accent/25">{t('generate.prompter.useInQueue')}</button>
                           {version.apiWorkflow && <button type="button" disabled={Boolean(openingVersionId)} onClick={() => { void openVersion(record, version) }} className="inline-flex items-center gap-1 rounded bg-violet-500/15 px-2 py-1 text-[10px] text-violet-300 hover:bg-violet-500/25 disabled:opacity-50"><ExternalLink className="h-3 w-3" /> {openingVersionId === version.id ? t('generate.history.opening') : t('generate.history.openComfy')}</button>}
@@ -345,7 +352,7 @@ export default function GenerationLibrary({ onUseInQueue, onDeletedAssets }) {
             </section>
             )
           })}
-          {records.length === 0 && <div className="rounded-xl border border-dashed border-sf-dark-700 py-16 text-center text-xs text-sf-text-muted">{t('generate.history.empty')}</div>}
+          {visibleRecords.length === 0 && <div className="rounded-xl border border-dashed border-sf-dark-700 py-16 text-center text-xs text-sf-text-muted">{t('generate.history.empty')}</div>}
         </div>
       )}
     </div>

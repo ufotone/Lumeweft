@@ -1,12 +1,12 @@
-# Exact Audio Lip-Sync (LTX 2.3 + LatentSync)
+# Exact Audio Lip-Sync (LTX 2.3 Native)
 
-LTX 2.3 motion with LatentSync 1.6 mouth correction and the exact supplied audio
+Native LTX 2.3 audio-driven motion with the supplied audio preserved in the output
 
 - **Workflow ID:** `ltx23-latentsync`
 - **Category:** `video`
 - **Tier:** `pro`
 - **Runtime:** `local`
-- **App Workflow JSON:** `/workflows/video_ltx2_3_i2v.json`
+- **App Workflow JSON:** `/workflows/video_ltx2_3_id_lora.json`
 - **Starter Pack Setup Workflow:** `workflows/local/ltx23-latentsync.comfyui.json`
 - **Setup Workflow Status:** `available`
 
@@ -31,9 +31,6 @@ LTX 2.3 motion with LatentSync 1.6 mouth correction and the exact supplied audio
 - `EmptyLTXVLatentVideo` - Built into newer ComfyUI builds
   - LTX 2.3 workflow support is built into newer ComfyUI builds.
   - Docs: https://docs.comfy.org/built-in-nodes/EmptyLTXVLatentVideo
-- `LatentSyncNode` - Manual setup
-  - No curated install recipe is available yet for this node class.
-  - Docs: https://registry.comfy.org
 - `LatentUpscaleModelLoader` - Built into newer ComfyUI builds
   - This loader is built into ComfyUI. Missing it usually means the install is outdated.
   - Docs: https://docs.comfy.org/built-in-nodes/LatentUpscaleModelLoader
@@ -52,6 +49,9 @@ LTX 2.3 motion with LatentSync 1.6 mouth correction and the exact supplied audio
 - `LTXVAudioVAEDecode` - Built into newer ComfyUI builds
   - Update ComfyUI to a build with LTX 2.3 support. If that still does not expose the node, install or update ComfyUI-LTXVideo manually.
   - Docs: https://docs.comfy.org/tutorials/video/ltx/ltx-2-3
+- `LTXVAudioVAEEncode` - Manual setup
+  - No curated install recipe is available yet for this node class.
+  - Docs: https://registry.comfy.org
 - `LTXVAudioVAELoader` - Built into newer ComfyUI builds
   - Update ComfyUI to a build with LTX 2.3 support. If that still does not expose the node, install or update ComfyUI-LTXVideo manually.
   - Docs: https://docs.comfy.org/built-in-nodes/LTXVAudioVAELoader
@@ -79,6 +79,9 @@ LTX 2.3 motion with LatentSync 1.6 mouth correction and the exact supplied audio
 - `LTXVSeparateAVLatent` - Built into newer ComfyUI builds
   - LTX workflow nodes are bundled into newer ComfyUI builds.
   - Docs: https://docs.comfy.org/tutorials/video/ltx/ltx-2-3
+- `LTXVSetAudioRefTokens` - Auto-install supported
+  - Provides native LTX audio-reference conditioning used by the Exact Audio talking-video route.
+  - Repo: https://github.com/Lightricks/ComfyUI-LTXVideo
 - `ResizeImageMaskNode` - Built into newer ComfyUI builds
   - Part of current ComfyUI core image utilities.
   - Docs: https://registry.comfy.org

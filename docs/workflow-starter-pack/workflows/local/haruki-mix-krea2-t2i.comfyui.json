@@ -1,0 +1,11 @@
+{
+  "1": { "class_type": "UNETLoader", "inputs": { "unet_name": "harukiMIX_kr2V20Int8Convrot.safetensors", "weight_dtype": "default" }, "_meta": { "title": "HARUKI_MIX KR2 V2.0 INT8 ConvRot" } },
+  "2": { "class_type": "CLIPLoader", "inputs": { "clip_name": "qwen3vl_4b_fp8_scaled.safetensors", "type": "krea2", "device": "default" }, "_meta": { "title": "Krea 2 Text Encoder" } },
+  "3": { "class_type": "VAELoader", "inputs": { "vae_name": "qwen_image_vae.safetensors" }, "_meta": { "title": "Krea 2 VAE" } },
+  "4": { "class_type": "CLIPTextEncode", "inputs": { "text": "A photorealistic portrait of a fictional adult Japanese woman, natural skin texture, detailed lighting.", "clip": ["2", 0] }, "_meta": { "title": "Prompt" } },
+  "5": { "class_type": "ConditioningZeroOut", "inputs": { "conditioning": ["4", 0] }, "_meta": { "title": "Negative Conditioning" } },
+  "6": { "class_type": "EmptyLatentImage", "inputs": { "width": 816, "height": 1104, "batch_size": 1 }, "_meta": { "title": "Image Size" } },
+  "7": { "class_type": "KSampler", "inputs": { "seed": 0, "steps": 8, "cfg": 1, "sampler_name": "euler", "scheduler": "simple", "denoise": 1, "model": ["1", 0], "positive": ["4", 0], "negative": ["5", 0], "latent_image": ["6", 0] }, "_meta": { "title": "HARUKI_MIX Krea 2 T2I" } },
+  "8": { "class_type": "VAEDecode", "inputs": { "samples": ["7", 0], "vae": ["3", 0] }, "_meta": { "title": "Decode Image" } },
+  "9": { "class_type": "SaveImage", "inputs": { "filename_prefix": "image/CANVAS_haruki_mix_krea2", "images": ["8", 0] }, "_meta": { "title": "Save Image" } }
+}

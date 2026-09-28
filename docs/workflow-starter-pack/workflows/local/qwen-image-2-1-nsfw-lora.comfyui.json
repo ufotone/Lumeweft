@@ -1,0 +1,47 @@
+{
+  "1": {
+    "inputs": { "unet_name": "qwen_image_2.1_int8_convrot.safetensors", "weight_dtype": "default" },
+    "class_type": "UNETLoader",
+    "_meta": { "title": "Qwen Image 2.1 INT8 ConvRot" }
+  },
+  "2": {
+    "inputs": { "clip_name": "qwen3vl_8b_heretic-Q4_K_M.gguf", "type": "qwen_image" },
+    "class_type": "CLIPLoaderGGUF",
+    "_meta": { "title": "Qwen3-VL 8B Heretic Q4_K_M" }
+  },
+  "3": {
+    "inputs": { "vae_name": "qwen_image_2.1_vae_bf16.safetensors" },
+    "class_type": "VAELoader",
+    "_meta": { "title": "Qwen Image 2.1 VAE" }
+  },
+  "4": {
+    "inputs": { "model": ["1", 0], "lora_name": "NSFW Qwen Lora.safetensors", "strength_model": 1.0 },
+    "class_type": "LoraLoaderModelOnly",
+    "_meta": { "title": "NSFW Qwen Image 2.1 LoRA v1.0" }
+  },
+  "5": {
+    "inputs": { "clip": ["2", 0], "prompt": "An intimate cinematic portrait of consenting adult partners.", "negative_prompt": "", "resolution": 1024 },
+    "class_type": "TextEncodeQwenImage21",
+    "_meta": { "title": "Qwen Image 2.1 Prompt" }
+  },
+  "6": {
+    "inputs": { "width": 832, "height": 1248, "batch_size": 1 },
+    "class_type": "EmptyLatentImage",
+    "_meta": { "title": "Image Size" }
+  },
+  "7": {
+    "inputs": { "model": ["4", 0], "positive": ["5", 0], "negative": ["5", 1], "latent_image": ["6", 0], "seed": 0, "steps": 25, "cfg": 1, "sampler_name": "er_sde", "scheduler": "beta", "denoise": 1 },
+    "class_type": "KSampler",
+    "_meta": { "title": "Sample Qwen Image 2.1 NSFW LoRA" }
+  },
+  "8": {
+    "inputs": { "samples": ["7", 0], "vae": ["3", 0] },
+    "class_type": "VAEDecode",
+    "_meta": { "title": "Decode Image" }
+  },
+  "9": {
+    "inputs": { "filename_prefix": "image/CANVAS_qwen_image_2_1_nsfw_lora", "images": ["8", 0] },
+    "class_type": "SaveImage",
+    "_meta": { "title": "Save PNG" }
+  }
+}

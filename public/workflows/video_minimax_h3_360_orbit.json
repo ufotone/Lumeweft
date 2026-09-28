@@ -1,0 +1,81 @@
+{
+  "1": {
+    "inputs": { "image": "input.png" },
+    "class_type": "LoadImage",
+    "_meta": { "title": "360 Orbit Source Image" }
+  },
+  "2": {
+    "inputs": { "unet_name": "minimax_h3_fl2va_pruned_int8_convrot.safetensors", "weight_dtype": "default" },
+    "class_type": "UNETLoader",
+    "_meta": { "title": "MiniMax H3 FL2VA Pruned INT8 ConvRot" }
+  },
+  "3": {
+    "inputs": { "clip_name": "qwen3vl_32b_minimax_h3_nvfp4_awq.safetensors", "type": "minimax", "device": "default" },
+    "class_type": "CLIPLoader",
+    "_meta": { "title": "MiniMax H3 Text Encoder" }
+  },
+  "4": {
+    "inputs": { "vae_name": "minimax_h3_video_vae_int8_convrot.safetensors" },
+    "class_type": "VAELoader",
+    "_meta": { "title": "MiniMax H3 Video VAE" }
+  },
+  "5": {
+    "inputs": { "model": ["2", 0], "lora_name": "minimax_h3_flf2v_lora_v1.safetensors", "strength_model": 1 },
+    "class_type": "LoraLoaderModelOnly",
+    "_meta": { "title": "MiniMax H3 360 Orbit LoRA" }
+  },
+  "6": {
+    "inputs": {
+      "clip": ["3", 0],
+      "vae": ["4", 0],
+      "prompt": "One frozen instant. Only the camera moves. In a continuous 360 orbit. Preserve every person and object in exactly the same world position, orientation, shape and pose throughout the shot. Airborne objects remain suspended at the captured height and angle: no wobbling, shaking, spinning, drifting, falling or continued action. Keep faces, hands, clothing, liquids and the background motionless while retaining their natural appearance. Camera parallax is the only source of apparent movement. No cuts, zoom, morphing or added objects.",
+      "width": 768,
+      "height": 768,
+      "length": 73,
+      "first_frame": ["1", 0],
+      "last_frame": ["1", 0]
+    },
+    "class_type": "MiniMaxH3ImageToVideo",
+    "_meta": { "title": "Same First and Last Frame" }
+  },
+  "7": {
+    "inputs": { "noise_seed": 1 },
+    "class_type": "RandomNoise",
+    "_meta": { "title": "Seed" }
+  },
+  "8": {
+    "inputs": { "model": ["5", 0], "conditioning": ["6", 0] },
+    "class_type": "BasicGuider",
+    "_meta": { "title": "No CFG" }
+  },
+  "9": {
+    "inputs": { "sampler_name": "res_multistep" },
+    "class_type": "KSamplerSelect",
+    "_meta": { "title": "Sampler" }
+  },
+  "10": {
+    "inputs": { "model": ["5", 0], "scheduler": "simple", "steps": 28, "denoise": 1 },
+    "class_type": "BasicScheduler",
+    "_meta": { "title": "28 Steps" }
+  },
+  "11": {
+    "inputs": { "noise": ["7", 0], "guider": ["8", 0], "sampler": ["9", 0], "sigmas": ["10", 0], "latent_image": ["6", 1] },
+    "class_type": "SamplerCustomAdvanced",
+    "_meta": { "title": "Sample Orbit" }
+  },
+  "12": {
+    "inputs": { "samples": ["11", 0], "vae": ["4", 0] },
+    "class_type": "VAEDecode",
+    "_meta": { "title": "Decode Video" }
+  },
+  "13": {
+    "inputs": { "images": ["12", 0], "fps": 24 },
+    "class_type": "CreateVideo",
+    "_meta": { "title": "Silent 24 FPS Video" }
+  },
+  "14": {
+    "inputs": { "video": ["13", 0], "filename_prefix": "video/CANVAS_minimax_h3_360_orbit", "format": "auto", "codec": "auto" },
+    "class_type": "SaveVideo",
+    "_meta": { "title": "Save 360 Orbit" }
+  }
+}

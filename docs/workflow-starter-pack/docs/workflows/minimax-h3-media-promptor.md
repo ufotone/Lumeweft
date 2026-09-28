@@ -19,7 +19,7 @@ Analyze an image or video and write a structured MiniMax H3 generation prompt.
 - `H3_Promptor` - Auto-install supported
   - Analyzes image and video references and generates structured MiniMax H3 prompts for CANVAS.
   - Repo: https://github.com/1038lab/ComfyUI-MiniMax-H3-Promptor
-- `H3_Vision_Analyzer` - Auto-install supported
+- `H3_Vision` - Auto-install supported
   - Analyzes image and video references and generates structured MiniMax H3 prompts for CANVAS.
   - Repo: https://github.com/1038lab/ComfyUI-MiniMax-H3-Promptor
 - `PreviewAny` - Manual setup

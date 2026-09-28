@@ -3128,6 +3128,29 @@ export const useTimelineStore = create(
     }))
   },
 
+  /** Persist dedicated Cut-view state on a clip without inventing a second
+   * editing document. Callers pass the complete referenceCut object. */
+  updateClipReferenceCut: (clipId, referenceCut, saveHistory = true) => {
+    const state = get()
+    if (!state.clips.some((clip) => clip.id === clipId)) return
+    if (saveHistory) get().saveToHistory()
+    set((current) => ({
+      clips: current.clips.map((clip) => (
+        clip.id === clipId
+          ? {
+              ...clip,
+              metadata: {
+                ...(clip.metadata || {}),
+                referenceCut: referenceCut && typeof referenceCut === 'object'
+                  ? structuredClone(referenceCut)
+                  : null,
+              },
+            }
+          : clip
+      )),
+    }))
+  },
+
   /**
    * Update multiple clips in one store write during a shared trim gesture.
    * @param {Array<{id: string, updates: object}>} trimUpdates

@@ -411,6 +411,12 @@ contextBridge.exposeInMainWorld('electronAPI', {
   trimAudioSegment: (options = {}) => ipcRenderer.invoke('media:trimAudioSegment', options),
 
   /**
+   * Render one or more short, resized reference-video cuts into a project folder.
+   * @param {object} options - { inputPath, outputDir, baseName?, segments, width?, height?, fit? }
+   */
+  renderReferenceCuts: (options = {}) => ipcRenderer.invoke('media:renderReferenceCuts', options),
+
+  /**
    * Extract a poster image from the first frames of a video via ffmpeg.
    * @param {string} inputPath - Absolute source file path
    * @param {string} outputPath - Absolute poster destination path
@@ -481,6 +487,10 @@ contextBridge.exposeInMainWorld('electronAPI', {
     createRun: (payload = {}) => ipcRenderer.invoke('cloudRuntime:createRun', payload),
     getRun: (payload = {}) => ipcRenderer.invoke('cloudRuntime:getRun', payload),
     cancelRun: (payload = {}) => ipcRenderer.invoke('cloudRuntime:cancelRun', payload),
+    generateImage: (payload = {}) => ipcRenderer.invoke('cloudRuntime:generateImage', payload),
+    createVideo: (payload = {}) => ipcRenderer.invoke('cloudRuntime:createVideo', payload),
+    getVideoOperation: (payload = {}) => ipcRenderer.invoke('cloudRuntime:getVideoOperation', payload),
+    downloadMedia: (payload = {}) => ipcRenderer.invoke('cloudRuntime:downloadMedia', payload),
     uploadFile: async (providerId, file, options = {}) => ipcRenderer.invoke('cloudRuntime:uploadFile', {
       providerId,
       bytes: new Uint8Array(await file.arrayBuffer()),
@@ -496,6 +506,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
    * the main process one strict place to validate the upstream host/id.
    */
   getCivitaiModel: (modelId) => ipcRenderer.invoke('civitai:getModel', modelId),
+  searchComfyModelSources: (payload = {}) => ipcRenderer.invoke('comfyStorage:searchModelSources', payload),
   getCivitaiImageGenerationData: (imageId) => ipcRenderer.invoke('civitai:getImageGenerationData', imageId),
   installCivitaiFiles: (payload = {}) => ipcRenderer.invoke('civitai:installFiles', payload),
   checkInstalledCivitaiFiles: (payload = {}) => ipcRenderer.invoke('civitai:checkInstalledFiles', payload),
@@ -572,6 +583,10 @@ contextBridge.exposeInMainWorld('electronAPI', {
   // ComfyUI Launcher (process manager)
   // ============================================
 
+  generationMemory: {
+    stats: () => ipcRenderer.invoke('generationMemory:stats'),
+    sleep: () => ipcRenderer.invoke('generationMemory:sleep'),
+  },
   comfyLauncher: {
     getState: () => ipcRenderer.invoke('comfyLauncher:getState'),
     getConfig: () => ipcRenderer.invoke('comfyLauncher:getConfig'),

@@ -794,7 +794,8 @@ export const useAssetsStore = create(
    */
   generateAssetSprite: async (assetId, projectPath) => {
     const asset = get().assets.find(a => a.id === assetId)
-    if (!asset || asset.type !== 'video' || !asset.url) {
+    const spriteSourceUrl = asset?.playbackCacheUrl || asset?.proxyUrl || asset?.url
+    if (!asset || asset.type !== 'video' || !spriteSourceUrl) {
       console.warn('Cannot generate sprite: invalid asset or not a video')
       return null
     }
@@ -811,7 +812,7 @@ export const useAssetsStore = create(
       
       // Generate sprite. This uses a hidden video element and canvas seeks,
       // so keep generation bounded across imports/manual actions.
-      const result = await runWithSpriteGenerationSlot(() => generateThumbnailSprite(asset.url, asset.duration || 5))
+      const result = await runWithSpriteGenerationSlot(() => generateThumbnailSprite(spriteSourceUrl, asset.duration || 5))
       if (!result) {
         throw new Error('Failed to generate sprite')
       }

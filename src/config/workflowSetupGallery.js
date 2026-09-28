@@ -36,6 +36,16 @@ const CLOUD_WORKFLOW_IDS = new Set([
 
 /** @type {Record<string, { gradient: string, icon: string, thumbnailSrc?: string, extraBadges?: string[] }>} */
 const VISUAL_BY_WORKFLOW_ID = {
+  'ainvfx-fluid': {
+    gradient: 'from-orange-500/30 via-slate-800/40 to-sf-dark-950',
+    icon: 'film',
+    extraBadges: ['VFX', 'LTX 2.5', 'IC-LoRA', 'CANVAS'],
+  },
+  'tk-toolkit': {
+    gradient: 'from-amber-500/30 via-violet-900/30 to-sf-dark-950',
+    icon: 'boxes',
+    extraBadges: ['Toolbox', 'Optional', 'MIT'],
+  },
   'wan22-i2v': {
     gradient: 'from-violet-500/35 via-indigo-900/30 to-sf-dark-950',
     icon: 'film',
@@ -166,6 +176,36 @@ const VISUAL_BY_WORKFLOW_ID = {
     icon: 'cloud',
     extraBadges: ['Prompt'],
   },
+  'qwen-image-2-1-heretic': {
+    gradient: 'from-cyan-500/25 via-blue-900/25 to-sf-dark-950',
+    icon: 'sparkles',
+    extraBadges: ['Qwen 2.1', 'Heretic', 'GGUF', 'RGBA'],
+  },
+  'qwen-image-2-1-nsfw-lora': {
+    gradient: 'from-rose-500/25 via-fuchsia-950/30 to-sf-dark-950',
+    icon: 'sparkles',
+    extraBadges: ['NSFW', 'Qwen 2.1', 'LoRA', 'Civitai'],
+  },
+  'haruki-mix-krea2-t2i': {
+    gradient: 'from-pink-500/25 via-rose-950/30 to-sf-dark-950',
+    icon: 'sparkles',
+    extraBadges: ['NSFW', 'Krea 2', 'INT8', 'Civitai'],
+  },
+  'nsfw-wan-1-3b-e10-t2v': {
+    gradient: 'from-rose-500/25 via-red-950/30 to-sf-dark-950',
+    icon: 'film',
+    extraBadges: ['NSFW', 'Wan 2.1', '1.3B', 'T2V'],
+  },
+  'qwen-image-2-1-heretic-edit': {
+    gradient: 'from-sky-500/25 via-cyan-900/25 to-sf-dark-950',
+    icon: 'sparkles',
+    extraBadges: ['Edit', 'Qwen 2.1', 'Heretic', 'RGBA'],
+  },
+  'qwen-image-2-1-character-sheet': {
+    gradient: 'from-cyan-500/25 via-indigo-900/25 to-sf-dark-950',
+    icon: 'sparkles',
+    extraBadges: ['Character Sheet', 'Qwen 2.1', 'Heretic', '3:2'],
+  },
   'minimax-h3-media-promptor': {
     gradient: 'from-violet-500/25 via-sky-900/25 to-sf-dark-950',
     icon: 'film',
@@ -185,10 +225,12 @@ const VISUAL_BY_WORKFLOW_ID = {
  * get a clear "what does this do / when do I use it" brief.
  */
 const LONG_DESCRIPTIONS = {
+  'ainvfx-fluid': 'CANVAS → AInVFX Fluid: paint and save first/last keyframes, then turn their shapes into smoke, steam or fire. Uses the LTX 2.5 distilled INT8 model, 8 steps, CFG 1 and 121 frames. Five model files total about 39.4 GB; LTX 2.5 base files require Hugging Face access approval. If automatic download returns 401/403, sign in at each source link and place the downloaded file in its indicated model folder. LTX 2.3 weights cannot substitute. Requires current ComfyUI with LTX 2.5/Gemma 4 support and the official ComfyUI-LTXVideo pack. VRAM requirements have not been verified locally.',
+  'tk-toolkit': 'An optional toolbox installed into the user\'s own ComfyUI. It adds visual LoRA management, Civitai metadata and downloads, prompt cards, Danbooru reference search, output browsing, and batch helpers. The integration is installed from the publisher\'s MIT-licensed repository; downloaded models, previews, Danbooru posts, and other remote content keep their own licenses and service terms.',
   'wan22-i2v': 'Runs locally with the WAN 2.2 14B image-to-video High/Low Noise experts in memory-efficient Q4_K_M GGUF form. Give it a still frame and a short prompt to produce an animated clip. The existing 4-step Lightning LoRAs remain enabled; GGUF offloading makes the workflow practical on lower-VRAM machines, though it is still a large download.',
   'wan22-t2v': 'Runs WAN 2.2 14B text-to-video locally with Q4_K_M GGUF High/Low Noise experts and the existing 4-step Lightning LoRAs. Designed for memory-aware local execution with ComfyUI-GGUF offloading.',
   'ltx23-i2v': 'Fast local image-to-video using LTX 2.3. Good for quick iterations and lighter GPUs. Lower fidelity than WAN 2.2 but much faster to generate, and it keeps everything on your machine.',
-  [UGC_EXACT_LIPSYNC_WORKFLOW_ID]: 'Recommended local UGC dialogue route. LTX 2.3 generates the motion frames, then LatentSync 1.6 corrects the mouth to the finished Irodori-TTS or ElevenLabs clip and keeps that exact waveform in the output. The setup check can install the LatentSync custom node; its checkpoints download on first use.',
+  [UGC_EXACT_LIPSYNC_WORKFLOW_ID]: 'Recommended local dialogue route for illustrated and live-action characters. LTX 2.3 conditions motion on the finished Irodori-TTS or ElevenLabs clip, freezes that audio during sampling, and keeps the original waveform in the final output. No separate LatentSync extension is required.',
   'kling-o3-i2v': 'Cloud image-to-video using the Kling 3.0 Omni model via the Comfy Partner API. Premium quality motion and coherence, especially for people and characters. Requires a Comfy Partner API key and credits.',
   'grok-video-i2v': 'Cloud image-to-video powered by xAI Grok Imagine Video (Beta). Strong at stylised and cinematic shots. Requires a Grok / Comfy Partner API key.',
   'vidu-q2-i2v': 'Cloud image-to-video with Vidu Q2 Pro Fast. Tuned for quick turnaround and consistent character motion. Requires a Comfy Partner API key.',
@@ -199,6 +241,12 @@ const LONG_DESCRIPTIONS = {
   'multi-angles': 'Qwen Image Edit 2511 character turnaround using the 2511 Multiple Angles LoRA and a memory-efficient GGUF model. Give it one character image and it generates 8 controlled camera views for shot sheets or look-dev reference sets.',
   'multi-angles-scene': 'Qwen Image Edit 2511 scene turnaround using the 2511 Multiple Angles LoRA and a memory-efficient GGUF model. Produces 8 controlled views of one environment for coverage, storyboards, or establishing shots.',
   'image-edit': 'Local image editing with Qwen Image Edit 2509 in memory-efficient Q4_K_M GGUF form, accelerated by the 4-step Lightning LoRA. Paint a mask (or describe the change) and apply targeted text-prompted edits while keeping the rest intact.',
+  'qwen-image-2-1-heretic': 'CANVAS text-to-image generation using the requested Qwen3-VL 8B Heretic Q4_K_M text encoder, the official Qwen Image 2.1 INT8 ConvRot diffusion model, and the official RGBA-capable VAE. The output note includes a persistent transparent-PNG switch. Requires ComfyUI 0.36.0+, ComfyUI-GGUF, and the temporary Qwen3-VL GGUF text-encoder patch.',
+  'qwen-image-2-1-nsfw-lora': 'CANVAS adult text-to-image generation using Civitai model version 3351951 at strength 1.0. It reuses the installed Qwen Image 2.1 INT8 ConvRot model, Heretic Q4_K_M encoder/mmproj, and Qwen 2.1 VAE. Published examples use er_sde + beta, CFG 1, and 20–25 steps. Install the LoRA itself through Generate > Community so Civitai authentication and the external-model consent gate remain in effect.',
+  'haruki-mix-krea2-t2i': 'CANVAS adult text-to-image generation using HARUKI_MIX KR2 V2.0 INT8 ConvRot, exact Civitai version 3188234. It reuses the official Krea 2 Qwen3-VL 4B FP8 text encoder and Qwen image VAE already used by Dark Beast. Published guidance is Euler with simple, beta, or bong_tangent scheduling, 8 steps, and CFG 1. Install the checkpoint through Generate > Community; redistribution, merging, derivative checkpoint sharing, and paid generation-service use are prohibited by the author.',
+  'nsfw-wan-1-3b-e10-t2v': 'CANVAS adult text-to-video generation with the exact requested wan_1.3B_e10.safetensors full checkpoint. It uses the ComfyUI core Wan 2.1 T2V graph with UMT5, the Wan 2.1 VAE, sampling shift 8, 30 steps, CFG 6, uni_pc/simple, 832x480, and 16 fps. The publisher now labels e10 as a legacy image-trained checkpoint with limited native motion and known quality degradation after epoch 3, and recommends exp_e14 for general use; this preset intentionally remains pinned to e10.',
+  'qwen-image-2-1-heretic-edit': 'CANVAS image editing with the exact same Qwen Image 2.1 INT8 ConvRot model, Heretic Q4_K_M text encoder, matching mmproj vision tower, and RGBA VAE as the generation flow. image_1 is encoded by TextEncodeQwenImage21 so its canvas and aspect ratio drive the edit. The output note includes the same persistent transparent-PNG switch, and Workflow Setup reuses the already pinned downloads.',
+  'qwen-image-2-1-character-sheet': 'Dedicated CANVAS character-sheet generation inspired by NeuroContent\'s public Qwen Image 2.1 workflow. It takes one identity image and creates a 3:2 design board with hero, turnaround, pose, expression, silhouette, and detail studies. This adaptation reuses the existing Heretic Q4_K_M encoder/mmproj stack and follows the published res_2m + beta, 25-step, CFG 1 baseline without adding a second text encoder or the source PE custom-node stack.',
   'image-edit-model-product': 'Specialised Qwen Image Edit 2509 GGUF graph with 4-step Lightning acceleration for putting a product onto a model, or swapping a model/product while keeping the other element anchored.',
   'z-image-turbo': 'Local text-to-image using Q4_K_M GGUF versions of Z Image Turbo and its Qwen 3 4B encoder. It keeps the fast preset behaviour while reducing model memory pressure, making it a good default for quick ideation and reference frames.',
   'nano-banana-2': 'Cloud image generation and reference editing using Google Nano Banana 2 via the Comfy Partner API. Music Video uses it for cloud keyframes when you want stronger reference-image and identity consistency. Requires an API key and credits.',

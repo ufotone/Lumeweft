@@ -450,7 +450,8 @@
     "stock": "Stock",
     "discover": "Discover",
     "export": "Export",
-    "backstage": "Backstage"
+    "backstage": "Backstage",
+    "paint": "Paint"
   },
   "bottomBar": {
     "saveProject": "Save Project",
@@ -593,8 +594,12 @@
         "description": "Manage stock-media search credentials."
       },
       "connection": {
-        "title": "Connections & Runtimes",
-        "description": "Configure local ComfyUI, cloud providers, credentials, routing, and credit display."
+        "title": "Local ComfyUI",
+        "description": "Configure the local ComfyUI connection and output import behavior."
+      },
+      "cloud-runtimes": {
+        "title": "Cloud Execution Runtimes",
+        "description": "Manage cloud providers, API keys, routing, connection tests, and credit display."
       },
       "agents": {
         "title": "Agents (MCP)",
@@ -873,7 +878,14 @@
       "libraryHelp": "Browse bundled workflows in a visual grid, or switch to list view. Expand a row or card for full dependency details.",
       "libraryFilteredHelp": "Browse {{count}} filtered workflows in a visual grid, or switch to list view. Expand a row or card for full dependency details.",
       "gallery": "Gallery",
-      "list": "List"
+      "list": "List",
+      "tkToolkit": {
+        "about": "About this toolbox",
+        "description": "Optional LoRA, prompt, Danbooru reference, output, and batch toolbox for ComfyUI.",
+        "longDescription": "TK Toolkit is installed into your own ComfyUI. It adds visual LoRA management, Civitai metadata and downloads, prompt cards, Danbooru reference search, output browsing, and batch helpers. The software is MIT-licensed; downloaded models and remote content retain their own licenses and terms.",
+        "installNote": "Installs or updates the official MIT-licensed repository and its required Python packages. Restart ComfyUI after installation.",
+        "open": "Open Toolkit"
+      }
     },
     "appearance": {
       "theme": "Theme",
@@ -891,7 +903,11 @@
       "discoverTab": "Show Discover tab",
       "discoverTabHelp": "Keep a shortcut to community work and tutorials in the top tab bar.",
       "hideDiscoverTab": "Hide the Discover tab",
-      "showDiscoverTab": "Show the Discover tab"
+      "showDiscoverTab": "Show the Discover tab",
+      "nsfwWorkflows": "Show NSFW workflows",
+      "nsfwWorkflowsHelp": "Show NSFW items in CANVAS, Director, Backstage, Generation Recipes, and Generation History. Turning this off hides them without deleting data.",
+      "hideNsfwWorkflows": "Hide NSFW workflows",
+      "showNsfwWorkflows": "Show NSFW workflows"
     },
     "notifications": {
       "completionSound": "Generation complete sound",
@@ -1017,6 +1033,9 @@
       "providers": {
         "floyo": {
           "description": "Run ComfyUI API workflows on Floyo cloud GPUs."
+        },
+        "google-gemini": {
+          "description": "Generate images and videos through the official paid Gemini API. Google Flow credits are not used."
         }
       }
     }
@@ -1383,7 +1402,14 @@
             "subtitle": "Creator-style ad",
             "description": "Creator-style social ads with hooks, dialogue, product demos, unboxings, try-ons, and reactions.",
             "badge": "Beta",
-            "runtimeLabel": "Creator guide"
+            "runtimeLabel": "Keyframes + video"
+          },
+          "ugc-ad-creator-gemini": {
+            "title": "UGC Creator — Gemini",
+            "subtitle": "Creator-style ads with Google APIs",
+            "description": "Create keyframes with Nano Banana 2 Lite, then generate native-audio video with Veo 3.1 Lite.",
+            "badge": "Gemini",
+            "runtimeLabel": "Nano Banana 2 Lite + Veo 3.1 Lite"
           },
           "irodori-voice-clone-creator": {
             "title": "Irodori Voice Studio",
@@ -1397,21 +1423,28 @@
             "subtitle": "Offer to ad",
             "description": "Offer-first ads for local businesses, online shops, services, events, and small teams.",
             "badge": "Beta",
-            "runtimeLabel": "Small business"
+            "runtimeLabel": "Keyframes + video"
+          },
+          "business-ad-creator-gemini": {
+            "title": "Business Ad Creator — Gemini",
+            "subtitle": "Offer-to-ad with Google APIs",
+            "description": "Send product, talent, and brand references to Nano Banana 2 Lite, then generate the ad video with Veo 3.1 Lite.",
+            "badge": "Gemini",
+            "runtimeLabel": "Nano Banana 2 Lite + Veo 3.1 Lite"
           },
           "music-video-template": {
             "title": "Music Video Creation",
             "subtitle": "Lyrics to shots",
             "description": "Guided music video planning and generation.",
             "badge": "Easy",
-            "runtimeLabel": "Lyrics + LTX"
+            "runtimeLabel": "Lyrics to shots"
           },
           "short-film-easy-mode": {
             "title": "Short Film Creation",
             "subtitle": "Script to scene coverage",
             "description": "Guided short film planning with characters, locations, voices, shot coverage, keyframes, and videos.",
             "badge": "Easy",
-            "runtimeLabel": "Script + voices + LTX"
+            "runtimeLabel": "Script + voices + shots"
           },
           "anima-lora-factory-director": {
             "title": "ANIMA (SDXL) LoRA Factory",
@@ -1512,7 +1545,13 @@
     "backstage": {
       "title": "Backstage",
       "description": "Prepare voices, training data, and trained assets before production.",
-      "backToWorkflows": "Back to backstage workflows"
+      "backToWorkflows": "Back to backstage workflows",
+      "tkToolkit": {
+        "title": "TK Toolkit",
+        "description": "Manage LoRAs, prompts, Danbooru references, ComfyUI outputs, and batch utilities from one optional toolbox.",
+        "subtitle": "LoRA and prompt toolbox",
+        "runtime": "ComfyUI custom nodes + panel"
+      }
     },
     "prompter": {
       "saveTitle": "Save a generation recipe",
@@ -1529,6 +1568,7 @@
       "image": "Image",
       "video": "Video",
       "audio": "Audio / Music",
+      "nsfw": "NSFW",
       "audioThumbnailAlt": "Audio or music recipe",
       "pasteClipboard": "Paste from clipboard",
       "save": "Save",
@@ -2140,17 +2180,22 @@
           "emojiHelp": "Cues are inserted at the cursor. Combine multiple cues and ⏸️ pauses as needed."
         },
         "voiceDesign": {
-          "title": "Voice prompt builder",
-          "help": "Build a voice prompt by clicking a preset, speaker, pitch, delivery, pace, mood, and sound quality.",
+          "title": "Voice quality",
+          "help": "Choose Standard, Anime voice, or build a detailed VoiceDesign.",
           "presets": "Voice presets",
           "standardMode": "No reference · Standard TTS",
           "designMode": "VoiceDesign",
+          "animeMode": "Anime voice",
           "cloneMode": "Reference voice clone",
+          "animeCloneMode": "Anime voice · Reference clone",
           "enableStandard": "Standard voice",
           "standardHelp": "Read the dialogue directly with the existing Irodori v3 model.",
+          "enableAnime": "Anime voice",
+          "animeHelp": "Generate anime-style Japanese speech with Irodori v4.1-Anime.",
+          "animeNotice": "v4.1-Anime uses independent fine-tuning, so caption and emoji delivery controls may behave differently from the standard model.",
           "enableDesign": "Design a voice",
           "designHelp": "Apply presets and voice parts through VoiceDesign.",
-          "disabledByReference": "Reference audio is selected, so its speaker identity takes priority. Clear the reference to enable VoiceDesign.",
+          "disabledByReference": "The reference supplies speaker identity. Standard and Anime voice remain selectable; clear the reference to enable VoiceDesign.",
           "disabledByStandard": "Standard voice is active. Choose Design a voice to enable VoiceDesign.",
           "prompt": "Completed voice prompt",
           "promptHelp": "This Japanese description is sent directly to the VoiceDesign caption. Emoji delivery cues in the dialogue can be used at the same time.",
@@ -2921,10 +2966,58 @@
     "floyoStorage": "The Floyo key is encrypted with OS-protected storage. Plaintext is sent only from Lumeweft's main process to Floyo over HTTPS."
   },
   "canvas": {
+    "vdnH3": {
+      "help": "Generate a continuous shot with native audio from text. Fixed 8 steps with memory-saving settings. Start with 5 seconds, then extend up to 15 seconds.",
+      "settings": "Defaults: 608×352, 24 fps. Uses dedicated VDN weights. Longer shots may benefit more; performance on this PC has not been measured."
+    },
+    "fastH3": {
+      "image1": "Reference image 1 (optional)",
+      "image2": "Reference image 2 (optional)",
+      "audio1": "Reference audio 1 (optional)",
+      "audio2": "Reference audio 2 (optional)",
+      "chooseAudio": "Choose audio file…",
+      "audioLoaded": "Reference audio loaded.",
+      "steps": "Generation steps",
+      "help": "Generate video with native audio from text alone. Optionally add up to two images and two audio clips. Refer to them in the prompt as <Picture 1>, <Picture 2>, <Audio 1> and <Audio 2>.",
+      "acceleration": "SageAttention acceleration is always on. SageAttention and Triton must be installed. Defaults: 4 steps, 864×480, 24 fps."
+    },
+    "h3Reference": {
+      "speedBoost": "Speed Boost (SageAttention)",
+      "speedBoostHelp": "Enabled by default with the original 2X Speed Boost workflow’s SageAttention setting. Actual speed depends on the GPU and references. Requires a working SageAttention installation in ComfyUI; turn off to use standard attention.",
+      "help": "Use a reference video for motion and camera timing. The selected segment (2–15 seconds, first 5 seconds by default) is read at 24 fps. Output is 5–15 seconds at 24 fps, rounded to H3’s frame grid. Describe <Video 1> in the prompt. Optionally connect up to eight Style Reference images and describe <Picture 1>, <Picture 2>, etc. in connection order. Enable reference audio only for clips with sound; new audio is generated in either mode.",
+      "videoInput": "Reference Video",
+      "imageInput": "Optional Reference Image",
+      "generator": "MiniMax H3 Ref2VA GGUF",
+      "chooseVideo": "Choose reference video…",
+      "videoOnly": "Only video files can be selected for this node.",
+      "contentPrompt": "Generation Content",
+      "contentPromptPlaceholder": "Enter only the subjects, appearance, scene, action, and sound you want to generate.",
+      "videoLoaded": "Reference video loaded. Edit the prompt and run the flow.",
+      "start": "Reference start (seconds)",
+      "length": "Reference length (seconds)",
+      "useAudio": "Use the reference video’s audio as a guide"
+    },
+    "h3ThreeReference": {
+      "scene": "Reference 1: Scene",
+      "character": "Reference 2: Character Sheet",
+      "props": "Reference 3: Props / Additional Stage (Optional)",
+      "generator": "MiniMax H3 NSFW Three-Reference Video",
+      "promptPlaceholder": "Enter only the desired adult content, action, camera, and sound."
+    },
     "subtitle": "A curated canvas for local ComfyUI and cloud partner workflows.",
     "subtitleRecipe": "Choose a preset recipe, provide the required inputs, and let Lumeweft handle the internal workflow.",
     "documents": "Documents",
     "advancedFlows": "Advanced flows",
+    "nsfwFlows": "NSFW",
+    "templateCategories": {
+      "i2v": "Image to Video (I2V)",
+      "t2v": "Text to Video (T2V)",
+      "t2i": "Text to Image (T2I)",
+      "i2i": "Image to Image (I2I)",
+      "videoTools": "Video Tools",
+      "audio": "Audio",
+      "utility": "Utility"
+    },
     "presetRecipe": "Preset recipe",
     "node": "Node",
     "nodeCount": "{{count}} nodes",
@@ -2949,6 +3042,10 @@
       "runSelection": "Run Selection",
       "runNode": "Run Node",
       "runSelectedNode": "Run selected node",
+      "muteNode": "Mute node",
+      "unmuteNode": "Unmute node",
+      "muteNodeHelp": "Ignore this node. Compatible inputs pass through without changing the connections.",
+      "unmuteNodeHelp": "Enable this node again.",
       "copyText": "Copy Text",
       "random": "Random",
       "reload": "Reload",
@@ -2961,7 +3058,8 @@
       "disconnectEdge": "Disconnect edge",
       "dismissNotice": "Dismiss completion notice",
       "closeInformation": "Close information",
-      "closeOriginalImage": "Close original image"
+      "closeOriginalImage": "Close original image",
+      "openOriginalImage": "View image at original size"
     },
     "preview": {
       "building": "Building motion preview",
@@ -3042,6 +3140,10 @@
         "label": "Image Input",
         "description": "Pick an image or video asset from the current project."
       },
+      "video-input": {
+        "label": "Video Input",
+        "description": "Pick a video asset from the current project. Images cannot be selected."
+      },
       "style-reference": {
         "label": "Style Reference",
         "description": "Feed one or more reference images into edit-capable image nodes."
@@ -3076,11 +3178,77 @@
       }
     },
     "templates": {
+      "anima-lora-upscale": {
+        "label": "ANIMA Image Gen"
+      },
+      "nsfw-minimax-h3-naughty-times": {
+        "label": "[NSFW] H3 NaughtyTimes I2V"
+      },
+      "qwen-image-2-1-heretic": {
+        "label": "Qwen 2.1 Image Gen"
+      },
+      "nsfw-qwen-image-2-1-lora": {
+        "label": "[NSFW] Qwen 2.1 LoRA T2I"
+      },
+      "qwen-image-2-1-heretic-edit": {
+        "label": "Qwen 2.1 Image Edit"
+      },
+      "qwen-image-2-1-character-sheet": {
+        "label": "Qwen 2.1 Character Sheet"
+      },
+      "vdn-h3-t2va": {
+        "label": "MiniMax H3 VDN T2V"
+      },
+      "fast-minimax-h3-t2va": {
+        "label": "MiniMax H3 Fast T2V"
+      },
+      "reference-video-to-video": {
+        "label": "MiniMax H3 Reference R2V"
+      },
+      "minimax-h3-character-swap": {
+        "label": "MiniMax H3 Character Swap"
+      },
+      "nsfw-anime-talking-video": {
+        "label": "[NSFW] Irodori + LTX Talking I2V"
+      },
+      "nsfw-ortenzya-scenario": {
+        "label": "[NSFW] Ortenzya Prompt Draft"
+      },
+      "nsfw-minimax-h3-pink-bunny": {
+        "label": "[NSFW] H3 PinkFluffy I2V"
+      },
+      "nsfw-minimax-h3-pink-reference": {
+        "label": "[NSFW] H3 PinkFluffy R2V"
+      },
+      "nsfw-minimax-h3-aftermidnight-r2v": {
+        "label": "[NSFW] H3 AfterMidnight R2V"
+      },
+      "nsfw-minimax-h3-scene-character-props": {
+        "label": "[NSFW] H3 Three-Reference I2V"
+      },
+      "nsfw-anime-endpoints-flf2v": {
+        "label": "[NSFW] Qwen + H3 Endpoint R2V"
+      },
+      "nsfw-anime-endpoints-r2v": {
+        "label": "[NSFW] Qwen + H3 Motion R2V"
+      },
+      "nsfw-minimax-h3-motion-8step": {
+        "label": "[NSFW] H3 Motion I2V"
+      },
+      "nsfw-dark-beast-krea2-i2i": {
+        "label": "[NSFW] KREA 2 Dark Beast T2I / I2I"
+      },
+      "nsfw-haruki-mix-krea2-t2i": {
+        "label": "[NSFW] HARUKI_MIX Krea 2 T2I"
+      },
+      "nsfw-wan-1-3b-e10-t2v": {
+        "label": "[NSFW] Wan 1.3B e10 T2V"
+      },
       "blank": {
         "label": "Blank Canvas"
       },
       "character-sheet": {
-        "label": "H3 Character Sheet"
+        "label": "MiniMax H3 Character Sheet"
       },
       "anima-lora-dataset": {
         "label": "Anima LoRA Factory"
@@ -3089,27 +3257,47 @@
         "label": "SDXL LoRA Factory"
       },
       "text-to-video": {
-        "label": "Story Flow"
+        "label": "Z-Image + LTX T2V"
       },
       "music-cue": {
-        "label": "Music Cue"
+        "label": "MusicGen Music"
       },
-      "style-edit": {
-        "label": "Image Edit With References"
+      "character-reference-edit": {
+        "label": "Qwen Character Edit"
       },
       "image-to-video": {
-        "label": "Image → Video"
+        "label": "MiniMax H3 I2V"
       },
       "start-last-frame-video": {
-        "label": "Start + Last → Video"
+        "label": "MiniMax H3 First/Last I2V"
       },
       "media-to-prompt": {
-        "label": "Image / Video → Prompt"
+        "label": "MiniMax H3 Media Prompt"
+      },
+      "ainvfx-fluid": {
+        "label": "LTX 2.5 Fluid I2V"
+      },
+      "jp-tag-search": {
+        "label": "JP Tag Search"
       }
+    },
+    "characterReferenceEdit": {
+      "primary": "Reference 1: Original character (required)",
+      "reference2": "Reference 2: Clothing / accessory (optional)",
+      "reference3": "Reference 3: Clothing / accessory (optional)",
+      "reference4": "Reference 4: Clothing / accessory (optional)",
+      "reference5": "Reference 5: Clothing / accessory (optional)",
+      "reference6": "Reference 6: Clothing / accessory (optional)",
+      "prompt": "Requested Change",
+      "promptPlaceholder": "Example: Apply the jacket from Reference 2, the bag from Reference 4, and the hat from Reference 6 to the character in Reference 1.",
+      "generator": "Character Edit",
+      "output": "Character Variations"
     },
     "nodeMessages": {
       "noPrompt": "No prompt yet.",
+      "basePromptActive": "Preset instructions are active. Add the performance or content in the Inspector.",
       "noMusicTags": "No music tags yet.",
+      "connectedDialogue": "Connect a Dialogue prompt, or enter dialogue in the Inspector.",
       "runForPrompt": "Run to generate a refined prompt.",
       "connectText": "Connect text to inspect it here.",
       "connectedAssets": "{{count}} connected assets",
@@ -3160,6 +3348,16 @@
       "selectExistingHelp": "Select the folder that contains the existing training images.",
       "resultsPlaceholder": "Generated views will appear here",
       "resultsSavedHelp": "They are also saved automatically in the project Assets panel.",
+      "characterReference": "Character reference image",
+      "characterReferenceHelp": "Combines the generated angles into one clean 4 × 2 reference sheet. It is saved to project Assets and kept separate from the Factory training-image folder.",
+      "createCharacterReference": "Create reference image",
+      "rebuildCharacterReference": "Rebuild reference image",
+      "characterReferenceSaved": "Saved as one project image. Click to preview.",
+      "characterReferenceReady": "Character reference image is ready in Assets.",
+      "characterReferenceNeedsViews": "Generate at least two character angles before creating a reference image.",
+      "characterReferenceLoadFailed": "One or more generated angle images could not be loaded.",
+      "characterReferenceCanvasFailed": "Could not compose the character reference image.",
+      "characterReferenceSaveFailed": "Could not save the character reference image.",
       "useMaskedInpaint": "Use masked Inpaint before angles",
       "useMaskedInpaintHelp": "When off, this stage is skipped and requires no Inpaint processing. White mask areas are replaced using the prompt and optional reference image.",
       "needsAttention": "Needs attention",
@@ -3218,6 +3416,8 @@
     "fields": {
       "label": "Label",
       "promptText": "Prompt Text",
+      "creativePrompt": "Performance, content, and changes",
+      "basePromptHelp": "The preset automatically applies quality rules, model syntax, and reference handling. Enter only what you want to change for this run.",
       "resolvedText": "Resolved Text",
       "projectAsset": "Project Asset",
       "videoFrameTime": "Video Frame Time (seconds)",
@@ -3242,6 +3442,9 @@
       "targetResolution": "Target Resolution",
       "upscaleCreativity": "Upscale Creativity",
       "musicTags": "Music Tags",
+      "dialogueText": "Dialogue (fallback)",
+      "lipsExpression": "Lip expression",
+      "lipSyncSteps": "Lip-sync steps",
       "inlineLyrics": "Inline Lyrics / Text",
       "keyScale": "Key / Scale",
       "bpm": "BPM",
@@ -3320,6 +3523,7 @@
     },
     "status": {
       "default": "CANVAS writes into the same project assets pipeline used by Generate.",
+      "mutedHelp": "Muted — this node will be ignored and compatible inputs will pass through.",
       "missingApiKey": "Missing API key",
       "dependenciesMissing": "{{nodes}} nodes / {{models}} models missing",
       "allSet": "All set",
@@ -3338,6 +3542,92 @@
       "desktopDatasetExport": "LoRA dataset export is available in the desktop build.",
       "interruptRequested": "Interrupt requested. Waiting for ComfyUI to stop…",
       "saved": "Saved CANVAS changes to the current project."
+    },
+    "fluid": {
+      "first": "Paint first frame",
+      "last": "Paint last frame",
+      "prompt": "Smoke / Steam / Fire",
+      "output": "VFX Takes",
+      "paint": "Paint VFX keyframe",
+      "paintHelp": "Draw flat shapes over black: grey for smoke, white for steam, orange/yellow for fire. Save before generating. Imported images can also be repainted here. Shapes are resized to the output dimensions.",
+      "color": "Brush color",
+      "brush": "Brush size",
+      "undo": "Undo stroke",
+      "clear": "Fill black",
+      "copyFirst": "Start from first frame",
+      "save": "Save keyframe",
+      "saving": "Saving…",
+      "unsaved": "Unsaved painting — save this keyframe before running the flow. Switching nodes discards unsaved strokes.",
+      "saveError": "Could not save the keyframe.",
+      "imageError": "Could not load this image for painting. Fill black to start a new painting.",
+      "strength": "Effect strength",
+      "help": "Connect two painted images. 121 frames, 8 steps, CFG 1. Width/height: multiples of 64 (512×512 recommended to start). At 25 fps this is 4.84 seconds. Prompt trigger ainvfxfluid is added automatically. Output has no alpha channel; composite a black-background take in Edit.",
+      "setupHelp": "Requires LTX 2.5 (not 2.3), AInVFX Fluid and official LTXVideo nodes. Model stack: about 39.4 GB. Base weights require Hugging Face access approval; if automatic download is denied, use the source links in Workflow Setup and install to the indicated model folders.",
+      "generator": "AInVFX Fluid"
     }
+  },
+  "paint": {
+    "title": "Paint",
+    "name": "Asset name",
+    "saveHint": "Save a PNG and editable layers",
+    "save": "Save as asset",
+    "working": "Working…",
+    "close": "Close",
+    "flattened": "Open PNG as a new image",
+    "discard": "Close without saving changes?",
+    "discardYes": "Discard changes",
+    "continue": "Continue editing",
+    "new": "New paint image",
+    "width": "Width",
+    "height": "Height",
+    "background": "Background",
+    "transparent": "Transparent",
+    "black": "Black",
+    "white": "White",
+    "create": "Create",
+    "layer": "Layer",
+    "brush": "Brush",
+    "eraser": "Eraser",
+    "move": "Move",
+    "color": "Color",
+    "size": "Size",
+    "brushOpacity": "Brush opacity",
+    "undo": "Undo",
+    "redo": "Redo",
+    "zoom": "Zoom",
+    "fit": "Fit",
+    "canvas": "Paint canvas",
+    "layers": "Layers",
+    "add": "Add",
+    "addImage": "Add project image as layer",
+    "copyFirst": "Add first frame",
+    "visible": "Visible",
+    "pixels": "Pixels",
+    "mask": "Mask",
+    "layerName": "Layer name",
+    "layerOpacity": "Layer opacity",
+    "blend": "Blend mode",
+    "source-over": "Normal",
+    "multiply": "Multiply",
+    "screen": "Screen",
+    "lighter": "Add",
+    "up": "Up",
+    "down": "Down",
+    "remove": "Delete",
+    "addMask": "Add mask",
+    "enableMask": "Enable mask",
+    "invert": "Invert",
+    "removeMask": "Remove mask",
+    "maskHint": "Hide or reveal without changing the original pixels. White reveals, black conceals.",
+    "hide": "Hide",
+    "reveal": "Reveal",
+    "maskView": "Show mask",
+    "target": "Editing",
+    "limits": "Up to 16 layers / 4096px, subject to total pixel limit",
+    "open": "Create / edit in Paint",
+    "projectChanged": "The project changed. Reopen the project where the files were saved.",
+    "duplicate": "Duplicate layer",
+    "workspaceHint": "Create images for generation and VFX, or continue editing a saved image.",
+    "empty": "No image assets yet."
   }
 }

@@ -1,9 +1,9 @@
 {
-  "starterPackVersion": "0.3.28-alpha.2",
-  "compatibleAppVersion": "0.3.28-alpha.2",
-  "generatedAt": "2026-08-30T04:29:06.551Z",
-  "sourceCommit": "23f329c542bdfb7515a7aead75974a74ec790947",
-  "totalWorkflows": 46,
-  "localWorkflowCount": 28,
+  "starterPackVersion": "0.3.28-alpha.3",
+  "compatibleAppVersion": "0.3.28-alpha.3",
+  "generatedAt": "2026-09-28T13:33:59.258Z",
+  "sourceCommit": "17a98db0293df5850dc6cda51691360990ae8df3",
+  "totalWorkflows": 70,
+  "localWorkflowCount": 52,
   "cloudWorkflowCount": 18
 }

@@ -396,6 +396,7 @@ async function verifyUnresolvedModelsOnDisk(unresolvedModels, options = {}) {
   const files = unresolvedModels.map((entry) => ({
     filename: entry.filename,
     targetSubdir: entry.targetSubdir || '',
+    exactPath: Boolean(entry.exactPath),
   }))
 
   try {
@@ -405,6 +406,34 @@ async function verifyUnresolvedModelsOnDisk(unresolvedModels, options = {}) {
   } catch {
     return empty
   }
+}
+
+async function verifyRequiredNodePacks(requiredNodePacks, options = {}) {
+  const packs = Array.isArray(requiredNodePacks) ? requiredNodePacks : []
+  if (packs.length === 0) return { missing: [], unresolved: [] }
+
+  const api = typeof window !== 'undefined' ? window.electronAPI : null
+  const comfyRootPath = await resolveComfyRootPath(options)
+  if (!api?.pathJoin || !api?.pathExists || !comfyRootPath) {
+    return { missing: [], unresolved: packs.map(pack => ({ ...pack, reason: 'filesystem-unavailable' })) }
+  }
+
+  const missing = []
+  const unresolved = []
+  for (const pack of packs) {
+    const installDirName = String(pack?.installDirName || '').trim()
+    if (!installDirName) {
+      unresolved.push({ ...pack, reason: 'install-directory-unknown' })
+      continue
+    }
+    try {
+      const absolutePath = await api.pathJoin(comfyRootPath, 'custom_nodes', installDirName)
+      if (!await api.pathExists(absolutePath)) missing.push(pack)
+    } catch {
+      unresolved.push({ ...pack, reason: 'filesystem-check-failed' })
+    }
+  }
+  return { missing, unresolved }
 }
 
 export async function checkWorkflowDependencies(workflowId, options = {}) {
@@ -467,6 +496,9 @@ export async function checkWorkflowDependencies(workflowId, options = {}) {
 
   const missingModels = []
   const unresolvedModels = []
+  const nodePackCheck = await verifyRequiredNodePacks(pack.requiredNodePacks, options)
+  const missingNodePacks = nodePackCheck.missing
+  const unresolvedNodePacks = nodePackCheck.unresolved
 
   for (const model of pack.requiredModels || []) {
     const classType = String(model.classType || '').trim()
@@ -474,6 +506,12 @@ export async function checkWorkflowDependencies(workflowId, options = {}) {
     const filename = String(model.filename || '').trim()
     if (!classType || !inputKey || !filename) continue
 
+    if (model.exactPath) {
+      // VDN lists the stage once its branch exists, even if adapters/configs
+      // are missing. Verify every member instead of trusting that stage combo.
+      unresolvedModels.push({ classType, inputKey, filename, targetSubdir: model.targetSubdir || '', exactPath: true, reason: 'bundle-file' })
+      continue
+    }
     const nodeSchema = objectInfo?.[classType]
     if (!nodeSchema) {
       // Missing node will already block. Keep this as unresolved context.
@@ -506,10 +544,15 @@ export async function checkWorkflowDependencies(workflowId, options = {}) {
     // list as relative paths ("WAN/wan2.2.safetensors"), which still satisfy
     // a pack that asks for the bare filename. The queue path rewrites the
     // input to the subfolder value (comfyui.resolveSubfolderModelPaths).
-    const lowerFilename = filename.toLowerCase()
+    const acceptedFilenames = [filename, ...(Array.isArray(model.alternateFilenames) ? model.alternateFilenames : [])]
+      .map((item) => String(item || '').trim().toLowerCase())
+      .filter(Boolean)
     const installedChoices = new Set(choices.map((item) => item.toLowerCase()))
     const installedBasenames = new Set(choices.map((item) => modelChoiceBasename(item)))
-    if (!installedChoices.has(lowerFilename) && !installedBasenames.has(lowerFilename)) {
+    const isInstalled = acceptedFilenames.some((acceptedFilename) => (
+      installedChoices.has(acceptedFilename) || installedBasenames.has(acceptedFilename)
+    ))
+    if (!isInstalled) {
       missingModels.push({
         classType,
         inputKey,
@@ -555,7 +598,7 @@ export async function checkWorkflowDependencies(workflowId, options = {}) {
         // (so we know the file is genuinely needed). If the node schema was
         // missing we already surface that through missingNodes and don't want
         // to double-report.
-        if (entry.reason === 'choices-unavailable') {
+        if (entry.reason === 'choices-unavailable' || entry.reason === 'bundle-file') {
           missingModels.push({
             classType: entry.classType,
             inputKey: entry.inputKey,
@@ -574,7 +617,8 @@ export async function checkWorkflowDependencies(workflowId, options = {}) {
 
   const pricing = await buildWorkflowPricingSnapshot(pack, objectInfo, workflowDefinition)
 
-  const hasBlockingIssues = missingNodes.length > 0 || missingModels.length > 0 || missingAuth
+  const hasUnverifiedBundle = unresolvedModels.some(entry => entry.exactPath)
+  const hasBlockingIssues = missingNodes.length > 0 || missingModels.length > 0 || missingNodePacks.length > 0 || unresolvedNodePacks.length > 0 || missingAuth || hasUnverifiedBundle
   const status = hasBlockingIssues
     ? 'missing'
     : (unresolvedModels.length > 0 ? 'partial' : 'ready')
@@ -585,6 +629,8 @@ export async function checkWorkflowDependencies(workflowId, options = {}) {
     hasPack: true,
     status,
     missingNodes,
+    missingNodePacks,
+    unresolvedNodePacks,
     missingModels,
     unresolvedModels,
     missingAuth,
@@ -674,7 +720,12 @@ export function buildMissingDependencyClipboardText(checkResult) {
     lines.push('')
   }
 
-  if ((checkResult.missingNodes?.length || 0) === 0 && (checkResult.missingModels?.length || 0) === 0 && !checkResult.missingAuth) {
+  if (checkResult.unresolvedModels?.some(model => model.exactPath)) {
+    lines.push('Could not verify the complete model bundle. Configure the local ComfyUI folder in Workflow Setup and check again.')
+    lines.push('')
+  }
+
+  if ((checkResult.missingNodes?.length || 0) === 0 && (checkResult.missingModels?.length || 0) === 0 && !checkResult.missingAuth && !checkResult.hasBlockingIssues) {
     lines.push('No blocking dependencies detected.')
   }
 

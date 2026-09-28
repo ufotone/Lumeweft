@@ -61,6 +61,22 @@ export async function cancelCloudRuntimeRun(providerId, runId) {
   return unwrap(await requireBridge().cancelRun({ providerId, runId }), 'Could not cancel the run.')
 }
 
+export async function generateGoogleImage(payload = {}) {
+  return unwrap(await requireBridge().generateImage({ providerId: 'google-gemini', ...payload }), 'Google image generation failed.').media
+}
+
+export async function createGoogleVideo(payload = {}) {
+  return unwrap(await requireBridge().createVideo({ providerId: 'google-gemini', ...payload }), 'Google video generation failed.').operation
+}
+
+export async function getGoogleVideoOperation(operationName) {
+  return unwrap(await requireBridge().getVideoOperation({ providerId: 'google-gemini', operationName }), 'Could not retrieve Google video progress.').operation
+}
+
+export async function downloadGoogleMedia(uri) {
+  return unwrap(await requireBridge().downloadMedia({ providerId: 'google-gemini', uri }), 'Could not download Google media.').media
+}
+
 export async function pollCloudRuntimeRun(providerId, runId, { onProgress = () => {}, pollIntervalMs = 3000, timeoutMs = 4 * 60 * 60 * 1000 } = {}) {
   const startedAt = Date.now()
   let retryDelay = pollIntervalMs

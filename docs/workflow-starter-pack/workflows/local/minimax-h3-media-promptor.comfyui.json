@@ -9,15 +9,15 @@
       "output_language": "English",
       "custom_prompt_override": ""
     },
-    "class_type": "H3_Vision_Analyzer",
+    "class_type": "H3_Vision",
     "_meta": {
-      "title": "MiniMax H3 Vision Analyzer"
+      "title": "MiniMax H3 Vision"
     }
   },
   "2": {
     "inputs": {
       "task_type": "Auto",
-      "description": "",
+      "scene_direction": "",
       "duration": 15,
       "vision_context": [
         "1",

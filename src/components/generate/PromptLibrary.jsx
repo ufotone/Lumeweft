@@ -13,6 +13,8 @@ import { diagnoseAndRepairApiWorkflow } from '../../services/workflowAutoRepair'
 import { exportGenerationArtifact } from '../../services/generationArtifactExport'
 import { COLLAPSED_RECIPE_IDS_KEY, readCollapsedIds, writeCollapsedIds } from '../../services/generationLibraryPreferences'
 import { useI18n } from '../../i18n/I18nContext'
+import useNsfwWorkflowVisibility from '../../hooks/useNsfwWorkflowVisibility'
+import { ensureNsfwPrefix, isNsfwWorkflow } from '../../services/nsfwWorkflowVisibility.mjs'
 
 const STORAGE_KEY = 'lumeweft-prompt-library-v1'
 const AUDIO_RECIPE_THUMBNAIL_URL = '/generated-thumbnails/audio-eighth-note.webp'
@@ -221,6 +223,7 @@ function extractRecipe(apiWorkflow, workflowName = '') {
 
 export default function PromptLibrary({ onUseInQueue }) {
   const { t } = useI18n()
+  const showNsfwWorkflows = useNsfwWorkflowVisibility()
   const [entries, setEntries] = useState(readEntries)
   const [draft, setDraft] = useState('')
   const [negativeDraft, setNegativeDraft] = useState('')
@@ -228,6 +231,7 @@ export default function PromptLibrary({ onUseInQueue }) {
   const [forImage, setForImage] = useState(true)
   const [forVideo, setForVideo] = useState(false)
   const [forAudio, setForAudio] = useState(false)
+  const [draftIsNsfw, setDraftIsNsfw] = useState(false)
   const [filter, setFilter] = useState('all')
   const [query, setQuery] = useState('')
   const [message, setMessage] = useState('')
@@ -263,12 +267,13 @@ export default function PromptLibrary({ onUseInQueue }) {
   const visibleEntries = useMemo(() => {
     const needle = query.trim().toLowerCase()
     return entries.filter((entry) => {
+      if (!showNsfwWorkflows && isNsfwWorkflow(entry)) return false
       if (filter === 'image' && !entry.forImage) return false
       if (filter === 'video' && !entry.forVideo) return false
       if (filter === 'audio' && !entry.forAudio) return false
       return !needle || `${entry.title} ${entry.text} ${entry.negativeText || ''}`.toLowerCase().includes(needle)
     })
-  }, [entries, filter, query])
+  }, [entries, filter, query, showNsfwWorkflows])
 
   const pasteDraft = async () => {
     try {
@@ -287,9 +292,12 @@ export default function PromptLibrary({ onUseInQueue }) {
       return
     }
     const requestedTitle = title.trim() || defaultTitle(text)
+    const isNsfw = draftIsNsfw || isNsfwWorkflow({ title: requestedTitle, recipe: draftRecipe })
+    const storedTitle = isNsfw ? ensureNsfwPrefix(requestedTitle, 'Untitled prompt') : requestedTitle
     const entry = {
       id: globalThis.crypto?.randomUUID?.() || `prompt-${Date.now()}`,
-      title: uniqueRecipeTitle(requestedTitle, entries),
+      title: uniqueRecipeTitle(storedTitle, entries),
+      nsfw: isNsfw,
       text,
       negativeText: negativeDraft.trim(),
       recipe: draftRecipe,
@@ -304,6 +312,7 @@ export default function PromptLibrary({ onUseInQueue }) {
     setNegativeDraft('')
     setTitle('')
     setDraftRecipe(null)
+    setDraftIsNsfw(false)
     setDraftThumbnail('')
     setMessage(t('generate.prompter.messages.saved'))
   }
@@ -383,6 +392,7 @@ export default function PromptLibrary({ onUseInQueue }) {
       const exactApiWorkflow = exactExecution?.apiWorkflow || converted.apiWorkflow
       const exactUiWorkflow = exactExecution?.uiWorkflow || captured.workflow
       const recipe = extractRecipe(exactApiWorkflow, captured.workflowName || saved.entry.title)
+      const recipeIsNsfw = isNsfwWorkflow(recipe)
 
       // If the sampler uses randomize/increment, the canvas already contains
       // the seed for the *next* run. Replace it with the graph recorded for the
@@ -392,7 +402,10 @@ export default function PromptLibrary({ onUseInQueue }) {
       }
       setDraft(recipe.positive)
       setNegativeDraft(recipe.negative)
-      setTitle(recipe.workflowName || saved.entry.title)
+      setTitle(recipeIsNsfw
+        ? ensureNsfwPrefix(recipe.workflowName || saved.entry.title, 'Untitled prompt')
+        : (recipe.workflowName || saved.entry.title))
+      setDraftIsNsfw(recipeIsNsfw)
       setForImage(!recipe.isVideo && !recipe.isAudio)
       setForVideo(recipe.isVideo)
       setForAudio(recipe.isAudio)
@@ -592,6 +605,9 @@ export default function PromptLibrary({ onUseInQueue }) {
           </label>
           <label className="flex items-center gap-2 text-xs text-sf-text-secondary">
             <input type="checkbox" checked={forAudio} onChange={(event) => setForAudio(event.target.checked)} /> {t('generate.prompter.audio')}
+          </label>
+          <label className="flex items-center gap-2 text-xs text-rose-300">
+            <input type="checkbox" checked={draftIsNsfw} onChange={(event) => setDraftIsNsfw(event.target.checked)} /> {t('generate.prompter.nsfw')}
           </label>
           <div className="flex-1" />
           <button type="button" onClick={() => { void pasteDraft() }} className="inline-flex items-center gap-1.5 rounded-lg border border-sf-dark-600 px-3 py-2 text-xs text-sf-text-secondary hover:border-sf-accent hover:text-sf-text-primary">

@@ -1,7 +1,10 @@
+export { modifyVdnH3Workflow } from './vdnH3Workflow.mjs'
+export { modifyFastMinimaxH3Workflow } from './fastMinimaxH3Workflow.mjs'
 /**
  * ComfyUI API Service
  * Handles communication with the ComfyUI backend
  */
+import { generationMemory } from './generationMemory'
 import {
   checkLocalComfyConnection,
   getLocalComfyHttpBaseSync,
@@ -13,6 +16,8 @@ import {
   notifyComfyPartnerCreditsLow,
 } from './comfyPartnerAuth'
 import { extractCreditCountFromText } from '../utils/comfyCredits'
+export { modifyMinimaxH3GGUFReferenceWorkflow } from './minimaxH3ReferenceWorkflow.mjs'
+export { modifyMinimaxH3PinkReferenceWorkflow } from './minimaxH3PinkReferenceWorkflow.mjs'
 import {
   MUSIC_VIDEO_SHOT_DEFAULTS,
   getMusicVideoShotTypeOption,
@@ -770,6 +775,8 @@ class ComfyUIService {
    */
   handleMessage(data) {
     const { type } = data;
+    if (type === 'execution_start' || (type === 'executing' && data.data?.node !== null)) generationMemory.activity()
+    if (type === 'execution_success' || (type === 'executing' && data.data?.node === null)) generationMemory.completed(data.data?.prompt_id)
     
     if (type === 'progress') {
       this.emit('progress', {
@@ -864,6 +871,8 @@ class ComfyUIService {
    * Check if ComfyUI is running
    */
   async checkConnection() {
+    // Sleeping is available on demand; background heartbeats must not wake it.
+    if (generationMemory.sleeping) return true
     const result = await checkLocalComfyConnection()
     if (!result.ok) {
       console.log('ComfyUI connection check failed:', result.error)
@@ -876,6 +885,7 @@ class ComfyUIService {
    * Optionally scopes to a single class when classType is provided.
    */
   async getObjectInfo(classType = null) {
+    await generationMemory.wake()
     const suffix = classType
       ? `/object_info/${encodeURIComponent(String(classType).trim())}`
       : '/object_info'
@@ -919,7 +929,12 @@ class ComfyUIService {
           if (typeof value !== 'string') continue
           const trimmed = value.trim()
           if (!MODEL_FILE_INPUT_RE.test(trimmed)) continue
-          pending.push({ nodeId, classType: String(node?.class_type || '').trim(), inputKey, value: trimmed })
+          const aliases = Array.isArray(node?._meta?.model_aliases?.[inputKey])
+            ? node._meta.model_aliases[inputKey]
+              .map((alias) => String(alias || '').trim())
+              .filter(Boolean)
+            : []
+          pending.push({ nodeId, classType: String(node?.class_type || '').trim(), inputKey, value: trimmed, aliases })
         }
       }
       if (pending.length === 0) return workflow
@@ -937,7 +952,11 @@ class ComfyUIService {
         if (choices.some((choice) => String(choice).toLowerCase() === lowerValue)) continue
         const wantedBasename = modelPathBasename(entry.value)
         if (!wantedBasename) continue
-        const candidates = choices.filter((choice) => modelPathBasename(choice) === wantedBasename)
+        let candidates = choices.filter((choice) => modelPathBasename(choice) === wantedBasename)
+        if (candidates.length === 0 && entry.aliases.length > 0) {
+          const aliasBasenames = new Set(entry.aliases.map((alias) => modelPathBasename(alias)))
+          candidates = choices.filter((choice) => aliasBasenames.has(modelPathBasename(choice)))
+        }
         if (candidates.length === 0) continue
         const resolved = [...candidates].sort()[0]
         substitutions.push({ ...entry, resolved, ambiguous: candidates.length > 1 })
@@ -1011,7 +1030,11 @@ class ComfyUIService {
   /**
    * Queue a prompt for execution
    */
-  async queuePrompt(workflow) {
+  async queuePrompt(workflow, options = {}) {
+    return generationMemory.submit(workflow, () => this._queuePrompt(workflow, options))
+  }
+
+  async _queuePrompt(workflow, options = {}) {
     try {
       const resolvedWorkflow = await this.resolveSubfolderModelPaths(workflow)
       await this.validateInputImageReferences(resolvedWorkflow)
@@ -1024,6 +1047,9 @@ class ComfyUIService {
         payload.extra_data = {
           api_key_comfy_org: apiKey
         };
+      }
+      if (options.canvasOutput) {
+        payload.extra_data = { ...payload.extra_data, lumeweft_canvas_output: options.canvasOutput }
       }
       const response = await fetch(`${this.getHttpBase()}/prompt`, {
         method: 'POST',
@@ -1356,6 +1382,8 @@ class ComfyUIService {
    * @returns {Promise<{name: string, subfolder: string, type: string}>}
    */
   async uploadFile(file, filename = null, subfolder = '', type = 'input') {
+    await generationMemory.wake()
+    generationMemory.activity()
     try {
       const formData = new FormData();
       
@@ -1604,6 +1632,8 @@ export function modifyMinimaxH3GGUFI2VWorkflow(workflow, options = {}) {
     duration = 5,
     seed = Math.floor(Math.random() * 1000000000000),
     filenamePrefix = 'video/CANVAS_minimax_h3_gguf',
+    loraName = '',
+    steps = 8,
   } = options
 
   const modified = JSON.parse(JSON.stringify(workflow))
@@ -1611,27 +1641,37 @@ export function modifyMinimaxH3GGUFI2VWorkflow(workflow, options = {}) {
   const normalizedHeight = Math.max(32, Math.round((Number(height) || 352) / 32) * 32)
   const requestedFrames = Math.max(5, Math.round((Number(duration) || 5) * 24))
   const length = requestedFrames + ((5 - (requestedFrames % 17)) + 17) % 17
+  const isFusedSlaGraph = Object.values(modified).some((entry) => entry?.class_type === 'H3SLAAttention')
+  const imageNode = Object.values(modified).find((entry) => entry?.class_type === 'LoadImage')
+  const conditioningNode = Object.values(modified).find((entry) => entry?.class_type === 'MiniMaxH3ImageToVideo')
+  const noiseNode = Object.values(modified).find((entry) => entry?.class_type === 'RandomNoise')
+  const schedulerNode = Object.values(modified).find((entry) => entry?.class_type === 'BasicScheduler')
+  const saveNode = Object.values(modified).find((entry) => entry?.class_type === 'SaveVideo')
 
-  if (modified['1']?.inputs) modified['1'].inputs.image = inputImage
-  if (modified['8']?.inputs) {
-    modified['8'].inputs.prompt = String(prompt || '')
-    modified['8'].inputs.width = normalizedWidth
-    modified['8'].inputs.height = normalizedHeight
-    modified['8'].inputs.length = length
+  if (imageNode?.inputs) imageNode.inputs.image = inputImage
+  if (modified['6']?.inputs && loraName) modified['6'].inputs.lora_name = loraName
+  if (schedulerNode?.inputs && !isFusedSlaGraph) schedulerNode.inputs.steps = Math.max(1, Math.round(Number(steps) || 8))
+  if (conditioningNode?.inputs) {
+    conditioningNode.inputs.prompt = String(prompt || '')
+    conditioningNode.inputs.width = normalizedWidth
+    conditioningNode.inputs.height = normalizedHeight
+    conditioningNode.inputs.length = length
     if (lastImage) {
-      modified['18'] = {
+      const lastFrameNodeId = isFusedSlaGraph ? '19' : '18'
+      modified[lastFrameNodeId] = {
         inputs: { image: lastImage },
         class_type: 'LoadImage',
         _meta: { title: 'CANVAS Last Frame' },
       }
-      modified['8'].inputs.last_frame = ['18', 0]
+      conditioningNode.inputs.last_frame = [lastFrameNodeId, 0]
     } else {
-      delete modified['8'].inputs.last_frame
-      delete modified['18']
+      delete conditioningNode.inputs.last_frame
+      if (!isFusedSlaGraph) delete modified['18']
+      delete modified['19']
     }
   }
-  if (modified['9']?.inputs) modified['9'].inputs.noise_seed = seed
-  if (modified['17']?.inputs) modified['17'].inputs.filename_prefix = filenamePrefix
+  if (noiseNode?.inputs) noiseNode.inputs.noise_seed = seed
+  if (saveNode?.inputs) saveNode.inputs.filename_prefix = filenamePrefix
 
   return modified
 }
@@ -1879,27 +1919,36 @@ export function modifyLTX23I2VWorkflow(workflow, options = {}) {
   const numericSeed = Math.round(Number(seed) || Math.floor(Math.random() * 1000000000000))
   const effectiveNegativePrompt = String(negativePrompt || '')
 
-  const setInput = (nodeId, key, value) => {
-    if (modified[nodeId]?.inputs && key in modified[nodeId].inputs) modified[nodeId].inputs[key] = value
-  }
+  const nodes = Object.values(modified)
+  const findByTitle = (title) => nodes.find((node) => String(node?._meta?.title || '').trim() === title)
+  const imageNode = nodes.find((node) => node?.class_type === 'LoadImage')
+  const promptNode = nodes.find((node) => (
+    node?.class_type === 'PrimitiveStringMultiline'
+    && String(node?._meta?.title || '').trim() === 'Prompt'
+  ))
+  const negativeNode = nodes.find((node) => (
+    node?.class_type === 'CLIPTextEncode'
+    && typeof node?.inputs?.text === 'string'
+  ))
 
-  // Control nodes for public/workflows/video_ltx2_3_i2v.json (newer audio/lip-sync
-  // graph): 269 LoadImage, 320:319 prompt, 320:313 negative, 320:312 width,
-  // 320:299 height, 320:300 fps, 320:301 duration (seconds), 320:276/320:277 seeds.
-  if (inputImage) setInput('269', 'image', inputImage)
-  if (prompt) setInput('320:319', 'value', prompt)
-  setInput('320:313', 'text', effectiveNegativePrompt)
-  // prompt_enhance (320:328): when true, our prompt is routed through the LTX2
-  // prompt enhancer (gemma). We now send a clean verbatim prompt, so enhancing
-  // is safe and matches the ComfyUI setup that lip-syncs. (Set false to send the
-  // raw prompt straight to the encoder.)
-  setInput('320:328', 'value', true)
-  setInput('320:312', 'value', numericWidth)
-  setInput('320:299', 'value', numericHeight)
-  setInput('320:300', 'value', numericFps)
-  setInput('320:301', 'value', numericDuration)
-  setInput('320:276', 'noise_seed', numericSeed)
-  setInput('320:277', 'noise_seed', numericSeed)
+  // Resolve controls by their stable titles. The bundled LTX graph has moved
+  // between 320:* and 340:* node ids across ComfyUI releases.
+  if (inputImage && imageNode?.inputs) imageNode.inputs.image = inputImage
+  if (prompt && promptNode?.inputs) promptNode.inputs.value = prompt
+  if (negativeNode?.inputs) negativeNode.inputs.text = effectiveNegativePrompt
+  const widthNode = findByTitle('Width')
+  const heightNode = findByTitle('Height')
+  const fpsNode = findByTitle('Frame Rate')
+  const durationNode = findByTitle('Duration')
+  if (widthNode?.inputs) widthNode.inputs.value = numericWidth
+  if (heightNode?.inputs) heightNode.inputs.value = numericHeight
+  if (fpsNode?.inputs) fpsNode.inputs.value = numericFps
+  if (durationNode?.inputs) durationNode.inputs.value = numericDuration
+  for (const node of nodes) {
+    if (node?.class_type === 'RandomNoise' && node.inputs && 'noise_seed' in node.inputs) {
+      node.inputs.noise_seed = numericSeed
+    }
+  }
 
   for (const node of Object.values(modified)) {
     if (node?.class_type === 'SaveVideo' && node.inputs && 'filename_prefix' in node.inputs) {
@@ -1911,19 +1960,17 @@ export function modifyLTX23I2VWorkflow(workflow, options = {}) {
 }
 
 /**
- * LTX 2.3 motion generation followed by LatentSync 1.6 mouth correction.
+ * LTX 2.3 native audio-driven image-to-video with the exact source waveform.
  *
- * The base LTX graph still creates the shot frames. Its generated audio is
- * disconnected at the final CreateVideo node, then the completed TTS clip is
- * fed to LatentSync and muxed unchanged. This is intentionally different from
- * TalkVid ID-LoRA, which treats the clip as a voice reference and regenerates
- * the spoken waveform.
+ * The persisted workflow id retains its historical "latentsync" name, but the
+ * current anime-safe route no longer injects the third-party LatentSync node
+ * (whose own documentation excludes anime/cartoon faces). Instead, the source
+ * audio latent is frozen during LTX sampling so it drives the generated video,
+ * and the original TTS waveform is muxed into the final output unchanged.
  */
 export function modifyLTX23LatentSyncWorkflow(workflow, options = {}) {
   const {
     inputAudio = '',
-    lipsExpression = 1.5,
-    inferenceSteps = 20,
     ...i2vOptions
   } = options
 
@@ -1932,39 +1979,86 @@ export function modifyLTX23LatentSyncWorkflow(workflow, options = {}) {
   }
 
   const modified = modifyLTX23I2VWorkflow(workflow, i2vOptions)
-  const createVideoEntry = Object.entries(modified).find(([, node]) => node?.class_type === 'CreateVideo')
-  if (!createVideoEntry) {
-    throw new Error('Exact Audio lip-sync could not find the LTX CreateVideo output node.')
+  const entries = Object.entries(modified)
+  const findEntry = (predicate) => entries.find(([, node]) => predicate(node))
+  const loadAudioEntry = findEntry((node) => node?.class_type === 'LoadAudio')
+  const audioVaeEntry = findEntry((node) => node?.class_type === 'LTXVAudioVAELoader')
+  const referenceAudioEntry = findEntry((node) => node?.class_type === 'LTXVReferenceAudio')
+  const conditioningEntry = findEntry((node) => node?.class_type === 'LTXVConditioning')
+  const createVideoEntry = findEntry((node) => node?.class_type === 'CreateVideo')
+  const firstConcatEntry = entries.find(([, node]) => (
+    node?.class_type === 'LTXVConcatAVLatent'
+    && Array.isArray(node?.inputs?.audio_latent)
+    && modified[node.inputs.audio_latent[0]]?.class_type === 'LTXVEmptyLatentAudio'
+  ))
+  const guiderEntry = entries.find(([, node]) => (
+    node?.class_type === 'CFGGuider'
+    && Array.isArray(node?.inputs?.model)
+    && node.inputs.model[0] === referenceAudioEntry?.[0]
+  ))
+
+  if (!loadAudioEntry || !audioVaeEntry || !referenceAudioEntry || !conditioningEntry || !createVideoEntry || !firstConcatEntry || !guiderEntry) {
+    throw new Error('Exact Audio lip-sync could not resolve the required LTX 2.3 audio-conditioning nodes.')
   }
 
-  const [createVideoId, createVideoNode] = createVideoEntry
-  const generatedFrames = Array.isArray(createVideoNode?.inputs?.images)
-    ? [...createVideoNode.inputs.images]
+  const [loadAudioId, loadAudioNode] = loadAudioEntry
+  const [audioVaeId] = audioVaeEntry
+  const [referenceAudioId, referenceAudioNode] = referenceAudioEntry
+  const [, conditioningNode] = conditioningEntry
+  const [, createVideoNode] = createVideoEntry
+  const [, firstConcatNode] = firstConcatEntry
+  const [, guiderNode] = guiderEntry
+  const sourceModel = Array.isArray(referenceAudioNode?.inputs?.model)
+    ? [...referenceAudioNode.inputs.model]
     : null
-  if (!generatedFrames) {
-    throw new Error('Exact Audio lip-sync could not resolve the generated LTX frames.')
+  if (!sourceModel) {
+    throw new Error('Exact Audio lip-sync could not resolve the LTX model input.')
   }
 
-  const audioNodeId = 'lumeweft_latentsync_audio'
-  const lipSyncNodeId = 'lumeweft_latentsync'
-  modified[audioNodeId] = {
-    inputs: { audio: inputAudio },
-    class_type: 'LoadAudio',
-    _meta: { title: 'Load Final TTS Audio (Exact)' },
-  }
-  modified[lipSyncNodeId] = {
+  loadAudioNode.inputs.audio = inputAudio
+  delete loadAudioNode.inputs.audioUI
+
+  const encodedAudioId = 'lumeweft_exact_audio_encode'
+  const frozenAudioId = 'lumeweft_exact_audio_conditioning'
+  modified[encodedAudioId] = {
     inputs: {
-      images: generatedFrames,
-      audio: [audioNodeId, 0],
-      seed: Math.round(Number(i2vOptions.seed) || 0),
-      lips_expression: Math.max(1, Math.min(3, Number(lipsExpression) || 1.5)),
-      inference_steps: Math.max(1, Math.round(Number(inferenceSteps) || 20)),
+      audio: [loadAudioId, 0],
+      audio_vae: [audioVaeId, 0],
     },
-    class_type: 'LatentSyncNode',
-    _meta: { title: 'Exact Audio Lip-Sync (LatentSync 1.6)' },
+    class_type: 'LTXVAudioVAEEncode',
+    _meta: { title: 'Encode Final TTS Audio' },
   }
-  modified[createVideoId].inputs.images = [lipSyncNodeId, 0]
-  modified[createVideoId].inputs.audio = [lipSyncNodeId, 1]
+  modified[frozenAudioId] = {
+    inputs: {
+      positive: [...referenceAudioNode.inputs.positive],
+      negative: [...referenceAudioNode.inputs.negative],
+      audio_latent: [encodedAudioId, 0],
+    },
+    class_type: 'LTXVSetAudioRefTokens',
+    _meta: { title: 'Freeze Exact Audio for LTX Video' },
+  }
+
+  guiderNode.inputs.model = sourceModel
+  conditioningNode.inputs.positive = [frozenAudioId, 0]
+  conditioningNode.inputs.negative = [frozenAudioId, 1]
+  firstConcatNode.inputs.audio_latent = [frozenAudioId, 2]
+  createVideoNode.inputs.audio = [loadAudioId, 0]
+  delete modified[referenceAudioId]
+
+  // TalkVid's identity adapter belongs to the reference-voice route. The
+  // frozen-audio route uses the base model with its existing distillation LoRA.
+  for (const [nodeId, node] of Object.entries(modified)) {
+    if (node?.class_type !== 'LoraLoaderModelOnly'
+      || String(node.inputs?.lora_name || '').replace(/\\/g, '/').split('/').pop() !== 'ltx-2.3-id-lora-talkvid-3k.safetensors') continue
+    const modelInput = node.inputs.model
+    if (!Array.isArray(modelInput)) throw new Error('Exact Audio could not resolve the model before the TalkVid adapter.')
+    for (const consumer of Object.values(modified)) {
+      for (const [key, value] of Object.entries(consumer?.inputs || {})) {
+        if (Array.isArray(value) && value[0] === nodeId) consumer.inputs[key] = [...modelInput]
+      }
+    }
+    delete modified[nodeId]
+  }
 
   return modified
 }
@@ -3367,7 +3461,7 @@ export function modifyMinimaxH3MediaPromptWorkflow(workflow, options = {}) {
 
   for (const node of Object.values(modified)) {
     if (!node?.inputs) continue
-    if (node.class_type === 'H3_Vision_Analyzer') {
+    if (node.class_type === 'H3_Vision') {
       node.inputs._media_state = mediaState
       node.inputs.global_image_mode = imageMode
       node.inputs.global_video_mode = videoMode
@@ -3375,7 +3469,7 @@ export function modifyMinimaxH3MediaPromptWorkflow(workflow, options = {}) {
       if (visionProvider) node.inputs.provider = visionProvider
     }
     if (node.class_type === 'H3_Promptor') {
-      node.inputs.description = description
+      node.inputs.scene_direction = description
       node.inputs.duration = Math.max(4, Math.min(15, Number(duration) || 15))
       node.inputs.output_language = outputLanguage
       if (promptorProvider) node.inputs.provider = promptorProvider
@@ -3942,7 +4036,15 @@ export function modifyIrodoriTextToSpeechWorkflow(workflow, options = {}) {
     modelPrecision = 'bf16',
     codecDevice = 'cpu',
     codecPrecision = 'fp32',
+    enableWatermark = false,
+    compileModel = false,
+    compileDynamic = false,
     runtimeCachePolicy = 'offload_after_use',
+    batchSize = 1,
+    decodeMode = 'sequential',
+    contextKvCache = true,
+    maxTextLen = 0,
+    trimTail = true,
     filenamePrefix = 'audio/short_film_irodori',
   } = options
 
@@ -3953,23 +4055,38 @@ export function modifyIrodoriTextToSpeechWorkflow(workflow, options = {}) {
     if (!node?.inputs) continue
 
     if (node.class_type === 'jupo.IrodoriTTS.ModelLoader') {
-      if ('model' in node.inputs) node.inputs.model = String(model || node.inputs.model)
-      if ('model_device' in node.inputs) node.inputs.model_device = modelDevice || node.inputs.model_device
-      if ('model_precision' in node.inputs) node.inputs.model_precision = modelPrecision || node.inputs.model_precision
-      if ('codec_device' in node.inputs) node.inputs.codec_device = codecDevice || node.inputs.codec_device
-      if ('codec_precision' in node.inputs) node.inputs.codec_precision = codecPrecision || node.inputs.codec_precision
-      if ('runtime_cache_policy' in node.inputs) node.inputs.runtime_cache_policy = runtimeCachePolicy || node.inputs.runtime_cache_policy
+      // Assign the complete current v3 input contract instead of only
+      // rewriting keys found in the bundled JSON. This also repairs an older
+      // workflow response that may still be held in the browser cache after
+      // comfy-Irodori-TTS adds required inputs.
+      node.inputs.model = String(model || node.inputs.model || 'irodori-tts-500m-v3.safetensors')
+      node.inputs.model_device = modelDevice || node.inputs.model_device || 'cuda'
+      node.inputs.model_precision = modelPrecision || node.inputs.model_precision || 'bf16'
+      node.inputs.codec_device = codecDevice || node.inputs.codec_device || 'cpu'
+      node.inputs.codec_precision = codecPrecision || node.inputs.codec_precision || 'fp32'
+      node.inputs.enable_watermark = Boolean(enableWatermark)
+      node.inputs.compile_model = Boolean(compileModel)
+      node.inputs.compile_dynamic = Boolean(compileDynamic)
+      node.inputs.runtime_cache_policy = runtimeCachePolicy || node.inputs.runtime_cache_policy || 'offload_after_use'
     }
 
     if (node.class_type === 'jupo.IrodoriTTS.Sampler') {
-      if ('text' in node.inputs) node.inputs.text = safeText || node.inputs.text
-      if ('seed' in node.inputs) node.inputs.seed = Math.max(0, Math.round(Number(seed) || 0))
-      if ('seconds' in node.inputs) node.inputs.seconds = Math.max(0, Number(seconds) || 0)
-      if ('num_steps' in node.inputs) node.inputs.num_steps = Math.max(1, Math.min(120, Math.round(Number(numSteps) || 40)))
+      node.inputs.text = safeText || node.inputs.text || ''
+      node.inputs.seed = Math.max(0, Math.round(Number(seed) || 0))
+      node.inputs.seconds = Math.max(0, Number(seconds) || 0)
+      node.inputs.num_steps = Math.max(1, Math.min(120, Math.round(Number(numSteps) || 40)))
+      node.inputs.batch_size = Math.max(1, Math.min(16, Math.round(Number(batchSize) || 1)))
+      node.inputs.decode_mode = decodeMode === 'batch' ? 'batch' : 'sequential'
+      node.inputs.context_kv_cache = contextKvCache !== false
+      node.inputs.max_text_len = Math.max(0, Math.min(4096, Math.round(Number(maxTextLen) || 0)))
+      node.inputs.trim_tail = trimTail !== false
     }
 
     if (node.class_type === 'SaveAudioMP3' && 'filename_prefix' in node.inputs) {
       node.inputs.filename_prefix = filenamePrefix || node.inputs.filename_prefix || 'audio/short_film_irodori'
+      // audioUI belonged to an older UI-facing node schema and is not an API
+      // input in current ComfyUI releases.
+      delete node.inputs.audioUI
     }
   }
 

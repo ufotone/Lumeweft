@@ -1,3 +1,4 @@
+import { generationMemory } from '../services/generationMemory'
 import { useState, useEffect, useRef, useCallback, useMemo } from 'react'
 import {
   Sparkles, Video, Image as ImageIcon, Music, RefreshCw, Loader2, Languages,
@@ -37,12 +38,18 @@ import {
   LOCAL_COMFY_RUNTIME_ID,
   cancelCloudRuntimeRun,
   cloudRuntimeRunToGenerationResult,
+  createGoogleVideo,
   createCloudRuntimeRun,
+  downloadGoogleMedia,
+  generateGoogleImage,
+  getGoogleVideoOperation,
   getCloudRuntimeSettings,
   pollCloudRuntimeRun,
   uploadCloudRuntimeFile,
 } from '../services/cloudRuntimes'
 import useComfyUI from '../hooks/useComfyUI'
+import useNsfwWorkflowVisibility from '../hooks/useNsfwWorkflowVisibility'
+import { ensureNsfwPrefix, isNsfwWorkflow } from '../services/nsfwWorkflowVisibility.mjs'
 import useAssetsStore from '../stores/assetsStore'
 import useProjectStore from '../stores/projectStore'
 import useTimelineStore from '../stores/timelineStore'
@@ -81,6 +88,11 @@ import {
 import { extractVisualStyleNotes } from '../utils/musicVisualStyle'
 import { checkWorkflowDependencies, buildMissingDependencyClipboardText } from '../services/workflowDependencies'
 import { openApiWorkflowInComfyUi, openBundledWorkflowInComfyUi } from '../services/workflowSetupManager'
+import {
+  TK_TOOLKIT_NODE_CLASS,
+  TK_TOOLKIT_WORKFLOW_ID,
+  openTkToolkitPanel,
+} from '../services/tkToolkitIntegration.mjs'
 import { useWorkflowSetupFlow } from '../hooks/useWorkflowSetupFlow'
 import { translatePrompt } from '../services/promptTranslation'
 import { useI18n } from '../i18n/I18nContext'
@@ -172,6 +184,8 @@ import { TOPAZ_VIDEO_UPSCALE_WORKFLOW_ID } from '../config/topazVideoUpscaleConf
 import {
   buildShortFilmVideoPrompt,
   ELEVENLABS_TTS_WORKFLOW_ID,
+  IRODORI_ANIME_DEPENDENCY_ID,
+  IRODORI_ANIME_MODEL_FILENAME,
   IRODORI_TTS_MODEL_FILENAME,
   IRODORI_TTS_WORKFLOW_ID,
   IRODORI_VOICE_CLONE_WORKFLOW_ID,
@@ -210,7 +224,9 @@ const STORYBOARD_REFERENCE_WORKFLOW_IDS = new Set([
   CUSTOM_AD_KEYFRAME_WORKFLOW_ID,
   'image-edit-model-product',
   'seedream-5-lite-image-edit',
+  'google-nano-banana-lite',
 ])
+const GOOGLE_DIRECT_WORKFLOW_IDS = new Set(['google-nano-banana-lite', 'google-veo-3-1-lite'])
 const DIRECTOR_SUBTABS = [
   {
     id: 'setup',
@@ -3485,6 +3501,7 @@ function GenerateWorkspace({
   onOpenDirectorRecipe = null,
 }) {
   const { t, language } = useI18n()
+  const showNsfwWorkflows = useNsfwWorkflowVisibility()
   const {
     currentProjectHandle,
     currentProject,
@@ -4469,18 +4486,28 @@ function GenerateWorkspace({
     // stays a launcher into the embedded ComfyUI tab.
     const curated = GENERATE_WORKFLOW_CATALOG.filter((workflow) => (
       !workflow.hidden
+        && (showNsfwWorkflows || !isNsfwWorkflow(workflow))
         && workflow.mode === activeWorkflowBrowserMode
         && (activeWorkflowBrowserMode !== 'create'
           || (isBackstageSurface ? workflow.workspace === 'backstage' : workflow.workspace !== 'backstage'))
         && (activeWorkflowBrowserMode === 'create'
-          ? workflow.route === 'local'
+          ? (workflow.route === 'local' || workflow.route === 'cloud')
           : workflowRoute === 'featured'
             ? (workflow.route === 'local' || workflow.route === 'cloud')
             : workflow.route === workflowRoute)
-    ))
+    )).map((workflow) => workflow.id === TK_TOOLKIT_WORKFLOW_ID
+      ? {
+          ...workflow,
+          title: t('generate.backstage.tkToolkit.title'),
+          description: t('generate.backstage.tkToolkit.description'),
+          subtitle: t('generate.backstage.tkToolkit.subtitle'),
+          runtimeLabel: t('generate.backstage.tkToolkit.runtime'),
+        }
+      : workflow)
     if (activeWorkflowBrowserMode !== 'generate') return curated
     const imported = getImportedManifests().filter((manifest) => (
       !manifest.hidden
+        && (showNsfwWorkflows || !isNsfwWorkflow(manifest))
         && manifest.mode === 'generate'
         && (workflowRoute === 'featured'
           ? (manifest.route === 'local' || manifest.route === 'cloud')
@@ -4488,17 +4515,22 @@ function GenerateWorkspace({
     ))
     return [...curated, ...imported]
     // eslint-disable-next-line react-hooks/exhaustive-deps -- importedWorkflowsVersion invalidates the registry lookup
-  }, [activeWorkflowBrowserMode, isBackstageSurface, workflowRoute, importedWorkflowsVersion])
+  }, [activeWorkflowBrowserMode, isBackstageSurface, workflowRoute, importedWorkflowsVersion, language, showNsfwWorkflows])
   const selectedWorkflowManifest = useMemo(() => (
     visibleWorkflowManifests.find((workflow) => workflow.id === selectedWorkflowManifestId)
-      || (activeWorkflowBrowserMode === 'generate' ? getImportedManifestById(selectedWorkflowManifestId) : null)
+      || (activeWorkflowBrowserMode === 'generate'
+        ? (() => {
+            const imported = getImportedManifestById(selectedWorkflowManifestId)
+            return showNsfwWorkflows || !isNsfwWorkflow(imported) ? imported : null
+          })()
+        : null)
       || (() => {
         const manifest = getWorkflowManifestByWorkflowId(workflowId)
         return manifest?.hidden || !visibleWorkflowManifests.some((workflow) => workflow.id === manifest?.id) ? null : manifest
       })()
       || visibleWorkflowManifests[0]
       || null
-  ), [activeWorkflowBrowserMode, selectedWorkflowManifestId, visibleWorkflowManifests, workflowId])
+  ), [activeWorkflowBrowserMode, selectedWorkflowManifestId, showNsfwWorkflows, visibleWorkflowManifests, workflowId])
 
   useEffect(() => {
     const parameterFields = (selectedWorkflowManifest?.fields || [])
@@ -4584,6 +4616,22 @@ function GenerateWorkspace({
   const handleWorkflowManifestSelect = useCallback((manifest) => {
     if (!manifest) return
 
+    if (manifest.presentation === 'comfy-tool' && manifest.id === TK_TOOLKIT_WORKFLOW_ID) {
+      void (async () => {
+        try {
+          const objectInfo = await comfyui.getObjectInfo()
+          if (!objectInfo || !Object.prototype.hasOwnProperty.call(objectInfo, TK_TOOLKIT_NODE_CLASS)) {
+            onOpenWorkflowSetup?.({ workflowIds: [TK_TOOLKIT_WORKFLOW_ID] })
+            return
+          }
+          openTkToolkitPanel()
+        } catch {
+          onOpenWorkflowSetup?.({ workflowIds: [TK_TOOLKIT_WORKFLOW_ID] })
+        }
+      })()
+      return
+    }
+
     if (manifest.presentation === 'recipe' && manifest.templateId) {
       onOpenDirectorRecipe?.({
         templateId: manifest.templateId,
@@ -4610,7 +4658,7 @@ function GenerateWorkspace({
             ? 'music'
             : 'ad'
       )
-      if (manifest.id === 'product-ad-easy-mode' || manifest.id === 'business-ad-creator' || manifest.id === 'ugc-ad-creator') {
+      if (manifest.id === 'product-ad-easy-mode' || manifest.id.includes('business-ad-creator') || manifest.id.includes('ugc-ad-creator')) {
         setYoloAdStoryboardSource('cloud')
         setYoloAdStoryboardTier('quality')
         setYoloAdVideoSource('local')
@@ -4640,7 +4688,7 @@ function GenerateWorkspace({
         : 'video'
     setCategory(nextCategory)
     setWorkflowId(manifest.workflowId)
-  }, [])
+  }, [onOpenWorkflowSetup])
 
   const handleWorkflowRouteChange = useCallback((nextRoute) => {
     setWorkflowRoute(nextRoute)
@@ -4966,10 +5014,11 @@ function GenerateWorkspace({
     && selectedWorkflowManifest?.id === 'product-ad-easy-mode'
   const isBusinessAdCreator = generationMode === 'yolo'
     && yoloCreationType === 'ad'
-    && selectedWorkflowManifest?.id === 'business-ad-creator'
+    && String(selectedWorkflowManifest?.id || '').includes('business-ad-creator')
   const isUgcAdCreator = generationMode === 'yolo'
     && yoloCreationType === 'ad'
-    && selectedWorkflowManifest?.id === 'ugc-ad-creator'
+    && String(selectedWorkflowManifest?.id || '').includes('ugc-ad-creator')
+  const isGoogleDirector = selectedWorkflowManifest?.directorRuntime === 'google-gemini'
   const isIrodoriVoiceCloneCreator = isBackstageSurface
     && selectedWorkflowManifest?.id === 'irodori-voice-clone-creator'
   const ActiveAdEasyComponent = isUgcAdCreator ? UGCAdCreator : isBusinessAdCreator ? BusinessAdCreator : AdEasyMode
@@ -7112,7 +7161,9 @@ function GenerateWorkspace({
     return profileDefault || YOLO_MUSIC_VIDEO_WORKFLOW_OPTIONS[0]
   }, [yoloMusicProfile?.videoWorkflowId, yoloMusicVideoWorkflowId])
   const yoloStoryboardWorkflowId = String(
-    isYoloMusicMode
+    isGoogleDirector
+      ? 'google-nano-banana-lite'
+      : isYoloMusicMode
       ? yoloMusicKeyframeWorkflowId || yoloMusicProfile?.storyboardWorkflowId
       : yoloAdStoryboardProfile?.storyboardWorkflowId
   ).trim()
@@ -7246,7 +7297,9 @@ function GenerateWorkspace({
       : ''
   const isGenerateDisabled = baseGenerateDisabled || customGenerateNeedsSetup
   const yoloDefaultVideoWorkflowId = String(
-    isYoloMusicMode
+    isGoogleDirector
+      ? 'google-veo-3-1-lite'
+      : isYoloMusicMode
       ? yoloMusicSelectedVideoWorkflow?.id
       : yoloVideoProfileRuntime === 'local'
         ? yoloAdSelectedLocalVideoWorkflow?.id
@@ -7379,7 +7432,7 @@ function GenerateWorkspace({
     yoloNormalizedAdVideoTier,
   ])
   const yoloDependencyWorkflowIds = useMemo(() => isIrodoriVoiceCloneCreator
-    ? [selectedAudioAssetId || irodoriVoiceMode !== 'design' ? IRODORI_VOICE_CLONE_WORKFLOW_ID : IRODORI_VOICE_DESIGN_DEPENDENCY_ID]
+    ? [irodoriVoiceMode === 'anime' ? IRODORI_ANIME_DEPENDENCY_ID : selectedAudioAssetId || irodoriVoiceMode !== 'design' ? IRODORI_VOICE_CLONE_WORKFLOW_ID : IRODORI_VOICE_DESIGN_DEPENDENCY_ID]
     : Array.from(new Set([
       yoloStoryboardWorkflowId,
       ...yoloSelectedVideoWorkflowIds,
@@ -8704,6 +8757,39 @@ function GenerateWorkspace({
     wanQualityPreset,
     workflowId,
   ])
+
+  const handleQueueUgcGeminiReference = useCallback(async ({ referenceType = 'reference', prompt = '', width = 1024, height = 1024 } = {}) => {
+    const cleanPrompt = String(prompt || '').trim()
+    if (!currentProjectHandle || !cleanPrompt) {
+      setFormError(!currentProjectHandle ? 'Open or create a project before generating a reference image.' : 'A reference-image prompt is required.')
+      return { queued: 0 }
+    }
+    const referenceKey = `ugc-reference-${referenceType}-${Date.now()}`
+    const job = createQueuedJob({
+      category: 'image',
+      workflowId: 'google-nano-banana-lite',
+      workflowLabel: `UGC Gemini ${referenceType} reference`,
+      needsImage: false,
+      inputAssetType: null,
+      inputAssetId: null,
+      inputAssetName: '',
+      prompt: cleanPrompt,
+      seed: Number(seed) || 0,
+      resolution: { width: Number(width) || 1024, height: Number(height) || 1024 },
+      directorLabel: `UGC Gemini ${referenceType}`,
+      yolo: {
+        mode: 'ad',
+        stage: 'ugc-reference',
+        key: referenceKey,
+        referenceType,
+        workflowId: 'google-nano-banana-lite',
+      },
+    })
+    setGenerationQueue((current) => [...current, job])
+    setFormError(null)
+    addComfyLog('status', `Queued Gemini UGC ${referenceType} reference`)
+    return { queued: 1, jobId: job.id }
+  }, [addComfyLog, createQueuedJob, currentProjectHandle, seed])
 
   const handleQueueShortFilmVoices = useCallback(async (payload = {}) => {
     const {
@@ -10887,6 +10973,8 @@ function GenerateWorkspace({
     }
     const usesModelProductStoryboardWorkflow = effectiveStoryboardWorkflowId === 'image-edit-model-product'
     const usesGptImage2UgcStoryboardWorkflow = effectiveStoryboardWorkflowId === GPT_IMAGE_2_UGC_KEYFRAME_WORKFLOW_ID
+    const usesGoogleStoryboardWorkflow = effectiveStoryboardWorkflowId === 'google-nano-banana-lite'
+    const usesMultiReferenceAdStoryboardWorkflow = usesGptImage2UgcStoryboardWorkflow || usesGoogleStoryboardWorkflow
     const usesCustomAdStoryboardWorkflow = !isYoloMusicMode && effectiveStoryboardWorkflowId === CUSTOM_AD_KEYFRAME_WORKFLOW_ID
     const usesQwenMusicStoryboardWorkflow = isYoloMusicMode && effectiveStoryboardWorkflowId === 'image-edit'
     const usesCustomMusicStoryboardWorkflow = isYoloMusicMode && effectiveStoryboardWorkflowId === CUSTOM_MUSIC_KEYFRAME_WORKFLOW_ID
@@ -11088,7 +11176,7 @@ function GenerateWorkspace({
       const storyboardReferenceAssetId2 = isYoloMusicMode
         ? (variantUsesReferenceMusicWorkflow ? null : musicReferenceAssetId2)
         : (effectiveAdModelAsset?.id || null)
-      const storyboardAssetFieldIds = usesGptImage2UgcStoryboardWorkflow
+      const storyboardAssetFieldIds = usesMultiReferenceAdStoryboardWorkflow
         ? normalizedStoryboardReferenceAssetIds.slice(0, 3).reduce((acc, assetId, refIndex) => {
             acc[`referenceImage${refIndex + 1}`] = assetId
             return acc
@@ -11973,6 +12061,28 @@ function GenerateWorkspace({
           'Keep it authentic, handheld phone-shot UGC. Do not add captions, subtitles, UI text, or on-screen words.',
         ].filter(Boolean).join(' ')
         : null
+      const isGoogleVeoVideo = effectiveWorkflowId === 'google-veo-3-1-lite'
+      const googleVeoDialogue = isGoogleVeoVideo && !isYoloMusicMode
+        ? extractUgcDialogueFromVariant(variant)
+        : ''
+      const googleVeoPrompt = isGoogleVeoVideo
+        ? isYoloMusicMode
+          ? [
+            musicShotPayload?.shotPrompt || variant.videoPrompt || variant.prompt,
+            'Create one continuous music-video shot from the supplied keyframe.',
+            'Generate only natural ambient or performance sounds. Do not compose or add a replacement song; Lumeweft will keep the source song on the final timeline.',
+            'Do not add captions, subtitles, logos, UI text, or on-screen words.',
+          ].filter(Boolean).join(' ')
+          : [
+            `Create only this advertising shot: ${variant.sceneId || 'Scene'} ${variant.shotId || 'Shot'}.`,
+            'Use the supplied keyframe for identity, product, wardrobe, and environment continuity.',
+            adVideoPrompt || variant.videoPrompt || variant.prompt,
+            googleVeoDialogue
+              ? `Spoken dialogue exactly: "${googleVeoDialogue}". Do not say any other words.`
+              : 'No spoken dialogue. Use only natural scene sound.',
+            'Keep the performance believable and commercially polished. Do not add captions, subtitles, logos, UI text, or on-screen words.',
+          ].filter(Boolean).join(' ')
+        : null
       jobs.push(createQueuedJob({
         category: 'video',
         workflowId: effectiveWorkflowId,
@@ -11983,7 +12093,7 @@ function GenerateWorkspace({
         inputAssetId: storyboardAsset.id,
         inputAssetName: storyboardAsset.name || variant.key,
         inputFromTimelineFrame: false,
-        prompt: musicShotPayload?.shotPrompt || seedanceUgcPrompt || idLoraUgcPrompt || adVideoPrompt || variant.videoPrompt || variant.prompt,
+        prompt: googleVeoPrompt || musicShotPayload?.shotPrompt || seedanceUgcPrompt || idLoraUgcPrompt || adVideoPrompt || variant.videoPrompt || variant.prompt,
         negativePrompt: !isYoloMusicMode
           ? buildAdVideoNegativePrompt(negativePrompt)
           : buildMusicVideoNegativePrompt(negativePrompt, musicShotPayload?.shotType),
@@ -12282,9 +12392,10 @@ function GenerateWorkspace({
       return { queued: 0 }
     }
     const isVoiceDesign = !referenceAsset && requestedVoiceMode === 'design'
+    const isAnimeVoice = requestedVoiceMode === 'anime'
     const isStandardVoice = !referenceAsset && !isVoiceDesign
-    const dependencyId = isVoiceDesign ? IRODORI_VOICE_DESIGN_DEPENDENCY_ID : IRODORI_VOICE_CLONE_WORKFLOW_ID
-    const dependencyLabel = isVoiceDesign ? 'Irodori Voice Design' : isStandardVoice ? 'Irodori Standard Voice' : 'Irodori Voice Clone'
+    const dependencyId = isAnimeVoice ? IRODORI_ANIME_DEPENDENCY_ID : isVoiceDesign ? IRODORI_VOICE_DESIGN_DEPENDENCY_ID : IRODORI_VOICE_CLONE_WORKFLOW_ID
+    const dependencyLabel = isAnimeVoice ? 'Irodori v4.1 Anime Voice' : isVoiceDesign ? 'Irodori Voice Design' : isStandardVoice ? 'Irodori Standard Voice' : 'Irodori Voice Clone'
     const depsOk = await validateDependenciesForQueue([dependencyId], dependencyLabel)
     if (!depsOk) {
       onOpenWorkflowSetup?.({ workflowIds: [dependencyId] })
@@ -12315,7 +12426,7 @@ function GenerateWorkspace({
       directorLabel: 'Irodori Voice Studio',
       irodoriVoiceClone: {
         text: cleanText,
-        model: isVoiceDesign ? IRODORI_VOICE_DESIGN_MODEL_FILENAME : IRODORI_TTS_MODEL_FILENAME,
+        model: isAnimeVoice ? IRODORI_ANIME_MODEL_FILENAME : isVoiceDesign ? IRODORI_VOICE_DESIGN_MODEL_FILENAME : IRODORI_TTS_MODEL_FILENAME,
         seconds: 0,
         numSteps: Math.max(1, Math.min(120, Math.round(Number(options?.numSteps) || 30))),
         normalizeReference: Boolean(options?.normalizeReference),
@@ -12327,8 +12438,8 @@ function GenerateWorkspace({
         outputFormat: 'flac',
       },
       yolo: {
-        mode: isVoiceDesign ? 'voice-design' : isStandardVoice ? 'voice-standard' : 'voice-clone',
-        stage: isVoiceDesign ? 'irodori-voice-design' : isStandardVoice ? 'irodori-voice-standard' : 'irodori-voice-clone',
+        mode: isAnimeVoice ? 'voice-anime' : isVoiceDesign ? 'voice-design' : isStandardVoice ? 'voice-standard' : 'voice-clone',
+        stage: isAnimeVoice ? 'irodori-voice-anime' : isVoiceDesign ? 'irodori-voice-design' : isStandardVoice ? 'irodori-voice-standard' : 'irodori-voice-clone',
         workflowId: IRODORI_VOICE_CLONE_WORKFLOW_ID,
         referenceAudioAssetId: referenceAsset?.id || null,
         voiceDesignCaption: isVoiceDesign ? voiceDesignCaption : '',
@@ -16375,8 +16486,17 @@ function GenerateWorkspace({
         const existingRecord = existingRecordId
           ? history.records.find((record) => record.id === existingRecordId)
           : null
+        const historyWorkflow = {
+          ...job,
+          id: job?.workflowId || wfId,
+          workflowId: job?.workflowId || wfId,
+          workflowLabel: job?.workflowLabel || getWorkflowDisplayLabel(job?.workflowId || wfId),
+        }
+        const historyIsNsfw = isNsfwWorkflow(historyWorkflow)
+        const historyTitle = job?.workflowLabel || getWorkflowDisplayLabel(job?.workflowId || wfId) || resolvedName
         const record = existingRecord || history.createRecord({
-          title: job?.workflowLabel || getWorkflowDisplayLabel(job?.workflowId || wfId) || resolvedName,
+          title: historyIsNsfw ? ensureNsfwPrefix(historyTitle) : historyTitle,
+          nsfw: historyIsNsfw,
           timelineId: job?.targetTimelineId || null,
           clipId: job?.targetClipId || null,
         })
@@ -16391,7 +16511,10 @@ function GenerateWorkspace({
         const outputAssetIds = importedAssets.map((asset) => asset?.id).filter(Boolean)
         const version = history.appendVersion(record.id, {
           workflowId: job?.workflowId || wfId,
-          workflowLabel: job?.workflowLabel || getWorkflowDisplayLabel(job?.workflowId || wfId),
+          workflowLabel: historyIsNsfw
+            ? ensureNsfwPrefix(job?.workflowLabel || getWorkflowDisplayLabel(job?.workflowId || wfId), 'NSFW workflow')
+            : (job?.workflowLabel || getWorkflowDisplayLabel(job?.workflowId || wfId)),
+          nsfw: historyIsNsfw,
           prompt: jobPrompt || jobTags,
           sourcePrompt: job?.sourcePrompt || job?.originalPrompt || '',
           promptLanguage: job?.promptLanguage || null,
@@ -16542,15 +16665,11 @@ function GenerateWorkspace({
     }
   }, [addAsset, addComfyLog, assets, buildPeopleWizardAssetName, currentProjectHandle, inferPeopleWizardAssetPrefix, saveProject, updateJob])
 
-  const runJob = useCallback(async (job) => {
+  const runJobImpl = useCallback(async (job) => {
     updateJob(job.id, { status: 'uploading', progress: 5, error: null })
     let importedAssets = []
 
     try {
-      if (String(job?.workflowId || '').startsWith('ltx23-')) {
-        addComfyLog('status', 'LTX 2.3用にComfyUIの未使用モデルとキャッシュを解放しています…')
-        await comfyui.freeMemory({ unloadModels: true, freeMemory: true })
-      }
       let uploadedFilename = null
       let uploadedVideoFilename = null
       let referenceFilenames = []
@@ -16650,6 +16769,115 @@ function GenerateWorkspace({
           }
         }
         return new File([result.data], filename, { type: mimeType })
+      }
+      if (GOOGLE_DIRECT_WORKFLOW_IDS.has(job.workflowId)) {
+        if (!originProjectHandle) throw new Error('Open or create a project before using Google generation.')
+        const isVideo = job.workflowId === 'google-veo-3-1-lite'
+        const ratio = Math.max(1, Number(job.resolution?.width) || 1) / Math.max(1, Number(job.resolution?.height) || 1)
+        const aspectRatio = [
+          ['1:1', 1], ['3:4', 3 / 4], ['4:3', 4 / 3], ['9:16', 9 / 16], ['16:9', 16 / 9],
+        ].sort((a, b) => Math.abs(a[1] - ratio) - Math.abs(b[1] - ratio))[0][0]
+        const toInlineImage = async (assetId, snapshotKey) => {
+          const asset = findJobAsset(assetId, snapshotKey)
+          if (!asset || asset.type !== 'image') return null
+          const file = await createFileFromJobAsset(asset, `google_reference_${Date.now()}.png`)
+          return file ? { bytes: new Uint8Array(await file.arrayBuffer()), mimeType: file.type || 'image/png' } : null
+        }
+        const referenceRequests = [
+          [job.inputAssetId, 'input'],
+          [job.referenceAssetId1, 'reference1'],
+          [job.referenceAssetId2, 'reference2'],
+          ...Object.entries(job.assetFieldIds || {}).map(([key, value]) => [value, key]),
+        ]
+        const seenReferenceIds = new Set()
+        const referenceImages = []
+        for (const [assetId, snapshotKey] of referenceRequests) {
+          const normalizedId = String(assetId || '').trim()
+          if (!normalizedId || seenReferenceIds.has(normalizedId)) continue
+          seenReferenceIds.add(normalizedId)
+          const inline = await toInlineImage(normalizedId, snapshotKey)
+          if (inline) referenceImages.push(inline)
+        }
+
+        updateJob(job.id, { status: 'queuing', progress: 10, error: null })
+        let media
+        let promptId = String(job.promptId || '')
+        let estimatedCostUsd = 0.0336
+        if (isVideo) {
+          const requestedDuration = Number(job.duration) || 4
+          const durationSeconds = [4, 6, 8].reduce((best, candidate) => (
+            Math.abs(candidate - requestedDuration) < Math.abs(best - requestedDuration) ? candidate : best
+          ), 4)
+          estimatedCostUsd = durationSeconds * 0.05
+          if (!promptId) {
+            const operation = await createGoogleVideo({
+              prompt: job.prompt,
+              image: referenceImages[0] || null,
+              aspectRatio,
+              durationSeconds,
+              resolution: '720p',
+            })
+            promptId = String(operation?.name || '')
+            if (!promptId) throw new Error('Google Veo did not return an operation ID.')
+            updateJob(job.id, { status: 'running', progress: 15, promptId, estimatedCostUsd })
+          }
+          const startedAt = Date.now()
+          let mediaUri = ''
+          while (Date.now() - startedAt < 30 * 60 * 1000) {
+            const operation = await getGoogleVideoOperation(promptId)
+            if (operation?.done) {
+              if (operation?.error) throw new Error(operation.error.message || 'Google Veo generation failed.')
+              const response = operation?.response?.generateVideoResponse || operation?.response || {}
+              const sample = response?.generatedSamples?.[0] || response?.generatedVideos?.[0] || {}
+              mediaUri = sample?.video?.uri || sample?.video?.url || sample?.uri || ''
+              break
+            }
+            const elapsedRatio = Math.min(1, (Date.now() - startedAt) / (5 * 60 * 1000))
+            updateJob(job.id, { status: 'running', progress: Math.min(90, 15 + elapsedRatio * 75), promptId, estimatedCostUsd })
+            await new Promise((resolve) => setTimeout(resolve, 10000))
+          }
+          if (!mediaUri) throw new Error('Google Veo generation timed out or returned no video.')
+          media = await downloadGoogleMedia(mediaUri)
+        } else {
+          media = await generateGoogleImage({
+            prompt: job.prompt,
+            images: referenceImages,
+            aspectRatio,
+            imageSize: '1K',
+          })
+        }
+
+        updateJob(job.id, { status: 'saving', progress: 95, estimatedCostUsd })
+        const binary = atob(String(media?.data || ''))
+        const bytes = new Uint8Array(binary.length)
+        for (let index = 0; index < binary.length; index += 1) bytes[index] = binary.charCodeAt(index)
+        const mimeType = media?.mimeType || (isVideo ? 'video/mp4' : 'image/jpeg')
+        const extension = isVideo ? 'mp4' : mimeType.includes('png') ? 'png' : mimeType.includes('webp') ? 'webp' : 'jpg'
+        const baseName = `google_${isVideo ? 'veo' : 'nano_banana'}_${outputToken}`
+        const file = new File([bytes], `${baseName}.${extension}`, { type: mimeType })
+        const assetInfo = await importAsset(originProjectHandle, file, isVideo ? 'video' : 'images')
+        const asset = addAsset({
+          ...assetInfo,
+          name: `${baseName}.${extension}`,
+          type: isVideo ? 'video' : 'image',
+          url: assetInfo?.url || URL.createObjectURL(file),
+          prompt: job.prompt,
+          isImported: true,
+          folderId: ensureAssetFolderPath(isVideo ? GENERATED_ASSET_FOLDERS.video : GENERATED_ASSET_FOLDERS.image),
+          yolo: job.yolo ? { ...job.yolo, workflowId: job.workflowId } : undefined,
+          googleGemini: { workflowId: job.workflowId, operationName: promptId || null, estimatedCostUsd },
+          settings: isVideo ? { ...(assetInfo?.settings || {}), duration: Number(job.duration) || 4, fps: 24 } : assetInfo?.settings,
+        })
+        if (!asset) throw new Error('Google output was generated but could not be added to Assets.')
+        await saveProject?.()
+        if (isVideo && isElectron() && asset?.absolutePath) {
+          enqueuePlaybackTranscode(originProjectHandle, asset.id, asset.absolutePath).catch(() => {})
+          if (isProxyPlaybackEnabled()) enqueueProxyTranscode(originProjectHandle, asset.id, asset.absolutePath).catch(() => {})
+        }
+        importedAssets = [asset]
+        rememberLatestWorkflowPreview(job, importedAssets)
+        updateJob(job.id, { status: 'done', progress: 100, promptId, estimatedCostUsd, resultAssetIds: [asset.id] })
+        return
       }
       const importedJobEntry = isImportedWorkflowId(job.workflowId) ? getImportedWorkflowEntry(job.workflowId) : null
       const executionRuntimeId = String(job.executionRuntimeId || LOCAL_COMFY_RUNTIME_ID)
@@ -17533,7 +17761,11 @@ function GenerateWorkspace({
       executedWorkflowByJobIdRef.current.delete(job.id)
       await finalizeStoryboardPdfBatchForJob(job, importedAssets)
     }
-  }, [assets, currentProjectHandle, updateJob, saveGenerationResult, pollForResult, addComfyLog, finalizeStoryboardPdfBatchForJob, rememberLatestWorkflowPreview])
+  }, [assets, currentProjectHandle, updateJob, saveGenerationResult, pollForResult, addComfyLog, finalizeStoryboardPdfBatchForJob, rememberLatestWorkflowPreview, addAsset, saveProject])
+
+  const runJob = useCallback(job => generationMemory.withActivity(async () => {
+    return runJobImpl(job)
+  }), [runJobImpl])
 
   const processQueue = useCallback(async () => {
     if (processingRef.current) return
@@ -17542,7 +17774,8 @@ function GenerateWorkspace({
       job.status === 'queued' && !startedJobIdsRef.current.has(job.id)
     ))
     if (!nextJob) return
-    const nextJobUsesCloudRuntime = nextJob.executionRuntimeId && nextJob.executionRuntimeId !== LOCAL_COMFY_RUNTIME_ID
+    const nextJobUsesCloudRuntime = GOOGLE_DIRECT_WORKFLOW_IDS.has(nextJob.workflowId)
+      || (nextJob.executionRuntimeId && nextJob.executionRuntimeId !== LOCAL_COMFY_RUNTIME_ID)
     if (!isConnected && !nextJobUsesCloudRuntime) return
 
     startedJobIdsRef.current.add(nextJob.id)
@@ -18397,6 +18630,8 @@ function GenerateWorkspace({
                   />
                 ) : (isAdEasyMode || isBusinessAdCreator || isUgcAdCreator) ? (
                   <ActiveAdEasyComponent
+                    key={selectedWorkflowManifest?.id || 'director-ad'}
+                    runtimePreset={isGoogleDirector ? 'google-gemini' : ''}
                     assets={assets}
                     generationQueue={generationQueue}
                     yoloActivePlan={yoloActivePlan}
@@ -18447,6 +18682,7 @@ function GenerateWorkspace({
                     handleQueueUgcOneShot={handleQueueUgcOneShot}
                     voicePreviews={voicePreviews}
                     handleImportUgcReferenceImage={handleImportUgcReferenceImage}
+                    handleQueueUgcGeminiReference={handleQueueUgcGeminiReference}
                     ugcReferenceImageImporting={ugcReferenceImageImporting}
                     handleOpenYoloAdCustomKeyframeWorkflowInComfyUi={handleOpenYoloAdCustomKeyframeWorkflowInComfyUi}
                     handleImportYoloAdCustomKeyframeWorkflow={handleImportYoloAdCustomKeyframeWorkflow}

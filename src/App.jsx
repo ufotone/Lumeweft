@@ -7,6 +7,7 @@ import LeftPanel from './components/LeftPanel'
 import PreviewPanel from './components/PreviewPanel'
 import Timeline from './components/Timeline'
 import DopeSheet from './components/DopeSheet'
+import ReferenceCut from './components/ReferenceCut'
 import MixerPanel from './components/MixerPanel'
 import ScopesPanel from './components/ScopesPanel'
 import TransportControls from './components/TransportControls'
@@ -21,6 +22,7 @@ import useAssetsStore from './stores/assetsStore'
 import useTimelineStore from './stores/timelineStore'
 import useGenerationHistoryStore from './stores/generationHistoryStore'
 import videoCache from './services/videoCache'
+import { startGenerationMemory, MEMORY_TRIM_EVENT } from './services/generationMemory'
 import { WORKFLOW_SETUP_SECTION_ID } from './services/workflowSetupManager'
 import {
   COMFY_CONNECTION_CHANGED_EVENT,
@@ -48,6 +50,7 @@ import {
 // exports rely on.
 const loadGenerateWorkspace = () => import('./components/GenerateWorkspace')
 const GenerateWorkspace = lazy(loadGenerateWorkspace)
+const PaintWorkspace = lazy(() => import('./components/PaintWorkspace'))
 const FlowAIWorkspace = lazy(() => import('./components/FlowAIWorkspace'))
 const AgentWorkspace = lazy(() => import('./components/AgentWorkspace'))
 const MOGWorkspace = lazy(() => import('./components/MOGWorkspace'))
@@ -83,8 +86,20 @@ function App() {
   const [gettingStartedOpen, setGettingStartedOpen] = useState(false)
   const [selectedItem, setSelectedItem] = useState({ type: 'shot', id: '2.1' })
   const [mainTab, setMainTab] = useState('editor')
+  const [canvasRestoreRequest, setCanvasRestoreRequest] = useState(null)
+  useEffect(() => {
+    const restore = (event) => {
+      setCanvasRestoreRequest({ id: crypto.randomUUID(), archive: event.detail })
+      setFlowAiTemplateRequest(null)
+      setMainTab('flow-ai')
+    }
+    window.addEventListener('lumeweft-restore-canvas', restore)
+    return () => window.removeEventListener('lumeweft-restore-canvas', restore)
+  }, [])
+  const [hasMountedPaint, setHasMountedPaint] = useState(false)
   const [hasMountedFlowAi, setHasMountedFlowAi] = useState(false)
   const [flowAiReloadNonce, setFlowAiReloadNonce] = useState(0)
+  const [generateReloadNonce, setGenerateReloadNonce] = useState(0)
   const [flowAiTemplateRequest, setFlowAiTemplateRequest] = useState(null)
   const [hasMountedGenerate, setHasMountedGenerate] = useState(false)
   const [showDiscoverTab, setShowDiscoverTabState] = useState(getShowDiscoverTab)
@@ -141,6 +156,9 @@ function App() {
   }, [])
   const reloadFlowAiWorkspace = useCallback(() => {
     setFlowAiReloadNonce((nonce) => nonce + 1)
+  }, [])
+  const reloadGenerateWorkspace = useCallback(() => {
+    setGenerateReloadNonce((nonce) => nonce + 1)
   }, [])
   // The frame is mounted while hidden so direct ComfyUI jobs can keep running,
   // but on application startup it can race the ComfyUI server/frontend boot.
@@ -292,6 +310,16 @@ function App() {
     }
   }, [mainTab])
 
+  useEffect(() => {
+    const stop = startGenerationMemory()
+    const trim = () => {
+      if (mainTabRef.current !== 'editor') videoCache.clear()
+      else if (!useTimelineStore.getState().isPlaying) videoCache.trimInactive()
+    }
+    window.addEventListener(MEMORY_TRIM_EVENT, trim)
+    return () => { stop(); window.removeEventListener(MEMORY_TRIM_EVENT, trim) }
+  }, [])
+
   // Auto-import newly completed unmanaged outputs from the connected
   // ComfyUI instance. Keep this independent of the selected Lumeweft tab:
   // users commonly switch back to Assets while a ComfyUI run is finishing.
@@ -357,7 +385,8 @@ function App() {
   // during project selection. Entering Backstage also mounts it in the
   // background so recipe cards open without a second full-screen lazy-load.
   useEffect(() => {
-    if (mainTab === 'flow-ai' || mainTab === 'generate') {
+    if (mainTab === 'paint') setHasMountedPaint(true)
+    if (mainTab === 'flow-ai') {
       setHasMountedFlowAi(true)
     }
     if (mainTab === 'generate') {
@@ -422,6 +451,9 @@ function App() {
   // Allow Generate tab to open ComfyUI directly (used for workflow import guidance).
   useEffect(() => {
     const handler = (event) => {
+      const comfyBaseUrl = getLocalComfyHttpBaseSync()
+      const comfyPath = String(event?.detail?.comfyPath || '').trim()
+      setComfyIframeUrl(comfyPath ? new URL(comfyPath, `${comfyBaseUrl}/`).toString() : comfyBaseUrl)
       setMainTab('comfyui')
       if (event?.detail?.reloadIframe) {
         setComfyReloadRequestId(String(event.detail.reloadRequestId || ''))
@@ -473,7 +505,7 @@ function App() {
     } catch (_) { /* ignore */ }
   }, [])
 
-  const isFullScreenTab = mainTab === 'export' || mainTab === 'generate' || mainTab === 'agent' || mainTab === 'flow-ai' || mainTab === 'mog' || mainTab === 'llm-assistant' || mainTab === 'stock' || mainTab === 'comfyui'
+  const isFullScreenTab = mainTab === 'paint' || mainTab === 'export' || mainTab === 'generate' || mainTab === 'agent' || mainTab === 'flow-ai' || mainTab === 'mog' || mainTab === 'llm-assistant' || mainTab === 'stock' || mainTab === 'comfyui'
   // Editor layout insets used by the editor content shell.
   const editorLeftInset = leftPanelExpanded ? ICON_BAR_WIDTH + leftPanelWidth : ICON_BAR_WIDTH
   const editorRightInset = inspectorExpanded ? ICON_BAR_WIDTH + inspectorWidth : ICON_BAR_WIDTH
@@ -507,23 +539,20 @@ function App() {
     initialize()
   }, [initialize])
 
-  // Generate and Stock are lazy chunks. Waiting until the first tab click to
-  // start reading and evaluating them can leave the workspace on the Suspense
-  // fallback, especially when switching from the already-heavy CANVAS workspace
-  // in a packaged build. Warm the modules after project hydration, while keeping
-  // the components themselves unmounted so queue listeners, Pexels requests, and
-  // other runtime work still start only on the first real visit.
+  // Generate is the heaviest lazy workspace and is commonly opened immediately
+  // after project hydration. Start its module load at once so tab navigation
+  // never races an idle callback. Keep Stock on the idle path because it is less
+  // commonly opened and has no background queue that benefits from prewarming.
   useEffect(() => {
     if (!currentProject) return undefined
+
+    loadGenerateWorkspace().catch((error) => {
+      console.warn('Failed to preload Generate workspace:', error)
+    })
 
     let cancelled = false
     const preload = () => {
       if (cancelled) return
-      if (!hasMountedGenerate) {
-        loadGenerateWorkspace().catch((error) => {
-          console.warn('Failed to preload Generate workspace:', error)
-        })
-      }
       loadStockPanel().catch((error) => {
         console.warn('Failed to preload Stock workspace:', error)
       })
@@ -542,7 +571,7 @@ function App() {
       cancelled = true
       window.clearTimeout(timer)
     }
-  }, [currentProject, hasMountedGenerate])
+  }, [currentProject])
   
   // Auto-save functionality. Saves only when something actually changed —
   // the save path serializes the whole project and captures a playhead
@@ -686,6 +715,14 @@ function App() {
     closeGettingStarted()
   }, [closeGettingStarted])
 
+  const handleMainTabChange = useCallback((tabId) => {
+    // A Director/Backstage recipe is a temporary CANVAS view. Explicit top
+    // navigation exits it so a stale template request cannot keep forcing its
+    // document (notably AfterMidnightR2V) when opening the normal CANVAS tab.
+    setFlowAiTemplateRequest(null)
+    setMainTab(tabId)
+  }, [])
+
   const handleOpenSettingsFromGettingStarted = useCallback((section = null) => {
     openSettingsModal(section)
     closeGettingStarted()
@@ -702,7 +739,7 @@ function App() {
       <TitleBar
         projectName={currentProject?.name || 'Untitled'}
         activeTab={mainTab}
-        onTabChange={setMainTab}
+        onTabChange={handleMainTabChange}
         showDiscoverTab={showDiscoverTab}
         editorLayout={editorLayout}
         onEditorLayoutChange={handleEditorLayoutChange}
@@ -892,7 +929,11 @@ function App() {
                 : 'none',
             }}
           >
-            <WorkspaceErrorBoundary>
+            <WorkspaceErrorBoundary
+              key={`generate-boundary-${projectSessionKey}-${generateReloadNonce}`}
+              onRetry={reloadGenerateWorkspace}
+              retryLabel="Reload Generate"
+            >
               <Suspense fallback={WORKSPACE_LOADING_FALLBACK}>
                 <GenerateWorkspace
                   key={`generate-workspace-${projectSessionKey}`}
@@ -935,6 +976,8 @@ function App() {
                   onOpenSettings={(section, options) => openSettingsModal(section, options)}
                   onReloadWorkspace={reloadFlowAiWorkspace}
                   templateRequest={flowAiTemplateRequest}
+                  canvasRestoreRequest={canvasRestoreRequest}
+                  onCanvasRestoreConsumed={() => setCanvasRestoreRequest(null)}
                   recipeOnlyMode={Boolean(flowAiTemplateRequest && (flowAiTemplateRequest.returnTab || 'generate') === mainTab)}
                   onExitRecipe={() => setFlowAiTemplateRequest(null)}
                 />
@@ -958,6 +1001,11 @@ function App() {
         >
           <ExportPanel />
         </div>
+        {hasMountedPaint && <div className="flex-1 flex flex-col min-h-0 overflow-hidden" style={{ display: mainTab === 'paint' ? 'flex' : 'none' }}>
+          <WorkspaceErrorBoundary key={`paint-${projectSessionKey}`}>
+            <Suspense fallback={WORKSPACE_LOADING_FALLBACK}><PaintWorkspace /></Suspense>
+          </WorkspaceErrorBoundary>
+        </div>}
         {mainTab === "stock" && (
           <WorkspaceErrorBoundary>
             <Suspense fallback={WORKSPACE_LOADING_FALLBACK}>
@@ -1159,6 +1207,17 @@ function App() {
                       Timeline
                     </button>
                     <button
+                      onClick={() => setBottomEditorView('cut')}
+                      className={`px-2 py-0.5 rounded text-[10px] transition-colors ${
+                        bottomEditorView === 'cut'
+                          ? 'bg-sf-accent/20 text-sf-accent border border-sf-accent/40'
+                          : 'bg-sf-dark-700 text-sf-text-muted hover:bg-sf-dark-600'
+                      }`}
+                      title="Selected-clip cutting and reference-video preparation"
+                    >
+                      Cut
+                    </button>
+                    <button
                       onClick={() => setBottomEditorView('dopesheet')}
                       className={`px-2 py-0.5 rounded text-[10px] transition-colors ${
                         bottomEditorView === 'dopesheet'
@@ -1199,6 +1258,8 @@ function App() {
                         ? 'Audio mixer'
                         : bottomEditorView === 'scopes'
                           ? 'Video scopes'
+                          : bottomEditorView === 'cut'
+                            ? 'Reference video cut mode'
                           : 'Keyframe edit mode'}
                   </span>
                 </div>
@@ -1213,6 +1274,8 @@ function App() {
                     <MixerPanel />
                   ) : bottomEditorView === 'scopes' ? (
                     <ScopesPanel />
+                  ) : bottomEditorView === 'cut' ? (
+                    <ReferenceCut />
                   ) : (
                     <DopeSheet />
                   )}

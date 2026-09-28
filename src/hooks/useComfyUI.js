@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import comfyui, { modifyMaskWorkflow } from '../services/comfyui';
+import { generationMemory } from '../services/generationMemory';
 import { getBundledWorkflowPath } from '../config/workflowRegistry';
 
 // Store the base workflow in memory after first load
@@ -39,6 +40,7 @@ export function useComfyUI() {
     const checkConnection = async () => {
       const connected = await comfyui.checkConnection();
       setIsConnected(connected);
+      if (generationMemory.sleeping) { setWsConnected(false); return; }
       
       // Only try WebSocket a few times, then give up
       if (connected && !comfyui.isWebSocketConnected() && wsAttemptCount.current < 3) {

@@ -12,8 +12,8 @@ import {
 test('getProjectRelativeAssetPath creates portable paths across platforms', () => {
   assert.equal(
     getProjectRelativeAssetPath(
-      '/Users/jaime/Projects/My Film/assets/video/shot.mp4',
-      '/Users/jaime/Projects/My Film'
+      '/Users/example/Projects/My Film/assets/video/shot.mp4',
+      '/Users/example/Projects/My Film'
     ),
     'assets/video/shot.mp4'
   )
@@ -25,7 +25,7 @@ test('getProjectRelativeAssetPath creates portable paths across platforms', () =
     'assets/video/shot.mp4'
   )
   assert.equal(
-    getProjectRelativeAssetPath('/Users/jaime/Other/shot.mp4', '/Users/jaime/Projects/My Film'),
+    getProjectRelativeAssetPath('/Users/example/Other/shot.mp4', '/Users/example/Projects/My Film'),
     ''
   )
 })
@@ -83,9 +83,9 @@ test('mac-to-windows move joins with the project root separator style', () => {
 test('forward-slash project roots produce forward-slash candidates', () => {
   const candidates = buildMovedAssetPathCandidates(
     { absolutePath: 'D:\\old\\proj\\assets\\audio\\song.wav' },
-    'C:/Users/papa/proj'
+    'C:/Users/example/proj'
   )
-  assert.deepEqual(candidates, ['C:/Users/papa/proj/assets/audio/song.wav'])
+  assert.deepEqual(candidates, ['C:/Users/example/proj/assets/audio/song.wav'])
 })
 
 test('multiple assets segments try the longest suffix first', () => {

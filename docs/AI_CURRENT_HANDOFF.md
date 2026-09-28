@@ -6,7 +6,7 @@ This is the live state for moving Velorn development from the old Windows checko
 
 ## Merged Migration
 
-- Worktree: `C:\Users\papa\Documents\coding_projects\general\velorn-migration-cleanup`
+- Worktree: a dedicated clean migration worktree (machine-specific path intentionally omitted)
 - PR: `#99` - merged into `main` on 2026-08-12
 - Merge commit: `c4be213`
 - Latest release remains `v0.3.25`; the recovered changes are on `main` but have not been released yet.
@@ -24,15 +24,11 @@ The maintainer also verified all three user-facing behaviors in the Electron app
 
 ## Preserved Windows Checkout
 
-The original checkout remains untouched at:
-
-`C:\Users\papa\Documents\coding_projects\general\comfyui_editing`
+The original checkout remains untouched at a machine-local path that is intentionally omitted from the public repository.
 
 At migration start it was on local `main` at `6b450ce` (`v0.3.23`), three commits behind `origin/main`, with 20 modified tracked files and many untracked files. It contains useful fixes mixed with obsolete experiments, generated review media, drafts, and screenshots.
 
-A safety inventory exists at:
-
-`C:\Users\papa\Documents\coding_projects\general\velorn-migration-backup-2026-08-12`
+A safety inventory exists outside the repository at a machine-local path that is intentionally omitted.
 
 It contains:
 
