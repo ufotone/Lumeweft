@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, useMemo } from 'react'
 import { Search, Video, Image as ImageIcon, Download, Loader2, ExternalLink, AlertCircle, Play, X, Home, KeyRound } from 'lucide-react'
 import useProjectStore from '../stores/projectStore'
 import useAssetsStore from '../stores/assetsStore'
@@ -23,7 +23,7 @@ const PER_PAGE = PEXELS_DEFAULT_PER_PAGE
 
 function StockPanel({ onOpenApiSettings = null }) {
   const { t } = useI18n()
-  const persistedState = readPexelsStockPanelState()
+  const persistedState = useMemo(() => readPexelsStockPanelState(), [])
   const [apiKey, setApiKey] = useState(null)
   const [searchQuery, setSearchQuery] = useState(persistedState?.searchQuery || '')
   const [mediaType, setMediaType] = useState(
@@ -316,6 +316,7 @@ function StockPanel({ onOpenApiSettings = null }) {
                     <div
                       key={item.id}
                       className="bg-sf-dark-800 border border-sf-dark-600 rounded-lg overflow-hidden group"
+                      style={{ contentVisibility: 'auto', containIntrinsicSize: '220px' }}
                     >
                       <div
                         className={`aspect-video bg-sf-dark-700 relative ${isVideo ? 'cursor-pointer' : ''}`}
@@ -327,6 +328,8 @@ function StockPanel({ onOpenApiSettings = null }) {
                           <img
                             src={thumb}
                             alt={item.alt || item.user?.name || ''}
+                            loading="lazy"
+                            decoding="async"
                             className="w-full h-full object-cover"
                           />
                         )}

@@ -50,7 +50,8 @@ import {
 // exports rely on.
 const loadGenerateWorkspace = () => import('./components/GenerateWorkspace')
 const GenerateWorkspace = lazy(loadGenerateWorkspace)
-const PaintWorkspace = lazy(() => import('./components/PaintWorkspace'))
+const loadPaintWorkspace = () => import('./components/PaintWorkspace')
+const PaintWorkspace = lazy(loadPaintWorkspace)
 const FlowAIWorkspace = lazy(() => import('./components/FlowAIWorkspace'))
 const AgentWorkspace = lazy(() => import('./components/AgentWorkspace'))
 const MOGWorkspace = lazy(() => import('./components/MOGWorkspace'))
@@ -97,6 +98,7 @@ function App() {
     return () => window.removeEventListener('lumeweft-restore-canvas', restore)
   }, [])
   const [hasMountedPaint, setHasMountedPaint] = useState(false)
+  const [hasMountedStock, setHasMountedStock] = useState(false)
   const [hasMountedFlowAi, setHasMountedFlowAi] = useState(false)
   const [flowAiReloadNonce, setFlowAiReloadNonce] = useState(0)
   const [generateReloadNonce, setGenerateReloadNonce] = useState(0)
@@ -386,6 +388,7 @@ function App() {
   // background so recipe cards open without a second full-screen lazy-load.
   useEffect(() => {
     if (mainTab === 'paint') setHasMountedPaint(true)
+    if (mainTab === 'stock') setHasMountedStock(true)
     if (mainTab === 'flow-ai') {
       setHasMountedFlowAi(true)
     }
@@ -540,14 +543,17 @@ function App() {
   }, [initialize])
 
   // Generate is the heaviest lazy workspace and is commonly opened immediately
-  // after project hydration. Start its module load at once so tab navigation
-  // never races an idle callback. Keep Stock on the idle path because it is less
-  // commonly opened and has no background queue that benefits from prewarming.
+  // after project hydration. Paint is small but latency-sensitive, so warm it at
+  // the same time. Keep Stock's code on the idle path; its actual media remains
+  // network-bound and should not be fetched before the user opens the tab.
   useEffect(() => {
     if (!currentProject) return undefined
 
     loadGenerateWorkspace().catch((error) => {
       console.warn('Failed to preload Generate workspace:', error)
+    })
+    loadPaintWorkspace().catch((error) => {
+      console.warn('Failed to preload Paint workspace:', error)
     })
 
     let cancelled = false
@@ -723,6 +729,14 @@ function App() {
     setMainTab(tabId)
   }, [])
 
+  const handleMainTabIntent = useCallback((tabId) => {
+    if (tabId === 'paint') {
+      loadPaintWorkspace().catch(() => {})
+    } else if (tabId === 'stock') {
+      loadStockPanel().catch(() => {})
+    }
+  }, [])
+
   const handleOpenSettingsFromGettingStarted = useCallback((section = null) => {
     openSettingsModal(section)
     closeGettingStarted()
@@ -740,6 +754,7 @@ function App() {
         projectName={currentProject?.name || 'Untitled'}
         activeTab={mainTab}
         onTabChange={handleMainTabChange}
+        onTabIntent={handleMainTabIntent}
         showDiscoverTab={showDiscoverTab}
         editorLayout={editorLayout}
         onEditorLayoutChange={handleEditorLayoutChange}
@@ -1006,12 +1021,17 @@ function App() {
             <Suspense fallback={WORKSPACE_LOADING_FALLBACK}><PaintWorkspace /></Suspense>
           </WorkspaceErrorBoundary>
         </div>}
-        {mainTab === "stock" && (
-          <WorkspaceErrorBoundary>
-            <Suspense fallback={WORKSPACE_LOADING_FALLBACK}>
-              <StockPanel onOpenApiSettings={() => openSettingsModal('stock')} />
-            </Suspense>
-          </WorkspaceErrorBoundary>
+        {hasMountedStock && (
+          <div
+            className="flex-1 flex flex-col min-h-0 overflow-hidden bg-sf-dark-950"
+            style={{ display: mainTab === 'stock' ? 'flex' : 'none' }}
+          >
+            <WorkspaceErrorBoundary key={`stock-${projectSessionKey}`}>
+              <Suspense fallback={WORKSPACE_LOADING_FALLBACK}>
+                <StockPanel onOpenApiSettings={() => openSettingsModal('stock')} />
+              </Suspense>
+            </WorkspaceErrorBoundary>
+          </div>
         )}
         {mainTab === 'discover' && showDiscoverTab && (
           <WorkspaceErrorBoundary>

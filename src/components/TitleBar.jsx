@@ -32,6 +32,7 @@ function TitleBar({
   projectName,
   activeTab = 'editor',
   onTabChange,
+  onTabIntent,
   showDiscoverTab = true,
   editorLayout = 'default',
   onEditorLayoutChange,
@@ -159,6 +160,8 @@ function TitleBar({
               <div className="relative flex h-full items-center">
                 <button
                   onClick={() => onTabChange?.(tab.id)}
+                  onPointerEnter={() => onTabIntent?.(tab.id)}
+                  onFocus={() => onTabIntent?.(tab.id)}
                   aria-current={activeTab === tab.id ? 'page' : undefined}
                   className={`inline-flex items-center gap-1.5 px-3 py-1 text-[11px] transition-colors ${
                     tab.id === 'discover'
