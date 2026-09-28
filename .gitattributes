@@ -1,0 +1,2 @@
+scripts/rife-runtime/*.py text eol=lf
+scripts/rife-runtime/patches/*.patch text eol=lf

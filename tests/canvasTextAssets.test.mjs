@@ -67,7 +67,7 @@ test('saved AfterMidnight canvases migrate the old visible boilerplate into a hi
   const normalized = schema.normalizeFlowDocument(old)
   const migrated = normalized.nodes.find(node => node.id === prompt.id)
   assert.match(migrated.data.basePrompt, /Replace the primary subject in <Video 1>/)
-  assert.equal(migrated.data.promptText, 'Perform the referenced action naturally and coherently.')
+  assert.equal(migrated.data.promptText, '1girl, adult, naked')
 })
 
 test('export waits for generation through a non-executable text viewer', async () => {

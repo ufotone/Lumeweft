@@ -133,7 +133,7 @@ test('build plan uses the Electron target directory contract', () => {
     assert.equal(plan.executable, executable)
     assert.equal(plan.pngOnly, true)
     assert.equal(plan.webpDisabled, true)
-    assert.equal(plan.stage.endsWith(`/build/rife-runtime/${target}/rife`), true)
+    assert.equal(plan.stage.replace(/\\/g, '/').endsWith(`/build/rife-runtime/${target}/rife`), true)
     if (platform === 'linux') {
       assert.deepEqual(plan.linuxAbiBaseline, {
         distribution: 'Ubuntu 20.04',
@@ -251,7 +251,7 @@ test('Windows dependency audit ignores inspector headers and build paths', () =>
     encoding: 'utf8',
   })
   assert.equal(result.status, 0, result.stderr)
-  assert.equal(result.stdout.trim(), ['KERNEL32.dll', 'vulkan-1.dll'].join('\n'))
+  assert.equal(result.stdout.trim().replace(/\r\n/g, '\n'), ['KERNEL32.dll', 'vulkan-1.dll'].join('\n'))
   assert.doesNotMatch(result.stdout, /vrife|cmake-build/i)
 })
 
@@ -376,6 +376,10 @@ test('stage verifier rejects tampered trusted provenance metadata', (t) => {
 })
 
 test('stage verifier rejects a symlinked runtime root', (t) => {
+  if (process.platform === 'win32') {
+    t.skip('Windows directory junctions resolve to their target before pathlib can identify the link')
+    return
+  }
   const temporary = fs.mkdtempSync(path.join(os.tmpdir(), 'velorn-rife-symlink-test-'))
   t.after(() => fs.rmSync(temporary, { recursive: true, force: true }))
   const realStage = path.join(temporary, 'real-stage')

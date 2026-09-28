@@ -211,7 +211,9 @@ function assertBinaryTarget(filePath, platform, arch) {
 
   const stat = fs.statSync(filePath)
   if (!stat.isFile() || stat.size === 0) throw new Error(`Executable is missing or empty: ${filePath}`)
-  if (normalizedPlatform !== 'win32' && (stat.mode & 0o111) === 0) {
+  // Windows does not preserve POSIX executable bits, even when validating a
+  // Linux or macOS staging fixture. Enforce the bit only on POSIX hosts.
+  if (process.platform !== 'win32' && normalizedPlatform !== 'win32' && (stat.mode & 0o111) === 0) {
     throw new Error(`Executable permission is missing: ${filePath}`)
   }
   return architectures

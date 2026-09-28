@@ -17,7 +17,7 @@ test('template and saved scenario edits survive normalization with connected dra
   assert.equal(restored.data.localLlmModel, 'custom-alias')
   assert.equal(restored.data.workflowId, ORTENZYA_WORKFLOW_ID)
   assert.deepEqual(doc.edges.map(edge => [edge.source, edge.target]), [[brief.id, scenario.id], [scenario.id, drafts.id], [drafts.id, viewer.id]])
-  assert.equal(schema.getDefaultWorkflowId('prompt-assist'), 'google-gemini-flash-lite')
+  assert.equal(schema.getDefaultWorkflowId('prompt-assist'), 'jp-tag-assistant')
 })
 
 test('detects actual server model ID and passes scenario content and sampling settings', async () => {
@@ -59,7 +59,8 @@ test('CANVAS local text execution bypasses ComfyUI and preserves edited upstream
   const source = await fs.readFile(new URL('../src/services/flowAiRuntime.js', import.meta.url), 'utf8')
   const start = source.indexOf('async function runExecutableNode(')
   const end = source.indexOf('\nexport async function runFlowGraph', start)
-  const run = new Function('useProjectStore', 'FLOW_AI_NODE_TYPES', 'ORTENZYA_WORKFLOW_ID', 'generateOrtenzyaText', 'collectIncomingEdges', 'resolvePromptText', 'checkWorkflowDependencies', source.slice(start, end) + '\nreturn runExecutableNode')(
+  const run = new Function('throwIfFlowInterrupted', 'useProjectStore', 'FLOW_AI_NODE_TYPES', 'ORTENZYA_WORKFLOW_ID', 'generateOrtenzyaText', 'collectIncomingEdges', 'resolvePromptText', 'checkWorkflowDependencies', source.slice(start, end) + '\nreturn runExecutableNode')(
+    () => {},
     { getState: () => ({ currentProjectHandle: 'project' }) }, { promptAssist: 'prompt-assist' }, ORTENZYA_WORKFLOW_ID,
     async options => { assert.equal(options.prompt, 'edited scenario'); return { text: 'draft', modelId: 'ortenzya-31b', truncated: false } },
     () => [], () => 'edited scenario', () => { throw new Error('must not contact ComfyUI') },

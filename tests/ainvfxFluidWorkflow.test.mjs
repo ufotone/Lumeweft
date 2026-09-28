@@ -21,7 +21,7 @@ const stubs = {
     export {modifyVdnH3Workflow} from './vdnH3Workflow.mjs';
     ${unused(otherModifiers.join(','))}`,
   './workflowDependencies': unused('checkWorkflowDependencies'),
-  './fileSystem': unused('importAsset,isElectron'),
+  './fileSystem': unused('getProjectFileUrl,importAsset,isElectron'),
   './gifImport': unused('canImportGifMedia,importGifAsset,isGifFilename'),
   './playbackCache': unused('enqueuePlaybackTranscode'),
   './proxyCache': unused('enqueueProxyTranscode,isProxyPlaybackEnabled'),

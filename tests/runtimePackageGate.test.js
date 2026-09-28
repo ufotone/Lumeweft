@@ -279,13 +279,14 @@ test('rejects Linux helpers above the Ubuntu 20.04 GLIBC and libstdc++ symbol ce
 
 test('uses per-target staging and direct packaged media paths', () => {
   assert.match(stagedRifeRoot('/project', 'darwin', 'arm64'), /build[\\/]rife-runtime[\\/]mac-arm64[\\/]rife$/)
-  assert.deepEqual(packagedBinaryPaths('/resources', 'linux'), {
-    ffmpegPath: path.resolve('/resources/bin/ffmpeg'),
-    ffmpegReadmePath: path.resolve('/resources/bin/ffmpeg.README'),
-    ffmpegLicensePath: path.resolve('/resources/bin/ffmpeg.LICENSE'),
-    ffprobePath: path.resolve('/resources/bin/ffprobe'),
-    ffprobeReadmePath: path.resolve('/resources/bin/ffprobe.README'),
-    ffprobeLicensePath: path.resolve('/resources/bin/ffprobe.LICENSE'),
+  const resources = path.resolve('test-resources')
+  assert.deepEqual(packagedBinaryPaths(resources, 'linux'), {
+    ffmpegPath: path.join(resources, 'bin', 'ffmpeg'),
+    ffmpegReadmePath: path.join(resources, 'bin', 'ffmpeg.README'),
+    ffmpegLicensePath: path.join(resources, 'bin', 'ffmpeg.LICENSE'),
+    ffprobePath: path.join(resources, 'bin', 'ffprobe'),
+    ffprobeReadmePath: path.join(resources, 'bin', 'ffprobe.README'),
+    ffprobeLicensePath: path.join(resources, 'bin', 'ffprobe.LICENSE'),
   })
 })
 
@@ -330,7 +331,7 @@ test('package gate rejects duplicate FFmpeg or FFprobe payloads in app.asar loca
   }
 
   await createPackage(source, asarPath)
-  const retainedEntries = listPackage(asarPath).map((entry) => entry.replace(/^\/+/, ''))
+  const retainedEntries = listPackage(asarPath).map((entry) => entry.replace(/\\/g, '/').replace(/^\/+/, ''))
   assert.equal(retainedEntries.includes('node_modules/ffmpeg-static/index.js'), true)
   assert.equal(retainedEntries.includes('node_modules/ffmpeg-static/package.json'), true)
   assert.equal(retainedEntries.includes('node_modules/ffmpeg-static/README.md'), true)
